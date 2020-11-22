@@ -231,14 +231,11 @@ savis<-function(
         combined_scale_factor = combined_scale_factor)
       cluster_label_sub<-rep(-1,length(cluster_label))
       for ( i in 1:N_label){
-        if (length(unique(cluster_label_i[[i]]))>1){
-          index_i<-which(cluster_label == label_index[i])
+        index_i<-which(cluster_label == label_index[i])
+        if (length(unique(cluster_label_i[[i]]))>1 &
+            length(index_i) >= process_min_size){
           cluster_label_sub[index_i]<-cluster_label_i[[i]]
-        }else{
-          index_i<-which(cluster_label == label_index[i])
-          cluster_label_sub[index_i]<- -1
         }
-        
       }
       combined_embedding<-data.frame(
         "cluster_label"=cluster_label,
