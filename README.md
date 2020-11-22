@@ -4,4 +4,5 @@ Please use `https://github.com/RuzhangZhao/RuzhangZhao.github.io` to cite this p
 
 For more details about me, please visit `https://ruzhangzhao.github.io/`.
 
-If you are interested to cooperate with me, please feel free to contact me.
+If you are interested in collaboration with me, please feel free to contact me.
+
