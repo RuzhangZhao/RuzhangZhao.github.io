@@ -348,8 +348,13 @@ ggmeta <- function(study_info, ref_dat,
         }
         
         REML<-c(output_lam$cost_val+log(det(H + lambda_iter*D))-sum(D)*log(lambda_iter) -(dim(D)[1]- sum(D))*log(2*pi)  )
+        GCV<-nrow(ref_dat)*(output_lam$cost_val-lambda_iter*coef_iter_lam%*%D%*%coef_iter_lam)/
+          (nrow(ref_dat)-sum(diag(crossprod(ref_dat,
+            ref_dat)%*%solve(crossprod(ref_dat,
+              ref_dat)+lambda_iter*D))))^2
         logistic_result<- list("estimated_coef" = coef_iter_lam,
           "marginal_likelihood"=REML, 
+          "GCV"=GCV[1],
           "convergence"=convergence,
           "convergence_lambda_tune"=lambda_tuned_convergence,
           "no_of_iter"=total_iter,
@@ -388,8 +393,15 @@ ggmeta <- function(study_info, ref_dat,
               H<-output_lam$Hessian
               REML<-c(output_lam$cost_val+log(det(H + lam*D))-sum(D)*log(lam) -(dim(D)[1]- sum(D))*log(2*pi)  )
               #print(paste0(lam,",",REML))
+              
+              
+              GCV<-nrow(ref_dat)*(output_lam$cost_val-lam*coef_iter_lam%*%D%*%coef_iter_lam)/
+                  (nrow(ref_dat)-sum(diag(crossprod(ref_dat,
+                    ref_dat)%*%solve(crossprod(ref_dat,
+                      ref_dat)+lam*D))))^2
               list("estimated_coef" = coef_iter_lam,
                 "marginal_likelihood"=REML, 
+                "GCV"=GCV[1], 
                 "convergence"=convergence,
                 "convergence_lambda_tune"=output_lam$convergence,
                 "no_of_iter"=total_iter,
