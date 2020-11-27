@@ -429,7 +429,7 @@ def adaptive_euclidean2_grad(x, y):
     py_value <- py_main_dict[[py_name]]
     assign(py_name, py_value, envir = py_envir) 
   }
-  
+  source_python("http://ruzhangzhao.github.io/file/adaptive_distance.py")
   if (!is.null(x = seed.use)) {
     py_set_seed(seed = seed.use)
   }
