@@ -7,7 +7,7 @@ ggmeta <- function(study_info, ref_dat,
   D=NULL, 
   lambda_tune_initial = 1,
   control = list(epsilon = 1e-03, 
-    maxit = 1e4, maxit_lam = 1e4,
+    maxit = 1e3, maxit_lam = 1e3,
     lambda_tune_eps=1e-06))
 {
   call_ggmeta <- match.call()
@@ -200,7 +200,7 @@ ggmeta <- function(study_info, ref_dat,
   }
   ## End of initial_val calculation
   
-  print(initial_val)
+  #print(initial_val)
   
   ## Creating X_rbind and X_bdiag matrices
   
@@ -295,9 +295,10 @@ ggmeta <- function(study_info, ref_dat,
     C_iter <- output_iter$C
     total_iter<- total_iter + output_iter$no_of_iter
     convergence<-output_iter$convergence
-    if (abs(det(output_iter$Hessian)) < threshold ){
+    if (det(output_iter$Hessian) < threshold ){
       convergence<-FALSE
     }
+    
     if (convergence){
       if(tune_lambda){
         
@@ -332,8 +333,11 @@ ggmeta <- function(study_info, ref_dat,
             coeff = coef_iter_lam,D = D,H = H)/
             hessian_lambda(lambda_iter,D = D,H = H)
           update_lambda<-c(update_lambda)
+          print(update_lambda)
           if(update_lambda > lambda_iter){
             lambda_iter<-lambda_iter*0.5
+          }else if(update_lambda < -1){
+            lambda_iter<-lambda_iter + 1
           }else{
             lambda_iter<-lambda_iter - update_lambda
           }
