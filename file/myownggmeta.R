@@ -374,7 +374,7 @@ ggmeta <- function(study_info, ref_dat,
                 "no_of_iter"=total_iter)
             }
           }else{
-            print("tehre")
+      
             logistic_result <- lapply(lambda.gam, function(lam){
               coef_iter_lam<-coef_iter
               output_lam <- 
