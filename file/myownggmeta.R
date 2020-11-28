@@ -225,6 +225,7 @@ ggmeta <- function(study_info, ref_dat,
   ## When the model is logistic, calls the newoptim function which implements the NR method...
   if(model == "logistic")
   {
+    print("shi")
     C_init <- diag(ncol(X_bdiag))
     total_iter <- 0
     eps<-1
@@ -301,7 +302,7 @@ ggmeta <- function(study_info, ref_dat,
     
     if (convergence){
       if(tune_lambda){
-        
+        print(here)
         total_iter_lam <- 0 
         coef_iter_lam <- coef_iter
         lambda_tune_tmp_eps<-1
@@ -374,7 +375,7 @@ ggmeta <- function(study_info, ref_dat,
                 "no_of_iter"=total_iter)
             }
           }else{
-            
+            print("tehre")
             logistic_result <- lapply(lambda.gam, function(lam){
               coef_iter_lam<-coef_iter
               output_lam <- 
@@ -395,7 +396,13 @@ ggmeta <- function(study_info, ref_dat,
                   D = D)
               coef_iter_lam<-output_lam$estimated_coef
               H<-output_lam$Hessian
-              REML<-c(output_lam$cost_val+log(det(H + lam*D))-sum(D)*log(lam) -(dim(D)[1]- sum(D))*log(2*pi)  )
+              if (det(H + lam*D) > 0){
+                REML<-c(output_lam$cost_val+log(det(H + lam*D))-sum(D)*log(lam) -(dim(D)[1]- sum(D))*log(2*pi)  )  
+              }else{
+                REML<-Inf
+              }
+  
+              
               #print(paste0(lam,",",REML))
               
               
