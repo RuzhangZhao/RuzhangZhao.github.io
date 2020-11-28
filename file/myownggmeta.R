@@ -225,7 +225,6 @@ ggmeta <- function(study_info, ref_dat,
   ## When the model is logistic, calls the newoptim function which implements the NR method...
   if(model == "logistic")
   {
-    print("shi")
     C_init <- diag(ncol(X_bdiag))
     total_iter <- 0
     eps<-1
