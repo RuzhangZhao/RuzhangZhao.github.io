@@ -195,6 +195,7 @@ savis<-function(
       expr_matrix_pca=expr_matrix_pca,
       max_stratification=max_stratification,
       stratification_count=1,
+      scale_factor_separation = scale_factor_separation,
       resolution=resolution_sub,
       cluster_method=cluster_method,
       npcs=npcs,
@@ -526,6 +527,12 @@ def adaptive_euclidean_general_grad(x, y):
   }
   if (metric == "euclidean2"){
     adaptive_metric<-adaptive_euclidean2_grad
+  }
+  if (metric == "euclidean3"){
+    adaptive_metric<-adaptive_euclidean3_grad
+  }
+  if (metric == "euclidean_general"){
+    adaptive_metric<-adaptive_euclidean_general_grad
   }
   umap_import <- import(module = "umap", delay_load = TRUE)
   umap <- umap_import$UMAP(
@@ -993,7 +1000,8 @@ AdaptiveCombine<-function(expr_matrix,
         combined_embedding = combined_embedding_i,
         cluster_label = cluster_label_i[[i]],
         npcs = npcs,
-        center_method = "mean")$combined_embedding
+        center_method = "mean",
+        scale_factor_separation=scale_factor_separation)$combined_embedding
       combined_embedding_i<-as.matrix(combined_embedding_i)
       colnames(combined_embedding_i)<-c(paste0("subPC",1:npcs),
         paste0("subsubPC",1:npcs))
@@ -1087,6 +1095,7 @@ FormAdaptiveCombineList<-function(
   expr_matrix_pca,
   max_stratification,
   stratification_count,
+  scale_factor_separation,
   resolution,
   cluster_method,
   npcs,
@@ -1156,6 +1165,7 @@ FormAdaptiveCombineList<-function(
       expr_matrix_pca = combined_embedding[index_i,(npcs+1):(2*npcs)],
       max_stratification = max_stratification,
       stratification_count = stratification_count + 1,
+      scale_factor_separation = scale_factor_separation,
       resolution = resolution,
       cluster_method = cluster_method,
       npcs = npcs,
