@@ -40,6 +40,7 @@ savis<-function(
   resolution_sub = NULL,
   adaptive = FALSE,
   max_stratification = 3,
+  scale_factor_separation =3,
   process_min_size = NULL,
   process_min_count = NULL,
   center_method = "mean",
@@ -578,6 +579,7 @@ ScaleFactor<-function(
   cluster_label,
   npcs=NULL,
   center_method = "mean",
+  scale_factor_separation =3,
   return_factor=TRUE){
   
   # sorted unique cluster label
@@ -637,7 +639,7 @@ ScaleFactor<-function(
   })
   
   scale_factor<-sapply(1:N_label, function(i){
-    min(cluster_center_dist[i,],na.rm = T)/3/cluster_semi_d[i]
+    min(cluster_center_dist[i,],na.rm = T)/scale_factor_separation/cluster_semi_d[i]
   })
   
   for ( i in 1:N_label){
@@ -1053,7 +1055,8 @@ FormCombinedEmbedding<-function(
     combined_embedding = combined_embedding,
     cluster_label = cluster_label,
     npcs = npcs,
-    center_method = center_method)$combined_embedding
+    center_method = center_method,
+    scale_factor_separation = scale_factor_separation)$combined_embedding
   combined_embedding<-as.matrix(combined_embedding)
   return(combined_embedding)
 }
