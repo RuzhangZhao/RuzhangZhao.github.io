@@ -164,7 +164,8 @@ savis<-function(
       cluster_label=cluster_label,
       npcs=npcs,
       nfeatures =nfeatures,
-      center_method = center_method)
+      center_method = center_method,
+      scale_factor_separation=scale_factor_separation)
     adaptive<-FALSE
   }
   
@@ -1040,7 +1041,8 @@ FormCombinedEmbedding<-function(
   cluster_label,
   npcs=10,
   nfeatures =2000,
-  center_method = "mean"
+  center_method = "mean",
+  scale_factor_separation=3
 ){
   sub_PC_list<-SubPCEmbedding(
     expr_matrix = expr_matrix,
@@ -1132,7 +1134,8 @@ FormAdaptiveCombineList<-function(
     expr_matrix_pca=expr_matrix_pca,
     cluster_label=cluster_label,
     npcs=npcs,
-    nfeatures=nfeatures
+    nfeatures=nfeatures,
+    scale_factor_separation=scale_factor_separation
   )
   if(max_stratification == stratification_count + 1){
     newList<-list("cluster_label"= cluster_label,
