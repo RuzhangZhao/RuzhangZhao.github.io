@@ -47,7 +47,8 @@ savis<-function(
   verbose = TRUE,
   show_cluster = FALSE,
   return_cluster = FALSE,
-  verbose_more = FALSE
+  verbose_more = FALSE,
+  run_adaUMAP = TRUE
 ){
   if(max_stratification == 1){
     stop("Please directly use umap: savis 
@@ -211,24 +212,37 @@ savis<-function(
       if(ncol(umap_res$combined_embedding)!=(2*npcs)){
         stop("label and combined embedding size do not match")
       }
-      if(verbose){
-        cat('\n')
-        print("Last Step:Running Adaptive UMAP...")
-        setTxtProgressBar(pb = pb, value = 12)
+      if(run_adaUMAP){
+        if(verbose){
+          cat('\n')
+          print("Last Step:Running Adaptive UMAP...")
+          setTxtProgressBar(pb = pb, value = 12)
+        }
+        umap_embedding<-RunAdaUMAP(X = combined_embedding,
+          py_envir = parent.frame())
       }
-      umap_embedding<-RunAdaUMAP(X = combined_embedding,
-        py_envir = parent.frame())
+      
       if(verbose){
         cat('\n')
         print("Finished...")
         setTxtProgressBar(pb = pb, value = 20)
       }
-      if(return_cluster){
-        newList<-list("umap_embedding"=umap_embedding,
-          "cluster_label"=cluster_label)
-        return(newList)
+      if(run_adaUMAP){
+        if(return_cluster){
+          newList<-list("umap_embedding"=umap_embedding,
+            "cluster_label"=cluster_label)
+          return(newList)
+        }else{
+          return(umap_embedding)
+        }
       }else{
-        return(umap_embedding)
+        if(return_cluster){
+          newList<-list("combined_embedding"=combined_embedding,
+            "cluster_label"=cluster_label)
+          return(newList)
+        }else{
+          return(combined_embedding)
+        }
       }
     }else{
       if (ncol(cluster_label) == 2) {
@@ -240,26 +254,39 @@ savis<-function(
         if(ncol(umap_res$combined_embedding)!=(3*npcs)){
           stop("label and combined embedding size do not match")
         }
-        if(verbose){
-          cat('\n')
-          print("Last Step:Running Adaptive UMAP...")
-          setTxtProgressBar(pb = pb, value = 12)
+        if(run_adaUMAP){
+          if(verbose){
+            cat('\n')
+            print("Last Step:Running Adaptive UMAP...")
+            setTxtProgressBar(pb = pb, value = 12)
+          }
+          umap_embedding<-RunAdaUMAP(X = combined_embedding,
+            metric = 'euclidean2',
+            py_envir = parent.frame())
         }
-        umap_embedding<-RunAdaUMAP(X = combined_embedding,
-          metric = 'euclidean2',
-          py_envir = parent.frame())
+        
         
         if(verbose){
           cat('\n')
           print("Finished...")
           setTxtProgressBar(pb = pb, value = 20)
         }
-        if(return_cluster){
-          newList<-list("umap_embedding"=umap_embedding,
-            "cluster_label"=cluster_label)
-          return(newList)
+        if(run_adaUMAP){
+          if(return_cluster){
+            newList<-list("umap_embedding"=umap_embedding,
+              "cluster_label"=cluster_label)
+            return(newList)
+          }else{
+            return(umap_embedding)
+          }
         }else{
-          return(umap_embedding)
+          if(return_cluster){
+            newList<-list("combined_embedding"=combined_embedding,
+              "cluster_label"=cluster_label)
+            return(newList)
+          }else{
+            return(combined_embedding)
+          }
         }
         
       }else if (ncol(cluster_label) == 3){
@@ -271,26 +298,39 @@ savis<-function(
         if(ncol(umap_res$combined_embedding)!=(4*npcs)){
           stop("label and combined embedding size do not match")
         }
-        if(verbose){
-          cat('\n')
-          print("Last Step:Running Adaptive UMAP...")
-          setTxtProgressBar(pb = pb, value = 12)
+        if(run_adaUMAP){
+          if(verbose){
+            cat('\n')
+            print("Last Step:Running Adaptive UMAP...")
+            setTxtProgressBar(pb = pb, value = 12)
+          }
+          umap_embedding<-RunAdaUMAP(X = combined_embedding,
+            metric = 'euclidean3',
+            py_envir = parent.frame())
+          
         }
-        umap_embedding<-RunAdaUMAP(X = combined_embedding,
-          metric = 'euclidean3',
-          py_envir = parent.frame())
         
         if(verbose){
           cat('\n')
           print("Finished...")
           setTxtProgressBar(pb = pb, value = 20)
         }
-        if(return_cluster){
-          newList<-list("umap_embedding"=umap_embedding,
-            "cluster_label"=cluster_label)
-          return(newList)
+        if(run_adaUMAP){
+          if(return_cluster){
+            newList<-list("umap_embedding"=umap_embedding,
+              "cluster_label"=cluster_label)
+            return(newList)
+          }else{
+            return(umap_embedding)
+          }
         }else{
-          return(umap_embedding)
+          if(return_cluster){
+            newList<-list("combined_embedding"=combined_embedding,
+              "cluster_label"=cluster_label)
+            return(newList)
+          }else{
+            return(combined_embedding)
+          }
         }
         
       }else{
@@ -299,26 +339,38 @@ savis<-function(
         combined_embedding<-data.frame("Num_Layer"=(ncol(cluster_label)+1),
           cluster_label,
           umap_res$combined_embedding)
-        if(verbose){
-          cat('\n')
-          print("Last Step:Running Adaptive UMAP...")
-          setTxtProgressBar(pb = pb, value = 12)
+        if(run_adaUMAP){
+          if(verbose){
+            cat('\n')
+            print("Last Step:Running Adaptive UMAP...")
+            setTxtProgressBar(pb = pb, value = 12)
+          }
+          umap_embedding<-RunAdaUMAP(X = combined_embedding,
+            metric = 'euclidean_general',
+            py_envir = parent.frame())  
         }
-        umap_embedding<-RunAdaUMAP(X = combined_embedding,
-          metric = 'euclidean_general',
-          py_envir = parent.frame())
-        
+
         if(verbose){
           cat('\n')
           print("Finished...")
           setTxtProgressBar(pb = pb, value = 20)
         }
-        if(return_cluster){
-          newList<-list("umap_embedding"=umap_embedding,
-            "cluster_label"=cluster_label)
-          return(newList)
+        if(run_adaUMAP){
+          if(return_cluster){
+            newList<-list("umap_embedding"=umap_embedding,
+              "cluster_label"=cluster_label)
+            return(newList)
+          }else{
+            return(umap_embedding)
+          }
         }else{
-          return(umap_embedding)
+          if(return_cluster){
+            newList<-list("combined_embedding"=combined_embedding,
+              "cluster_label"=cluster_label)
+            return(newList)
+          }else{
+            return(combined_embedding)
+          }
         }
         
       }
@@ -331,24 +383,38 @@ savis<-function(
     combined_embedding<-data.frame(
       "cluster_label"=cluster_label,
       combined_embedding)
-    if(verbose){
-      cat('\n')
-      print("Last Step:Running Adaptive UMAP...")
-      setTxtProgressBar(pb = pb, value = 10)
+    
+    if(run_adaUMAP){
+      if(verbose){
+        cat('\n')
+        print("Last Step:Running Adaptive UMAP...")
+        setTxtProgressBar(pb = pb, value = 10)
+      }
+      umap_embedding<-RunAdaUMAP(X = combined_embedding,
+        py_envir = parent.frame())
     }
-    umap_embedding<-RunAdaUMAP(X = combined_embedding,
-      py_envir = parent.frame())
+    
     if(verbose){
       cat('\n')
       print("Finished...")
       setTxtProgressBar(pb = pb, value = 20)
     }
-    if(return_cluster){
-      newList<-list("umap_embedding"=umap_embedding,
-        "cluster_label"=cluster_label)
-      return(newList)
+    if(run_adaUMAP){
+      if(return_cluster){
+        newList<-list("umap_embedding"=umap_embedding,
+          "cluster_label"=cluster_label)
+        return(newList)
+      }else{
+        return(umap_embedding)
+      }
     }else{
-      return(umap_embedding)
+      if(return_cluster){
+        newList<-list("combined_embedding"=combined_embedding,
+          "cluster_label"=cluster_label)
+        return(newList)
+      }else{
+        return(combined_embedding)
+      }
     }
   }
   
@@ -397,7 +463,7 @@ RunAdaUMAP<-function(
   angular.rp.forest = FALSE,
   verbose = FALSE){
   if (!py_module_available(module = 'umap')) {
-    stop("Cannot find UMAP, please install through pip (e.g. pip install umap-learn) or through reticulate package (e.g. reticulate::py_module_available(module = 'umap')")
+    stop("Cannot find UMAP, please install through pip (e.g. pip install umap-learn) or through reticulate package (e.g. reticulate::py_install('umap') )")
   }
   py_func_names<-c("adaptive_euclidean_grad",
     "adaptive_euclidean2_grad",
