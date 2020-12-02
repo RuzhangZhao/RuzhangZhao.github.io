@@ -732,13 +732,14 @@ adjustUMAP<-function(
   label_index<-sort(unique(cluster_))
   
   pca_center<-t(sapply(1:N_label, function(i){
-    print(label_index[i])
+
     index_i<-which(cluster_ == label_index[i])
     colMeans(as.matrix(pca_embedding[index_i,]))
   }))
   if (rotate){
     pca_anchor_index<-sapply(1:N_label, function(i){
       index_i<-which(cluster_ == label_index[i])
+      set.seed(seed.use)
       sample_index_i<-sample(index_i,10)
       sample_index_dist<-pdist(pca_embedding[sample_index_i,],pca_center[i,])@dist
       sample_index_i[which.max(sample_index_dist)]
@@ -782,13 +783,13 @@ adjustUMAP<-function(
     umap_center_anchor_sf[,2]<-umap_center_anchor[,2]*sf2*scale_factor
     
     umap_embedding_mean<-t(sapply(1:N_label, function(i){
-      print(label_index[i])
+      
       index_i<-which(cluster_ == label_index[i])
       colMeans(as.matrix(umap_embedding[index_i,]))
     }))
     umap_embedding_adjust<-umap_embedding
     for(i in 1:N_label){
-      print(label_index[i])
+      
       index_i<-which(cluster_ == label_index[i])
       
       y<-umap_center_anchor_sf[i+N_label,]-umap_center_anchor_sf[i,]
