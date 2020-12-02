@@ -11,7 +11,7 @@ library(Spectrum)
 library(mclust)
 library(stats)
 library(utils)
-
+library(uwot)
 #' savis
 #'
 #' savis: single-cell RNAseq adaptive visualiztaion
@@ -48,7 +48,10 @@ savis<-function(
   show_cluster = FALSE,
   return_cluster = FALSE,
   verbose_more = FALSE,
-  run_adaUMAP = TRUE
+  run_adaUMAP = TRUE,
+  adjust_UMAP = TRUE,
+  adjust_rotate = TRUE,
+  seed.use = 42
 ){
   if(max_stratification == 1){
     stop("Please directly use umap: savis 
@@ -215,33 +218,43 @@ savis<-function(
       if(run_adaUMAP){
         if(verbose){
           cat('\n')
-          print("Last Step:Running Adaptive UMAP...")
+          print("Running Adaptive UMAP...")
           setTxtProgressBar(pb = pb, value = 12)
         }
-        umap_embedding<-RunAdaUMAP(X = combined_embedding,
-          py_envir = parent.frame())
+        umap_embedding<-RunAdaUMAP(
+          X = combined_embedding,
+          py_envir = parent.frame(),
+          seed.use = seed.use)
       }
       
-      if(verbose){
-        cat('\n')
-        print("Finished...")
-        setTxtProgressBar(pb = pb, value = 20)
-      }
+      
       if(run_adaUMAP){
+        if(adjust_UMAP){
+          if(verbose){
+            cat('\n')
+            print("Adjusting UMAP...")
+            setTxtProgressBar(pb = pb, value = 19)
+          }
+          umap_embedding<-adjustUMAP(
+            pca_embedding = expr_matrix_pca,
+            umap_embedding = umap_embedding,
+            rotate = adjust_rotate,
+            seed.use = seed.use)
+        }
         if(return_cluster){
           newList<-list("umap_embedding"=umap_embedding,
             "cluster_label"=cluster_label)
-          return(newList)
+          
         }else{
-          return(umap_embedding)
+          newList<-umap_embedding
         }
       }else{
         if(return_cluster){
           newList<-list("combined_embedding"=combined_embedding,
             "cluster_label"=cluster_label)
-          return(newList)
+          
         }else{
-          return(combined_embedding)
+          newList<-combined_embedding
         }
       }
     }else{
@@ -257,35 +270,45 @@ savis<-function(
         if(run_adaUMAP){
           if(verbose){
             cat('\n')
-            print("Last Step:Running Adaptive UMAP...")
+            print("Running Adaptive UMAP...")
             setTxtProgressBar(pb = pb, value = 12)
           }
-          umap_embedding<-RunAdaUMAP(X = combined_embedding,
+          umap_embedding<-RunAdaUMAP(
+            X = combined_embedding,
             metric = 'euclidean2',
-            py_envir = parent.frame())
+            py_envir = parent.frame(),
+            seed.use = seed.use)
         }
         
         
-        if(verbose){
-          cat('\n')
-          print("Finished...")
-          setTxtProgressBar(pb = pb, value = 20)
-        }
+        
         if(run_adaUMAP){
+          if(adjust_UMAP){
+            if(verbose){
+              cat('\n')
+              print("Adjusting UMAP...")
+              setTxtProgressBar(pb = pb, value = 19)
+            }
+            umap_embedding<-adjustUMAP(
+              pca_embedding = expr_matrix_pca,
+              umap_embedding = umap_embedding,
+              rotate = adjust_rotate,
+              seed.use = seed.use)
+          }
           if(return_cluster){
             newList<-list("umap_embedding"=umap_embedding,
               "cluster_label"=cluster_label)
-            return(newList)
+            
           }else{
-            return(umap_embedding)
+            newList<-umap_embedding
           }
         }else{
           if(return_cluster){
             newList<-list("combined_embedding"=combined_embedding,
               "cluster_label"=cluster_label)
-            return(newList)
+            
           }else{
-            return(combined_embedding)
+            newList<-combined_embedding
           }
         }
         
@@ -301,35 +324,45 @@ savis<-function(
         if(run_adaUMAP){
           if(verbose){
             cat('\n')
-            print("Last Step:Running Adaptive UMAP...")
+            print("Running Adaptive UMAP...")
             setTxtProgressBar(pb = pb, value = 12)
           }
-          umap_embedding<-RunAdaUMAP(X = combined_embedding,
+          umap_embedding<-RunAdaUMAP(
+            X = combined_embedding,
             metric = 'euclidean3',
-            py_envir = parent.frame())
+            py_envir = parent.frame(),
+            seed.use = seed.use)
           
         }
         
-        if(verbose){
-          cat('\n')
-          print("Finished...")
-          setTxtProgressBar(pb = pb, value = 20)
-        }
+        
         if(run_adaUMAP){
+          if(adjust_UMAP){
+            if(verbose){
+              cat('\n')
+              print("Adjusting UMAP...")
+              setTxtProgressBar(pb = pb, value = 19)
+            }
+            umap_embedding<-adjustUMAP(
+              pca_embedding = expr_matrix_pca,
+              umap_embedding = umap_embedding,
+              rotate = adjust_rotate,
+              seed.use = seed.use)
+          }
           if(return_cluster){
             newList<-list("umap_embedding"=umap_embedding,
               "cluster_label"=cluster_label)
-            return(newList)
+            
           }else{
-            return(umap_embedding)
+            newList<-umap_embedding
           }
         }else{
           if(return_cluster){
             newList<-list("combined_embedding"=combined_embedding,
               "cluster_label"=cluster_label)
-            return(newList)
+            
           }else{
-            return(combined_embedding)
+            newList<-combined_embedding
           }
         }
         
@@ -342,34 +375,43 @@ savis<-function(
         if(run_adaUMAP){
           if(verbose){
             cat('\n')
-            print("Last Step:Running Adaptive UMAP...")
+            print("Running Adaptive UMAP...")
             setTxtProgressBar(pb = pb, value = 12)
           }
-          umap_embedding<-RunAdaUMAP(X = combined_embedding,
+          umap_embedding<-RunAdaUMAP(
+            X = combined_embedding,
             metric = 'euclidean_general',
-            py_envir = parent.frame())  
+            py_envir = parent.frame(),
+            seed.use = seed.use)  
         }
-
-        if(verbose){
-          cat('\n')
-          print("Finished...")
-          setTxtProgressBar(pb = pb, value = 20)
-        }
+        
+        
         if(run_adaUMAP){
+          if(adjust_UMAP){
+            if(verbose){
+              cat('\n')
+              print("Adjusting UMAP...")
+              setTxtProgressBar(pb = pb, value = 19)
+            }
+            umap_embedding<-adjustUMAP(
+              pca_embedding = expr_matrix_pca,
+              umap_embedding = umap_embedding,
+              rotate = adjust_rotate,
+              seed.use = seed.use)
+          }
           if(return_cluster){
             newList<-list("umap_embedding"=umap_embedding,
               "cluster_label"=cluster_label)
-            return(newList)
+            
           }else{
-            return(umap_embedding)
+            newList<-umap_embedding
           }
         }else{
           if(return_cluster){
             newList<-list("combined_embedding"=combined_embedding,
               "cluster_label"=cluster_label)
-            return(newList)
           }else{
-            return(combined_embedding)
+            newList<-combined_embedding
           }
         }
         
@@ -387,39 +429,53 @@ savis<-function(
     if(run_adaUMAP){
       if(verbose){
         cat('\n')
-        print("Last Step:Running Adaptive UMAP...")
+        print("Running Adaptive UMAP...")
         setTxtProgressBar(pb = pb, value = 10)
       }
-      umap_embedding<-RunAdaUMAP(X = combined_embedding,
-        py_envir = parent.frame())
+      umap_embedding<-RunAdaUMAP(
+        X = combined_embedding,
+        py_envir = parent.frame(),
+        seed.use = seed.use)
     }
     
-    if(verbose){
-      cat('\n')
-      print("Finished...")
-      setTxtProgressBar(pb = pb, value = 20)
-    }
+    
     if(run_adaUMAP){
+      if(adjust_UMAP){
+        if(verbose){
+          cat('\n')
+          print("Adjusting UMAP...")
+          setTxtProgressBar(pb = pb, value = 19)
+        }
+        umap_embedding<-adjustUMAP(
+          pca_embedding = expr_matrix_pca,
+          umap_embedding = umap_embedding,
+          rotate = adjust_rotate,
+          seed.use = seed.use)
+      }
       if(return_cluster){
         newList<-list("umap_embedding"=umap_embedding,
           "cluster_label"=cluster_label)
-        return(newList)
       }else{
-        return(umap_embedding)
+        newList<-umap_embedding
       }
     }else{
       if(return_cluster){
         newList<-list("combined_embedding"=combined_embedding,
           "cluster_label"=cluster_label)
-        return(newList)
+        
       }else{
-        return(combined_embedding)
+        newList<-combined_embedding
       }
     }
   }
-  
-  
+  if(verbose){
+    cat('\n')
+    print("Finished...")
+    setTxtProgressBar(pb = pb, value = 20)
+  }
+  return(newList)
 }
+
 
 
 
@@ -627,7 +683,158 @@ def adaptive_euclidean_general_grad(x, y):
 }
 
 
-
+#' adjustUMAP
+#'
+#' Adjust UMAP to deal with distortion 
+#'
+#' @details amazing umap
+#' @param expr_matrix character
+#'
+#' @return nothing useful
+#'
+#' @importFrom Seurat FindNeighbors FindClusters
+#' @importFrom pdist pdist
+#' @importFrom uwot umap
+#' @export
+#'
+#' @examples
+#' a<-1
+#'
+#'
+adjustUMAP<-function(
+  pca_embedding,
+  umap_embedding,
+  scale_factor =1,
+  rotate = TRUE,
+  seed.use = 42
+){
+  rotation = function(x,y){
+    u=x/sqrt(sum(x^2))
+    
+    v=y-sum(u*y)*u
+    v=v/sqrt(sum(v^2))
+    
+    cost=sum(x*y)/sqrt(sum(x^2))/sqrt(sum(y^2))
+    
+    sint=sqrt(1-cost^2);
+    
+    diag(length(x)) - u %*% t(u) - v %*% t(v) + 
+      cbind(u,v) %*% matrix(c(cost,-sint,sint,cost), 2) %*% t(cbind(u,v))
+  }
+  snn_<- FindNeighbors(object = umap_embedding,
+    verbose = F)$snn
+  cluster_ <- FindClusters(snn_,
+    resolution = 0,
+    verbose = F)[[1]]
+  cluster_ <- as.numeric(as.character(cluster_))
+  
+  N_label<-length(unique(cluster_))
+  label_index<-sort(unique(cluster_))
+  
+  pca_center<-t(sapply(1:N_label, function(i){
+    print(label_index[i])
+    index_i<-which(cluster_ == label_index[i])
+    colMeans(as.matrix(pca_embedding[index_i,]))
+  }))
+  if (rotate){
+    pca_anchor_index<-sapply(1:N_label, function(i){
+      index_i<-which(cluster_ == label_index[i])
+      sample_index_i<-sample(index_i,10)
+      sample_index_dist<-pdist(pca_embedding[sample_index_i,],pca_center[i,])@dist
+      sample_index_i[which.max(sample_index_dist)]
+    })
+    pca_anchor<-pca_embedding[pca_anchor_index,]
+    set.seed(seed.use)
+    pca_center_anchor<-rbind(pca_center,pca_anchor)
+    umap_center_anchor <-
+      umap(
+        X = pca_center_anchor,
+        n_neighbors = as.integer(x = N_label*2-1),
+        n_components = as.integer(x =2L),
+        metric = 'euclidean',
+        learning_rate = 1.0,
+        min_dist = 0.3,
+        spread =  1.0,
+        set_op_mix_ratio =  1.0,
+        local_connectivity =  1.0,
+        repulsion_strength = 1,
+        negative_sample_rate = 5,
+        fast_sgd = FALSE
+      )
+    colnames(umap_center_anchor )<-c("UMAP_1","UMAP_2")
+    umap_center_anchor<-data.frame(umap_center_anchor)
+    gg<-ggplot(umap_center_anchor[1:N_label,])+
+      geom_point(aes(x = UMAP_1, 
+        y = UMAP_2),
+        size = 2)+
+      theme(legend.title = element_blank())+
+      theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(), 
+        panel.background = element_blank(), 
+        axis.line = element_line(colour = "black"), 
+        legend.key=element_blank())
+    npcs<-20
+    ggsave(paste0("umapplot/umap_savis_center_anchor_pc",npcs,".pdf"),gg, width=4, height=3, units="in", scale=3)
+    sf1<-(max(umap_embedding[,1])-min(umap_embedding[,1]))/(max(umap_center_anchor[,1]) -min(umap_center_anchor[,1]))
+    sf2<-(max(umap_embedding[,2])-min(umap_embedding[,2]))/(max(umap_center_anchor[,2]) -min(umap_center_anchor[,2]))
+    umap_center_anchor_sf<-umap_center_anchor
+    umap_center_anchor_sf[,1]<-umap_center_anchor[,1]*sf1*scale_factor
+    umap_center_anchor_sf[,2]<-umap_center_anchor[,2]*sf2*scale_factor
+    
+    umap_embedding_mean<-t(sapply(1:N_label, function(i){
+      print(label_index[i])
+      index_i<-which(cluster_ == label_index[i])
+      colMeans(as.matrix(umap_embedding[index_i,]))
+    }))
+    umap_embedding_adjust<-umap_embedding
+    for(i in 1:N_label){
+      print(label_index[i])
+      index_i<-which(cluster_ == label_index[i])
+      
+      y<-umap_center_anchor_sf[i+N_label,]-umap_center_anchor_sf[i,]
+      x<-umap_embedding[pca_anchor_index[i],]-umap_embedding_mean[i,]
+      y<-y/sqrt(sum(y^2))*sqrt(sum(x^2))
+      x<-as.numeric(x)
+      y<-as.numeric(y)
+      Rx2y <- rotation(x,y) 
+      umap_embedding_adjust[index_i,]<-t(t(t(t(umap_embedding[index_i,])-as.numeric(umap_embedding_mean[i,]))%*%Rx2y)+as.numeric(umap_center_anchor_sf[i,]))
+    }
+  }else{
+    set.seed(seed.use)
+    umap_center <-
+      umap(
+        X = pca_center,
+        n_neighbors = as.integer(x = N_label-1),
+        n_components = as.integer(x =2L),
+        metric = 'euclidean',
+        learning_rate = 1.0,
+        min_dist = 0.3,
+        spread =  1.0,
+        set_op_mix_ratio =  1.0,
+        local_connectivity =  1.0,
+        repulsion_strength = 1,
+        negative_sample_rate = 5,
+        fast_sgd = FALSE
+      )
+    colnames(umap_center)<-c("UMAP_1","UMAP_2")
+    umap_center<-data.frame(umap_center)
+    sf1<-(max(umap_embedding[,1])-min(umap_embedding[,1]))/(max(umap_center[,1]) -min(umap_center[,1]))
+    sf2<-(max(umap_embedding[,2])-min(umap_embedding[,2]))/(max(umap_center[,2]) -min(umap_center[,2]))
+    umap_center[,1]<-umap_center[,1]*sf1
+    umap_center[,2]<-umap_center[,2]*sf2
+    
+    umap_embedding_mean<-t(sapply(1:N_label, function(i){
+      index_i<-which(cluster_ == label_index[i])
+      colMeans(as.matrix(umap_embedding[index_i,]))
+    }))
+    umap_embedding_adjust<-umap_embedding
+    for(i in 1:N_label){
+      index_i<-which(cluster_ == label_index[i])
+      umap_embedding_adjust[index_i,]<-t(t(umap_embedding[index_i,])-as.numeric(umap_embedding_mean[i,]-umap_center[i,]))
+    }
+  }
+  umap_embedding_adjust
+}
 
 #' ScaleFactor
 #'
