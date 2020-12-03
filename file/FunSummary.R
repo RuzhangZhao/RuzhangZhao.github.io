@@ -1424,7 +1424,8 @@ FormAdaptiveCombineList<-function(
   nfeatures,
   process_min_size,
   do_cluster = TRUE,
-  cluster_label = NULL
+  cluster_label = NULL,
+  check_differential =TRUE,
 ){
   colnames(expr_matrix_pca)<-paste0("Layer",stratification_count,"PC",1:npcs)
   if(nrow(expr_matrix_pca) < process_min_size){
@@ -1444,20 +1445,38 @@ FormAdaptiveCombineList<-function(
       method = cluster_method,
       resolution = resolution)$cluster
   }
-  
-  
-  if(length(unique(cluster_label)) == 1){
-    newList<-list("cluster_label"= -1,
-      "combined_embedding"=expr_matrix_pca)
-    return(newList)
-  }
-  
-  
   # sorted unique cluster label
   label_index<-sort(as.numeric(
     unique(as.character(cluster_label))))
   # number of cluster label
   N_label<-length(label_index)
+  differential_exist<-FALSE
+  if(check_differential & stratification_count >=2){
+    S<-CreateSeuratObject(expr_matrix)
+    for (i in 1:N_label){
+      label_diff<-rep(0,length(cluster_label))
+      label_diff[which(cluster_label == label_index[i])]<-1
+      Idents(S)<-factor(label_diff)
+      marker_diff<-FindMarkers(S,
+        test.use = "MAST",
+        ident.1 = unique(S@active.ident)[1],
+        ident.2 =  unique(S@active.ident)[2])
+      if(sum(marker_diff[,5]<0.05) > 0){
+        differential_exist<-TRUE
+        break
+      }
+      
+    }
+  }
+  if(!differential_exist){
+    print("there is no differential")
+  }
+  if(N_label == 1 | (!differential_exist)){
+    newList<-list("cluster_label"= -1,
+      "combined_embedding"=expr_matrix_pca)
+    return(newList)
+  }
+  
   
   
   combined_embedding<-FormCombinedEmbedding(
