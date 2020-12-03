@@ -1425,7 +1425,7 @@ FormAdaptiveCombineList<-function(
   process_min_size,
   do_cluster = TRUE,
   cluster_label = NULL,
-  check_differential =TRUE,
+  check_differential =TRUE
 ){
   colnames(expr_matrix_pca)<-paste0("Layer",stratification_count,"PC",1:npcs)
   if(nrow(expr_matrix_pca) < process_min_size){
