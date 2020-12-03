@@ -721,6 +721,30 @@ adjustUMAP<-function(
     diag(length(x)) - u %*% t(u) - v %*% t(v) + 
       cbind(u,v) %*% matrix(c(cost,-sint,sint,cost), 2) %*% t(cbind(u,v))
   }
+  Rotation2to1<-function(umap_center1,umap_center2,pos){
+    N_label<-nrow(umap_center1)
+    umap_center1_tmp<-t(t(umap_center1[-pos,])-as.numeric(umap_center1[pos,]))
+    umap_center2_tmp<-t(t(umap_center2[-pos,])-as.numeric(umap_center2[pos,]))
+    angles<-sapply(1:(N_label-1), function(i){
+      umap1<-umap_center1_tmp[i,]
+      umap2<-umap_center2_tmp[i,]
+      umap1<-umap1/sqrt(sum(umap1^2))
+      umap2<-umap2/sqrt(sum(umap2^2))
+      Rumap2toumap1<-rotation(umap2,umap1)
+      angle<-acos(Rumap2toumap1[1,1])
+      if(Rumap2toumap1[2,1]>=0){
+        angle<-acos(Rumap2toumap1[1,1])
+      }else{
+        angle<-2*pi-acos(Rumap2toumap1[1,1])
+      }
+      angle
+    })
+    angle2to1<-mean(angles)
+    R2to1<-diag(cos(angle2to1),2)
+    R2to1[2,1]<-sin(angle2to1)
+    R2to1[1,2]<- -R2to1[2,1]
+    R2to1
+  }
   snn_<- FindNeighbors(object = umap_embedding,
     verbose = F)$snn
   cluster_ <- FindClusters(snn_,
@@ -732,25 +756,26 @@ adjustUMAP<-function(
   label_index<-sort(unique(cluster_))
   
   pca_center<-t(sapply(1:N_label, function(i){
-
+    
     index_i<-which(cluster_ == label_index[i])
+    
     colMeans(as.matrix(pca_embedding[index_i,]))
   }))
   if (rotate){
     pca_anchor_index<-sapply(1:N_label, function(i){
       index_i<-which(cluster_ == label_index[i])
-      set.seed(seed.use)
       sample_index_i<-sample(index_i,10)
-      sample_index_dist<-pdist(pca_embedding[sample_index_i,],pca_center[i,])@dist
+      sample_index_dist<-pdist::pdist(pca_embedding[sample_index_i,],pca_center[i,])@dist
       sample_index_i[which.max(sample_index_dist)]
     })
     pca_anchor<-pca_embedding[pca_anchor_index,]
     set.seed(seed.use)
     pca_center_anchor<-rbind(pca_center,pca_anchor)
-    umap_center_anchor <-
-      umap(
-        X = pca_center_anchor,
-        n_neighbors = as.integer(x = N_label*2-1),
+    set.seed(seed.use)
+    umap_center <-
+      uwot::umap(
+        X = pca_center,
+        n_neighbors = as.integer(x = nrow(pca_center)-1),
         n_components = as.integer(x =2L),
         metric = 'euclidean',
         learning_rate = 1.0,
@@ -762,24 +787,40 @@ adjustUMAP<-function(
         negative_sample_rate = 5,
         fast_sgd = FALSE
       )
-    colnames(umap_center_anchor )<-c("UMAP_1","UMAP_2")
-    umap_center_anchor<-data.frame(umap_center_anchor)
-    gg<-ggplot(umap_center_anchor[1:N_label,])+
-      geom_point(aes(x = UMAP_1, 
-        y = UMAP_2),
-        size = 2)+
-      theme(legend.title = element_blank())+
-      theme(panel.grid.major = element_blank(),
-        panel.grid.minor = element_blank(), 
-        panel.background = element_blank(), 
-        axis.line = element_line(colour = "black"), 
-        legend.key=element_blank())
-    npcs<-20
-    sf1<-(max(umap_embedding[,1])-min(umap_embedding[,1]))/(max(umap_center_anchor[,1]) -min(umap_center_anchor[,1]))
-    sf2<-(max(umap_embedding[,2])-min(umap_embedding[,2]))/(max(umap_center_anchor[,2]) -min(umap_center_anchor[,2]))
-    umap_center_anchor_sf<-umap_center_anchor
-    umap_center_anchor_sf[,1]<-umap_center_anchor[,1]*sf1*scale_factor
-    umap_center_anchor_sf[,2]<-umap_center_anchor[,2]*sf2*scale_factor
+    colnames(umap_center )<-c("UMAP_1","UMAP_2")
+    umap_center<-data.frame(umap_center)
+    
+    umap_center_anchor_list<-lapply(1:N_label, function(i){
+      pca_center_processed<-pca_center_anchor[c(1:N_label,
+        (N_label+i)),]  
+      #pca_center_processed<-pca_center
+      set.seed(seed.use)
+      umap_center_anchor <-
+        uwot::umap(
+          X = pca_center_processed,
+          n_neighbors = as.integer(x = nrow(pca_center_processed)-1),
+          n_components = as.integer(x =2L),
+          metric = 'euclidean',
+          learning_rate = 1.0,
+          min_dist = 0.3,
+          spread =  1.0,
+          set_op_mix_ratio =  1.0,
+          local_connectivity =  1.0,
+          repulsion_strength = 1,
+          negative_sample_rate = 5,
+          fast_sgd = FALSE
+        )
+      colnames(umap_center_anchor )<-c("UMAP_1","UMAP_2")
+      data.frame(umap_center_anchor)
+    })
+    
+    
+    
+    sf1<-(max(umap_embedding[,1])-min(umap_embedding[,1]))/(max(umap_center[,1]) -min(umap_center[,1]))
+    sf2<-(max(umap_embedding[,2])-min(umap_embedding[,2]))/(max(umap_center[,2]) -min(umap_center[,2]))
+    umap_center_sf<-umap_center
+    umap_center_sf[,1]<-umap_center[,1]*sf1*scale_factor
+    umap_center_sf[,2]<-umap_center[,2]*sf2*scale_factor
     
     umap_embedding_mean<-t(sapply(1:N_label, function(i){
       
@@ -787,18 +828,26 @@ adjustUMAP<-function(
       colMeans(as.matrix(umap_embedding[index_i,]))
     }))
     umap_embedding_adjust<-umap_embedding
-    for(i in 1:N_label){
+    for (i in 1:N_label){
+      umap_center1<-umap_center
+      umap_center2<-umap_center_anchor_list[[i]]
+      R2to1<-Rotation2to1(
+        umap_center1 = umap_center1,
+        umap_center2 = umap_center2[1:N_label,],
+        pos = i)  
+      y<-as.numeric(umap_center2[(N_label+1),]-umap_center2[i,])%*%R2to1
       
       index_i<-which(cluster_ == label_index[i])
-      
-      y<-umap_center_anchor_sf[i+N_label,]-umap_center_anchor_sf[i,]
       x<-umap_embedding[pca_anchor_index[i],]-umap_embedding_mean[i,]
-      y<-y/sqrt(sum(y^2))*sqrt(sum(x^2))
       x<-as.numeric(x)
       y<-as.numeric(y)
+      y<-y/sqrt(sum(y^2))
+      x<-x/sqrt(sum(x^2))
+      
       Rx2y <- rotation(x,y) 
-      umap_embedding_adjust[index_i,]<-t(t(t(t(umap_embedding[index_i,])-as.numeric(umap_embedding_mean[i,]))%*%Rx2y)+as.numeric(umap_center_anchor_sf[i,]))
+      umap_embedding_adjust[index_i,]<-t(t(t(t(umap_embedding[index_i,])-as.numeric(umap_embedding_mean[i,]))%*%Rx2y)+as.numeric(umap_center_sf[i,]))
     }
+    
   }else{
     set.seed(seed.use)
     umap_center <-
@@ -834,6 +883,7 @@ adjustUMAP<-function(
   }
   umap_embedding_adjust
 }
+
 
 #' ScaleFactor
 #'
