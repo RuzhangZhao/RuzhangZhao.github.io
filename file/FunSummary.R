@@ -51,7 +51,7 @@ savis<-function(
   run_adaUMAP = TRUE,
   adjust_UMAP = TRUE,
   adjust_rotate = TRUE,
-  seed.use = 42
+  seed.use = 42L
 ){
   if(max_stratification == 1){
     stop("Please directly use umap: savis 
