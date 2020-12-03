@@ -82,6 +82,8 @@ savis<-function(
     expr_matrix<-NormalizeData(
       expr_matrix,
       verbose = verbose_more)
+  }else{
+    pb <- txtProgressBar(min = 0, max = 20, style = 3, file = stderr())
   }
   expr_matrix_process<-expr_matrix
   if(verbose){
@@ -1467,11 +1469,17 @@ FormAdaptiveCombineList<-function(
       }
       
     }
+    if(!differential_exist){
+      print("there is no differential")
+    }
+    if(N_label == 1 | (!differential_exist)){
+      newList<-list("cluster_label"= -1,
+        "combined_embedding"=expr_matrix_pca)
+      return(newList)
+    }
   }
-  if(!differential_exist){
-    print("there is no differential")
-  }
-  if(N_label == 1 | (!differential_exist)){
+  
+  if(N_label == 1){
     newList<-list("cluster_label"= -1,
       "combined_embedding"=expr_matrix_pca)
     return(newList)
