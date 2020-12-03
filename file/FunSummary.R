@@ -775,7 +775,6 @@ adjustUMAP<-function(
         axis.line = element_line(colour = "black"), 
         legend.key=element_blank())
     npcs<-20
-    ggsave(paste0("umapplot/umap_savis_center_anchor_pc",npcs,".pdf"),gg, width=4, height=3, units="in", scale=3)
     sf1<-(max(umap_embedding[,1])-min(umap_embedding[,1]))/(max(umap_center_anchor[,1]) -min(umap_center_anchor[,1]))
     sf2<-(max(umap_embedding[,2])-min(umap_embedding[,2]))/(max(umap_center_anchor[,2]) -min(umap_center_anchor[,2]))
     umap_center_anchor_sf<-umap_center_anchor
@@ -823,7 +822,6 @@ adjustUMAP<-function(
     sf2<-(max(umap_embedding[,2])-min(umap_embedding[,2]))/(max(umap_center[,2]) -min(umap_center[,2]))
     umap_center[,1]<-umap_center[,1]*sf1
     umap_center[,2]<-umap_center[,2]*sf2
-    
     umap_embedding_mean<-t(sapply(1:N_label, function(i){
       index_i<-which(cluster_ == label_index[i])
       colMeans(as.matrix(umap_embedding[index_i,]))
