@@ -766,7 +766,7 @@ adjustUMAP<-function(
   if (rotate){
     pca_anchor_index<-sapply(1:N_label, function(i){
       index_i<-which(cluster_ == label_index[i])
-      sample_index_i<-sample(index_i,10)
+      sample_index_i<-sample(index_i,min(1000,length(index_i)))
       sample_index_dist<-pdist::pdist(pca_embedding[sample_index_i,],pca_center[i,])@dist
       sample_index_i[which.max(sample_index_dist)]
     })
