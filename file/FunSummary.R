@@ -1462,7 +1462,8 @@ FormAdaptiveCombineList<-function(
       marker_diff<-FindMarkers(S,
         test.use = "MAST",
         ident.1 = unique(S@active.ident)[1],
-        ident.2 =  unique(S@active.ident)[2])
+        ident.2 =  unique(S@active.ident)[2],
+        verbose = verbose_more)
       if(sum(marker_diff[,5]<0.05) > 0){
         differential_exist<-TRUE
         break
