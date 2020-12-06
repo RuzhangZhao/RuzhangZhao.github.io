@@ -301,6 +301,7 @@ ggmeta <- function(study_info, ref_dat,
     
     if (convergence){
         if(!is.null(lambda.gam)){
+          lambdais0<-FALSE
           if(length(lambda.gam) == 1){
             if (lambda.gam == 0){
               lambdais0<-TRUE
