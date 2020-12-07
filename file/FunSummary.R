@@ -1514,7 +1514,8 @@ FormAdaptiveCombineList<-function(
       cluster_method = cluster_method,
       npcs = npcs,
       nfeatures = nfeatures,
-      process_min_size = process_min_size
+      process_min_size = process_min_size,
+      check_differential = check_differential
     )
     cluster_label_list[[i]]<-tmp$cluster_label
     combined_embedding_list[[i]]<-tmp$combined_embedding
