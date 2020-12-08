@@ -332,9 +332,9 @@ ggmeta <- function(study_info, ref_dat,
                   lambda.gam = lam,
                   D = D)
               coef_iter_lam<-output_lam$estimated_coef
-              output_lam$cost_val<-output_lam$cost_val*nrow(ref_dat)
-              lam<-lam*nrow(ref_dat)
-              H<-output_lam$Hessian
+              #output_lam$cost_val<-output_lam$cost_val*nrow(ref_dat)
+              #lam<-lam*nrow(ref_dat)
+              H<-output_lam$Hessian/nrow(ref_dat)
               if (det(H + lam*D) > 0){
                 REML<-c(output_lam$cost_val+log(det(H + lam*D))-sum(D)*log(lam) -(dim(D)[1]- sum(D))*log(2*pi)  )  
               }else{
