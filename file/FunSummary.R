@@ -711,7 +711,7 @@ adjustUMAP<-function(
   scale_factor =1,
   rotate = TRUE,
   seed.use = 42,
-  min_size = 1000
+  min_size = 100
 ){
   rotation = function(x,y){
     u=x/sqrt(sum(x^2))
@@ -729,7 +729,11 @@ adjustUMAP<-function(
   Rotation2to1<-function(umap_center1,umap_center2,pos){
     N_label<-nrow(umap_center1)
     umap_center1_tmp<-t(t(umap_center1[-pos,])-as.numeric(umap_center1[pos,]))
+    weight_1<-1/pdist(umap_center1_tmp,c(0,0))@dist
+    weight_1<-weight_1/sum(weight_1)
     umap_center2_tmp<-t(t(umap_center2[-pos,])-as.numeric(umap_center2[pos,]))
+    #weight_2<-1/pdist(umap_center2_tmp,c(0,0))@dist
+    #weight_2<-weight_2/sum(weight_2)
     angles<-sapply(1:(N_label-1), function(i){
       umap1<-umap_center1_tmp[i,]
       umap2<-umap_center2_tmp[i,]
@@ -740,11 +744,14 @@ adjustUMAP<-function(
       if(Rumap2toumap1[2,1]>=0){
         angle<-acos(Rumap2toumap1[1,1])
       }else{
-        angle<-2*pi-acos(Rumap2toumap1[1,1])
+        angle<- -acos(Rumap2toumap1[1,1])
       }
       angle
     })
-    angle2to1<-mean(angles)
+    
+    #angle2to1<-mean(angles)
+    #angle2to1<-median(angles)
+    angle2to1<-sum(angles*weight_1)
     R2to1<-diag(cos(angle2to1),2)
     R2to1[2,1]<-sin(angle2to1)
     R2to1[1,2]<- -R2to1[2,1]
@@ -767,13 +774,13 @@ adjustUMAP<-function(
   }))
   if (rotate){
     pca_anchor_index<-lapply(1:N_label, function(i){
-      print(label_index[i])
+      #print(label_index[i])
       index_i<-which(cluster_ == label_index[i])
       set.seed(seed.use)
-      sample_index_i<-sample(index_i,min(100,length(index_i)) )
+      sample_index_i<-sample(index_i,min(min_size,length(index_i)) )
       sample_index_dist<-pdist::pdist(pca_embedding[sample_index_i,c(1,2)],pca_center[i,c(1,2)])@dist
       Rfast::nth(x=sample_index_dist,
-        k = min(10,length(index_i)),
+        k = max(1,min(ceiling(min_size/10),length(index_i))),
         num.of.nths = 2,
         descending = T,
         index.return = T)[,1]
@@ -810,11 +817,23 @@ adjustUMAP<-function(
       colMeans(as.matrix(umap_embedding[index_i,]))
     }))
     umap_embedding_adjust<-umap_embedding
+    umap_center_flip<-umap_center
+    umap_center_flip[,1]<-umap_center_flip[,1]*(-1)
+    angle_var<-c()
+    weight_sample<-c()
+    angle_no_flip<-list()
+    angle_flip<-list()
     for (i in 1:N_label){
+      weight_sample<-c(weight_sample,sum(cluster_ == label_index[i]))
       R2to1<-Rotation2to1(
         umap_center1 = umap_center,
         umap_center2 = pca_center[,c(1,2)],
         pos = i)  
+      
+      R2to1_flip<-Rotation2to1(
+        umap_center1 = umap_center_flip,
+        umap_center2 = pca_center[,c(1,2)],
+        pos = i) 
       
       angle_vec<-sapply(1:length(pca_anchor_index[[i]]), function(j){
         y<-as.numeric(pca_embedding[pca_anchor_index[[i]][j],c(1,2)]-pca_center[i,c(1,2)])%*%R2to1
@@ -829,19 +848,55 @@ adjustUMAP<-function(
         if(Rx2y[2,1]>=0){
           angle<-acos(Rx2y[1,1])
         }else{
-          angle<-2*pi-acos(Rx2y[1,1])
+          angle<- -acos(Rx2y[1,1])
         }
         angle
       })
+      angle_vec_flip<-sapply(1:length(pca_anchor_index[[i]]), function(j){
+        y<-as.numeric(pca_embedding[pca_anchor_index[[i]][j],c(1,2)]-pca_center[i,c(1,2)])%*%R2to1_flip
+        y<-as.numeric(y)
+        y<-y/sqrt(sum(y^2))
+        x<-umap_embedding[pca_anchor_index[[i]][j],]-umap_embedding_mean[i,]
+        x<-as.numeric(x)
+        y<-y/sqrt(sum(y^2))
+        x<-x/sqrt(sum(x^2))
+        
+        Rx2y <- rotation(x,y)
+        if(Rx2y[2,1]>=0){
+          angle<-acos(Rx2y[1,1])
+        }else{
+          angle<- -acos(Rx2y[1,1])
+        }
+        angle
+      })
+      
       angle_vec<-angle_vec[angle_vec>min(angle_vec)]
       angle_vec<-angle_vec[angle_vec<max(angle_vec)]
-      anglex2y<-mean(angle_vec)
+      angle_vec_flip<-angle_vec_flip[angle_vec_flip>min(angle_vec_flip)]
+      angle_vec_flip<-angle_vec_flip[angle_vec_flip<max(angle_vec_flip)]
+      angle_no_flip[[i]]<- angle_vec
+      angle_flip[[i]] <- angle_vec_flip
+      angle_var<-rbind(angle_var,(c(var(angle_vec),var(angle_vec_flip))))
+    }
+    weight_sample<-weight_sample/sum(weight_sample)
+    if (sum(angle_var[,1]*weight_sample)>=sum(angle_var[,2]*weight_sample)){
+      # use flip
+      angle_vec<-angle_flip
+    }else{
+      # use no flip
+      angle_vec<-angle_no_flip
+    }
+    
+    for ( i in 1:N_label){
+      anglex2y<-mean(angle_vec[[i]])
+      #print(anglex2y)
       Rx2y<-diag(cos(anglex2y),2)
       Rx2y[2,1]<-sin(anglex2y)
       Rx2y[1,2]<- -Rx2y[2,1]
       index_i<-which(cluster_ == label_index[i])
       umap_embedding_adjust[index_i,]<-t(t(t(t(umap_embedding[index_i,])-as.numeric(umap_embedding_mean[i,]))%*%Rx2y)+as.numeric(umap_center_sf[i,]))
     }
+    
     
     
   }else{
