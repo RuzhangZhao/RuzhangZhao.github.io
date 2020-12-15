@@ -334,7 +334,7 @@ ggmeta <- function(study_info, ref_dat,
               coef_iter_lam<-output_lam$estimated_coef
               #output_lam$cost_val<-output_lam$cost_val*nrow(ref_dat)
               #lam<-lam*nrow(ref_dat)
-              H<-output_lam$Hessian/nrow(ref_dat)
+              H<-output_lam$Hessian
               if (det(H + lam*D) > 0){
                 REML<-c(output_lam$cost_val+log(det(H + lam*D))-sum(D)*log(lam) -(dim(D)[1]- sum(D))*log(2*pi)  )  
               }else{
@@ -348,7 +348,7 @@ ggmeta <- function(study_info, ref_dat,
               GCV<-nrow(ref_dat)*(output_lam$cost_val-lam*coef_iter_lam%*%D%*%coef_iter_lam)/
                   (nrow(ref_dat)-sum(diag(crossprod(ref_dat,
                     ref_dat)%*%solve(crossprod(ref_dat,
-                      ref_dat)+lam*D))))^2
+                      ref_dat)+lam*nrow(ref_dat)*D))))^2
               list("estimated_coef" = coef_iter_lam,
                 "marginal_likelihood"=REML, 
                 "GCV"=GCV[1], 
