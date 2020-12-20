@@ -687,31 +687,20 @@ def adaptive_euclidean_general_grad(x, y):
 }
 
 
-#' adjustUMAP
-#'
-#' Adjust UMAP to deal with distortion 
-#'
-#' @details amazing umap
-#' @param expr_matrix character
-#'
-#' @return nothing useful
-#'
-#' @importFrom Seurat FindNeighbors FindClusters
-#' @importFrom pdist pdist
-#' @importFrom uwot umap
-#' @export
-#'
-#' @examples
-#' a<-1
-#'
-#'
-adjustUMAP<-function(
+
+#
+get_umap_embedding_adjust<-function(
   pca_embedding,
+  pca_center,
+  pca_anchor_index,
+  pca_dist,
   umap_embedding,
+  N_label,
+  cluster_,
+  label_index,
   scale_factor =1,
   rotate = TRUE,
-  seed.use = 42,
-  min_size = 100
+  seed.use = 42
 ){
   rotation = function(x,y){
     u=x/sqrt(sum(x^2))
@@ -757,66 +746,37 @@ adjustUMAP<-function(
     R2to1[1,2]<- -R2to1[2,1]
     R2to1
   }
-  snn_<- FindNeighbors(object = umap_embedding,
-    verbose = F)$snn
-  cluster_ <- FindClusters(snn_,
-    resolution = 0,
-    verbose = F)[[1]]
-  cluster_ <- as.numeric(as.character(cluster_))
   
-  N_label<-length(unique(cluster_))
-  label_index<-sort(unique(cluster_))
-  pca_center<-t(sapply(1:N_label, function(i){
-    
+  set.seed(seed.use)
+  umap_center <-
+    umap(
+      X = pca_dist,
+      n_neighbors = as.integer(x = N_label-1),
+      n_components = as.integer(x =2L),
+      metric = 'euclidean',
+      learning_rate = 1.0,
+      min_dist = 0.3,
+      spread =  1.0,
+      set_op_mix_ratio =  1.0,
+      local_connectivity =  max(1,nrow(N_label)/4),
+      repulsion_strength = 1,
+      negative_sample_rate = 5,
+      fast_sgd = FALSE
+    )
+  colnames(umap_center)<-c("UMAP_1","UMAP_2")
+  umap_center<-data.frame(umap_center)
+  sf1<-(max(umap_embedding[,1])-min(umap_embedding[,1]))/(max(umap_center[,1]) -min(umap_center[,1]))
+  sf2<-(max(umap_embedding[,2])-min(umap_embedding[,2]))/(max(umap_center[,2]) -min(umap_center[,2]))
+  umap_center[,1]<-umap_center[,1]*sf1*scale_factor
+  umap_center[,2]<-umap_center[,2]*sf2*scale_factor
+  umap_embedding_mean<-t(sapply(1:N_label, function(i){
     index_i<-which(cluster_ == label_index[i])
-    
-    colMeans(as.matrix(pca_embedding[index_i,]))
+    colMeans(as.matrix(umap_embedding[index_i,]))
   }))
+  umap_embedding_adjust<-umap_embedding
+  
   if (rotate){
-    pca_anchor_index<-lapply(1:N_label, function(i){
-      #print(label_index[i])
-      index_i<-which(cluster_ == label_index[i])
-      set.seed(seed.use)
-      sample_index_i<-sample(index_i,min(min_size,length(index_i)) )
-      sample_index_dist<-pdist::pdist(pca_embedding[sample_index_i,c(1,2)],pca_center[i,c(1,2)])@dist
-      Rfast::nth(x=sample_index_dist,
-        k = max(1,min(ceiling(min_size/10),length(index_i))),
-        num.of.nths = 2,
-        descending = T,
-        index.return = T)[,1]
-    })
     
-    set.seed(seed.use)
-    umap_center <-
-      uwot::umap(
-        X = pca_center,
-        n_neighbors = as.integer(x = nrow(pca_center)-1),
-        n_components = as.integer(x =2L),
-        metric = 'euclidean',
-        learning_rate = 1.0,
-        min_dist = 0.3,
-        spread =  1.0,
-        set_op_mix_ratio =  1.0,
-        local_connectivity =  1.0,
-        repulsion_strength = 1,
-        negative_sample_rate = 5,
-        fast_sgd = FALSE
-      )
-    colnames(umap_center )<-c("UMAP_1","UMAP_2")
-    umap_center<-data.frame(umap_center)
-    
-    sf1<-(max(umap_embedding[,1])-min(umap_embedding[,1]))/(max(umap_center[,1]) -min(umap_center[,1]))
-    sf2<-(max(umap_embedding[,2])-min(umap_embedding[,2]))/(max(umap_center[,2]) -min(umap_center[,2]))
-    umap_center_sf<-umap_center
-    umap_center_sf[,1]<-umap_center[,1]*sf1*scale_factor
-    umap_center_sf[,2]<-umap_center[,2]*sf2*scale_factor
-    
-    umap_embedding_mean<-t(sapply(1:N_label, function(i){
-      
-      index_i<-which(cluster_ == label_index[i])
-      colMeans(as.matrix(umap_embedding[index_i,]))
-    }))
-    umap_embedding_adjust<-umap_embedding
     umap_center_flip<-umap_center
     umap_center_flip[,1]<-umap_center_flip[,1]*(-1)
     angle_var<-c()
@@ -845,10 +805,13 @@ adjustUMAP<-function(
         x<-x/sqrt(sum(x^2))
         
         Rx2y <- rotation(x,y)
+        Rx2y <- pmax(Rx2y,-1)
+        Rx2y <- pmin(Rx2y,1)
         if(Rx2y[2,1]>=0){
+          i
           angle<-acos(Rx2y[1,1])
         }else{
-          angle<- -acos(Rx2y[1,1])
+          angle<- - acos(Rx2y[1,1])
         }
         angle
       })
@@ -862,10 +825,12 @@ adjustUMAP<-function(
         x<-x/sqrt(sum(x^2))
         
         Rx2y <- rotation(x,y)
+        
+        
         if(Rx2y[2,1]>=0){
-          angle<-acos(Rx2y[1,1])
+          angle<- acos(Rx2y[1,1])
         }else{
-          angle<- -acos(Rx2y[1,1])
+          angle<- -1*acos(Rx2y[1,1])
         }
         angle
       })
@@ -894,45 +859,240 @@ adjustUMAP<-function(
       Rx2y[2,1]<-sin(anglex2y)
       Rx2y[1,2]<- -Rx2y[2,1]
       index_i<-which(cluster_ == label_index[i])
-      umap_embedding_adjust[index_i,]<-t(t(t(t(umap_embedding[index_i,])-as.numeric(umap_embedding_mean[i,]))%*%Rx2y)+as.numeric(umap_center_sf[i,]))
+      umap_embedding_adjust[index_i,]<-t(t(t(t(umap_embedding[index_i,])-as.numeric(umap_embedding_mean[i,]))%*%Rx2y)+as.numeric(umap_center[i,]))
     }
     
-    
-    
   }else{
-    set.seed(seed.use)
-    umap_center <-
-      umap(
-        X = pca_center,
-        n_neighbors = as.integer(x = N_label-1),
-        n_components = as.integer(x =2L),
-        metric = 'euclidean',
-        learning_rate = 1.0,
-        min_dist = 0.3,
-        spread =  1.0,
-        set_op_mix_ratio =  1.0,
-        local_connectivity =  1.0,
-        repulsion_strength = 1,
-        negative_sample_rate = 5,
-        fast_sgd = FALSE
-      )
-    colnames(umap_center)<-c("UMAP_1","UMAP_2")
-    umap_center<-data.frame(umap_center)
-    sf1<-(max(umap_embedding[,1])-min(umap_embedding[,1]))/(max(umap_center[,1]) -min(umap_center[,1]))
-    sf2<-(max(umap_embedding[,2])-min(umap_embedding[,2]))/(max(umap_center[,2]) -min(umap_center[,2]))
-    umap_center[,1]<-umap_center[,1]*sf1
-    umap_center[,2]<-umap_center[,2]*sf2
-    umap_embedding_mean<-t(sapply(1:N_label, function(i){
-      index_i<-which(cluster_ == label_index[i])
-      colMeans(as.matrix(umap_embedding[index_i,]))
-    }))
-    umap_embedding_adjust<-umap_embedding
+    
     for(i in 1:N_label){
       index_i<-which(cluster_ == label_index[i])
       umap_embedding_adjust[index_i,]<-t(t(umap_embedding[index_i,])-as.numeric(umap_embedding_mean[i,]-umap_center[i,]))
     }
   }
-  umap_embedding_adjust
+  newList<-list("umap_center"=umap_center,
+    "umap_embedding_adjust"=umap_embedding_adjust)
+  return(newList)
+}
+
+
+#' adjustUMAP
+#'
+#' Adjust UMAP to deal with distortion 
+#'
+#' @details amazing umap
+#' @param expr_matrix character
+#'
+#' @return nothing useful
+#'
+#' @importFrom Seurat FindNeighbors FindClusters
+#' @importFrom pdist pdist
+#' @importFrom uwot umap
+#' @export
+#'
+#' @examples
+#' a<-1
+#'
+#'
+adjustUMAP<-function(
+  pca_embedding,
+  umap_embedding,
+  scale_factor =1,
+  rotate = TRUE,
+  seed.use = 42,
+  min_size = 200,
+  maxit_push = NULL
+){
+  snn_<- FindNeighbors(object = umap_embedding,
+    verbose = F)$snn
+  cluster_ <- FindClusters(snn_,
+    resolution = 0,
+    verbose = F)[[1]]
+  cluster_ <- as.numeric(as.character(cluster_))
+  
+  N_label<-length(unique(cluster_))
+  label_index<-sort(unique(cluster_))
+  
+  pca_center<-t(sapply(1:N_label, function(i){
+    
+    index_i<-which(cluster_ == label_index[i])
+    
+    colMeans(as.matrix(pca_embedding[index_i,]))
+  }))
+  
+  
+  pca_anchor_index<-lapply(1:N_label, function(i){
+    #print(label_index[i])
+    index_i<-which(cluster_ == label_index[i])
+    set.seed(seed.use)
+    sample_index_i<-sample(index_i,min(min_size,length(index_i)) )
+    sample_index_dist<-pdist::pdist(pca_embedding[sample_index_i,c(1,2)],pca_center[i,c(1,2)])@dist
+    Rfast::nth(x=sample_index_dist,
+      k = max(1,min(ceiling(min_size/5),length(index_i))),
+      num.of.nths = 2,
+      descending = T,
+      index.return = T)[,1]
+  })
+  pca_dist1<-Dist(pca_center)
+  pca_dist<-as.dist(pca_dist1)
+  step1_res<-get_umap_embedding_adjust(
+    pca_embedding=pca_embedding,
+    pca_center=pca_center,
+    pca_anchor_index=pca_anchor_index,
+    pca_dist=pca_dist,
+    umap_embedding=umap_embedding,
+    N_label=N_label,
+    cluster_ = cluster_,
+    label_index = label_index,
+    scale_factor =scale_factor,
+    rotate = rotate,
+    seed.use = seed.use)
+  umap_center<-step1_res$umap_center
+  umap_embedding_adjust<-step1_res$umap_embedding_adjust
+  library(Seurat)
+  snn_1<- FindNeighbors(object = umap_embedding_adjust,
+    verbose = F)$snn
+  cluster_1 <- FindClusters(snn_1,
+    resolution = 0,
+    verbose = F)[[1]]
+  cluster_1 <- as.numeric(as.character(cluster_1))
+  
+  N_label1<-length(unique(cluster_1))
+  if ( N_label1 == N_label){
+    return(umap_embedding_adjust)
+  }else{
+    ## First Adjustment
+    label_index1<-sort(unique(cluster_1))
+    
+    bad_index<-list()
+    list_index<-0
+    for ( i in 1:N_label1){
+      index_i1<-which(cluster_1 == label_index1[i])
+      cur_index_len<-length(unique(cluster_[index_i1]))
+      if(cur_index_len > 1){
+        list_index<-list_index+1
+        bad_index[[list_index]]<-c(unique(cluster_[index_i1]))
+      }
+    }
+    for ( i in 1:length(bad_index)){
+      pos<-min(bad_index[[i]])
+      other_pos<-bad_index[[i]][bad_index[[i]]>pos]
+      pos<-pos+1
+      other_pos<-other_pos+1
+      dist_vec<-pca_dist1[,pos]
+      all_pos<-dist_vec <= max(dist_vec[other_pos])
+      pca_dist1[all_pos,pos]<-min(dist_vec[dist_vec>max(dist_vec[other_pos])])
+      pca_dist1[pos,all_pos]<-pca_dist1[all_pos,pos]
+    }
+    pca_dist<-as.dist(pca_dist1)
+    pca_dist1<-as.matrix(pca_dist)
+    step2_res<-get_umap_embedding_adjust(
+      pca_embedding=pca_embedding,
+      pca_center=pca_center,
+      pca_anchor_index=pca_anchor_index,
+      pca_dist=pca_dist,
+      umap_embedding=umap_embedding,
+      N_label=N_label,
+      cluster_ = cluster_,
+      label_index = label_index,
+      scale_factor =scale_factor,
+      rotate = rotate,
+      seed.use = seed.use)
+    umap_center<-step2_res$umap_center
+    umap_embedding_adjust<-step2_res$umap_embedding_adjust
+    snn_2<- FindNeighbors(object = umap_embedding_adjust,
+      verbose = F)$snn
+    cluster_2 <- FindClusters(snn_2,
+      resolution = 0,
+      verbose = F)[[1]]
+    cluster_2 <- as.numeric(as.character(cluster_2))
+    
+    N_label2<-length(unique(cluster_2))
+    if(N_label2 == N_label){
+      return(umap_embedding_adjust)
+    }else{
+      ## Second Adjustment Push Away
+      label_index2<-sort(unique(cluster_2))
+      
+      bad_index<-list()
+      list_index<-0
+      for ( i in 1:N_label2){
+        index_i2<-which(cluster_2 == label_index2[i])
+        cur_index_len<-length(unique(cluster_[index_i2]))
+        if(cur_index_len > 1){
+          list_index<-list_index+1
+          bad_index[[list_index]]<-c(unique(cluster_[index_i2]))
+        }
+      }
+      N_label3<-N_label - 1
+      cur_iter<-0
+      if(is.null(maxit_push)){
+        maxit_push<-N_label
+      }
+      while (N_label3 != N_label & cur_iter < maxit_push) {
+        cur_iter<-cur_iter+1
+        print(cur_iter)
+        for (i in 1:length(bad_index)){
+          pos<-min(bad_index[[i]])
+          other_pos<-bad_index[[i]][bad_index[[i]]>pos]
+          pos<-pos+1
+          other_pos<-other_pos+1
+          dist_mat<-pdist(umap_center[pos,],umap_center)@dist
+          target_distance<-min(dist_mat[dist_mat>max(dist_mat[other_pos])])
+          target_distance<-(target_distance+dist_mat[other_pos])/2
+          for (k in 1:length(other_pos)){
+            cur_pos<-other_pos[k]
+            cur_center<-umap_center[pos,]
+            cur_arrow<-umap_center[cur_pos,]
+            prop<-target_distance[k]/dist_mat[cur_pos]
+            cur_arrow<-(cur_arrow-cur_center)*prop+cur_center
+            index_i<-which(cluster_ == label_index[cur_pos])
+            umap_embedding_adjust[index_i,]<-t(t(umap_embedding_adjust[index_i,])-as.numeric(umap_center[cur_pos,])+as.numeric(cur_arrow))
+          }
+        }
+        
+        snn_3<- FindNeighbors(object = umap_embedding_adjust,
+          verbose = F)$snn
+        cluster_3 <- FindClusters(snn_3,
+          resolution = 0,
+          verbose = F)[[1]]
+        cluster_3 <- as.numeric(as.character(cluster_3))
+        N_label3<-length(unique(cluster_3))
+        label_index3<-sort(unique(cluster_3))
+        
+        bad_index<-list()
+        list_index<-0
+        for ( i in 1:N_label3){
+          index_i3<-which(cluster_3 == label_index3[i])
+          cur_index_len<-length(unique(cluster_[index_i3]))
+          if(cur_index_len > 1){
+            list_index<-list_index+1
+            bad_index[[list_index]]<-c(unique(cluster_[index_i3]))
+          }
+        }
+        
+      }
+      
+      if(N_label3 == N_label){
+        return(umap_embedding_adjust)
+      }else{
+        print("Use Third")
+        ## Third Adjustment Rescale
+        for (i in 1:length(bad_index)){
+          pos<-min(bad_index[[i]])
+          other_pos<-bad_index[[i]][bad_index[[i]]>pos]
+          pos<-pos+1
+          other_pos<-other_pos+1
+          dist_mat<-pdist(umap_center[pos,],umap_center)@dist
+          target_distance<-min(dist_mat[dist_mat>max(dist_mat[other_pos])])
+          re_sf<-target_distance/max(dist_mat[other_pos])
+          
+          umap_embedding_adjust<-umap_embedding_adjust*re_sf
+        }
+        return(umap_embedding_adjust)
+      }
+    }
+    
+  }
 }
 
 
