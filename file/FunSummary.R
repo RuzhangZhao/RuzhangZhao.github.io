@@ -51,7 +51,7 @@ savis<-function(
   run_adaUMAP = TRUE,
   adjust_UMAP = TRUE,
   adjust_rotate = TRUE,
-  check_differential = FALSE,
+  check_differential = TRUE,
   seed.use = 42L
 ){
   if(max_stratification == 1){
@@ -210,7 +210,8 @@ savis<-function(
       process_min_size=process_min_size,
       do_cluster = FALSE,
       cluster_label = cluster_label,
-      check_differential = check_differential)
+      check_differential = check_differential,
+      verbose = verbose_more)
     cluster_label<-umap_res$cluster_label
     if(is.null(dim(cluster_label)[1])){
       combined_embedding<-data.frame(
@@ -237,7 +238,7 @@ savis<-function(
           if(verbose){
             cat('\n')
             print("Adjusting UMAP...")
-            setTxtProgressBar(pb = pb, value = 19)
+            setTxtProgressBar(pb = pb, value = 18)
           }
           umap_embedding<-adjustUMAP(
             pca_embedding = expr_matrix_pca,
@@ -291,7 +292,7 @@ savis<-function(
             if(verbose){
               cat('\n')
               print("Adjusting UMAP...")
-              setTxtProgressBar(pb = pb, value = 19)
+              setTxtProgressBar(pb = pb, value = 18)
             }
             umap_embedding<-adjustUMAP(
               pca_embedding = expr_matrix_pca,
@@ -345,7 +346,7 @@ savis<-function(
             if(verbose){
               cat('\n')
               print("Adjusting UMAP...")
-              setTxtProgressBar(pb = pb, value = 19)
+              setTxtProgressBar(pb = pb, value = 18)
             }
             umap_embedding<-adjustUMAP(
               pca_embedding = expr_matrix_pca,
@@ -395,7 +396,7 @@ savis<-function(
             if(verbose){
               cat('\n')
               print("Adjusting UMAP...")
-              setTxtProgressBar(pb = pb, value = 19)
+              setTxtProgressBar(pb = pb, value = 18)
             }
             umap_embedding<-adjustUMAP(
               pca_embedding = expr_matrix_pca,
@@ -448,7 +449,7 @@ savis<-function(
         if(verbose){
           cat('\n')
           print("Adjusting UMAP...")
-          setTxtProgressBar(pb = pb, value = 19)
+          setTxtProgressBar(pb = pb, value = 18)
         }
         umap_embedding<-adjustUMAP(
           pca_embedding = expr_matrix_pca,
@@ -1636,7 +1637,8 @@ FormAdaptiveCombineList<-function(
   process_min_size,
   do_cluster = TRUE,
   cluster_label = NULL,
-  check_differential =TRUE
+  check_differential =TRUE,
+  verbose = FALSE
 ){
   colnames(expr_matrix_pca)<-paste0("Layer",stratification_count,"PC",1:npcs)
   if(nrow(expr_matrix_pca) < process_min_size){
@@ -1661,32 +1663,84 @@ FormAdaptiveCombineList<-function(
     unique(as.character(cluster_label))))
   # number of cluster label
   N_label<-length(label_index)
-  differential_exist<-FALSE
+  
+  ## Compare npcs with the cluster size
+  size_cluster<-c()
+  for ( i in 1:N_label){
+    size_cluster<-c(size_cluster,
+      sum(cluster_label == label_index[i]))
+  }
+  if(sum(size_cluster < npcs) > 0){
+    warning("Produce a cluster whose size is less than npcs: Combine it with other cluster, Or please adjust the npcs or resolution")
+    cur_index<-which(size_cluster < npcs)
+    pca_center<-t(sapply(1:N_label, function(i){
+      index_i<-which(cluster_label == label_index[i])
+      colMeans(as.matrix(expr_matrix_pca[index_i,]))
+    }))
+    sample_index_dist<-pdist(pca_center[-cur_index,],pca_center[cur_index,])@dist
+    sample_index_dist<-matrix(sample_index_dist,nrow = sum(size_cluster < npcs))
+    comb_list<-sapply( 1:length(cur_index), function(i){
+      c(cur_index[i],Rfast::nth(x=sample_index_dist[i,],
+        k = 1,
+        num.of.nths = 2,
+        descending = F,
+        index.return = T)[,1]) 
+    })
+    for( i in 1:ncol(comb_list)){
+      index_1<-which(cluster_label == label_index[comb_list[1,i]])
+      cluster_label[index_1]<-label_index[comb_list[2,i]]
+    }
+    # update label_index
+    # sorted unique cluster label
+    label_index<-sort(as.numeric(
+      unique(as.character(cluster_label))))
+    # number of cluster label
+    N_label<-length(label_index)
+    
+    ## Compare npcs with the cluster size
+    size_cluster<-c()
+    for ( i in 1:N_label){
+      size_cluster<-c(size_cluster,
+        sum(cluster_label == label_index[i]))
+    }
+  }
+  
   if(check_differential & stratification_count >=2){
-    S<-CreateSeuratObject(expr_matrix)
-    for (i in 1:N_label){
-      label_diff<-rep(0,length(cluster_label))
-      label_diff[which(cluster_label == label_index[i])]<-1
-      Idents(S)<-factor(label_diff)
-      marker_diff<-FindMarkers(S,
-        test.use = "MAST",
-        ident.1 = unique(S@active.ident)[1],
-        ident.2 =  unique(S@active.ident)[2],
-        verbose = verbose_more)
-      if(sum(marker_diff[,5]<0.05) > 0){
-        differential_exist<-TRUE
-        break
-      }
-      
-    }
-    if(!differential_exist){
-      print("there is no differential")
-    }
-    if(N_label == 1 | (!differential_exist)){
+    if(N_label == 1){
       newList<-list("cluster_label"= -1,
         "combined_embedding"=expr_matrix_pca)
       return(newList)
+    }else{
+      ### Begin of else 
+      cur_label<- N_label
+      while(cur_label>1){
+        for (i in 1:(cur_label-1)){
+          print(paste0("Current:",label_index[i],"vs",label_index[cur_label]))
+          index_1<-which(cluster_label == label_index[i])
+          index_2<-which(cluster_label == label_index[cur_label])
+          S<-cbind(expr_matrix[,index_1],expr_matrix[,index_2])
+          S<-CreateSeuratObject(S)
+          label_diff<-c(rep(0,length(index_1)),rep(1,length(index_2)))
+          Idents(S)<-factor(label_diff)
+          suppressMessages(marker_diff<-FindMarkers(S,test.use = "MAST",
+            ident.1 = unique(S@active.ident)[1],
+            ident.2 =  unique(S@active.ident)[2]))
+          if (sum(marker_diff[,5]<0.05) == 0){
+            print(paste0("Don't find differential genes between",label_index[i],"vs",label_index[cur_label]))
+            cluster_label[index_2]<-label_index[i]
+            label_index<-sort(as.numeric(
+              unique(as.character(cluster_label))))
+            N_label<-length(label_index)
+            break
+          }
+        }
+        cur_label<-cur_label - 1
+        
+      }
+      ### End of else 
     }
+    
+    
   }
   
   if(N_label == 1){
@@ -1695,8 +1749,12 @@ FormAdaptiveCombineList<-function(
     return(newList)
   }
   
-  
-  
+  if(nrow(expr_matrix_pca) == 2545){
+    print("The cluster")
+    global_matrix<<-expr_matrix
+    global_pca<<-expr_matrix_pca
+    global_cluster<<-cluster_label
+  }
   combined_embedding<-FormCombinedEmbedding(
     expr_matrix=expr_matrix,
     expr_matrix_pca=expr_matrix_pca,
@@ -1730,7 +1788,8 @@ FormAdaptiveCombineList<-function(
       npcs = npcs,
       nfeatures = nfeatures,
       process_min_size = process_min_size,
-      check_differential = check_differential
+      check_differential = check_differential,
+      verbose = verbose
     )
     cluster_label_list[[i]]<-tmp$cluster_label
     combined_embedding_list[[i]]<-tmp$combined_embedding
@@ -1805,15 +1864,12 @@ FormAdaptiveCombineList<-function(
         "combined_embedding"=cbind(expr_matrix_pca,combined_embedding_sub))
       return(newList)
     }
-    
-    
   }else{
     
     newList<-list("cluster_label"= cluster_label,
       "combined_embedding"=combined_embedding)
     return(newList)
   }
-  
 }
 
 
