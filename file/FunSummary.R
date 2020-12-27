@@ -189,7 +189,7 @@ savis<-function(
       print(paste0("Process_min_size: ",process_min_size))
       setTxtProgressBar(pb = pb, value = 9.5)
     }
-    
+
     
     if(verbose){
       cat('\n')
@@ -1670,15 +1670,16 @@ FormAdaptiveCombineList<-function(
     size_cluster<-c(size_cluster,
       sum(cluster_label == label_index[i]))
   }
-  if(sum(size_cluster < npcs) > 0){
+  print(size_cluster)
+  if(sum(size_cluster <= npcs) > 0){
     warning("Produce a cluster whose size is less than npcs: Combine it with other cluster, Or please adjust the npcs or resolution")
-    cur_index<-which(size_cluster < npcs)
+    cur_index<-which(size_cluster <= npcs)
     pca_center<-t(sapply(1:N_label, function(i){
       index_i<-which(cluster_label == label_index[i])
       colMeans(as.matrix(expr_matrix_pca[index_i,]))
     }))
     sample_index_dist<-pdist(pca_center[-cur_index,],pca_center[cur_index,])@dist
-    sample_index_dist<-matrix(sample_index_dist,nrow = sum(size_cluster < npcs))
+    sample_index_dist<-matrix(sample_index_dist,nrow = sum(size_cluster <= npcs))
     comb_list<-sapply( 1:length(cur_index), function(i){
       c(cur_index[i],Rfast::nth(x=sample_index_dist[i,],
         k = 1,
@@ -1703,6 +1704,8 @@ FormAdaptiveCombineList<-function(
       size_cluster<-c(size_cluster,
         sum(cluster_label == label_index[i]))
     }
+    print("This is new cluster")
+    print(size_cluster)
   }
   
   if(check_differential & stratification_count >=2){
@@ -1748,13 +1751,10 @@ FormAdaptiveCombineList<-function(
       "combined_embedding"=expr_matrix_pca)
     return(newList)
   }
+  global_matrix<<-expr_matrix
+  global_pca<<-expr_matrix_pca
+  global_cluster<<-cluster_label
   
-  if(nrow(expr_matrix_pca) == 2545){
-    print("The cluster")
-    global_matrix<<-expr_matrix
-    global_pca<<-expr_matrix_pca
-    global_cluster<<-cluster_label
-  }
   combined_embedding<-FormCombinedEmbedding(
     expr_matrix=expr_matrix,
     expr_matrix_pca=expr_matrix_pca,
