@@ -73,6 +73,13 @@ savis<-function(
       than the number of samples in expression
       matrix")
   }
+  if(is.null(rownames(expr_matrix)[1])){
+    rownames(expr_matrix)<-c(1:nrow(expr_matrix))
+  }
+  if(is.null(colnames(expr_matrix)[1])){
+    colnames(expr_matrix)<-c(1:ncol(expr_matrix))
+  }
+  
   if(is_count_matrix){
     if(verbose){
       cat('\n')
@@ -516,8 +523,8 @@ RunAdaUMAP<-function(
   local.connectivity = 1L,
   repulsion.strength = 1,
   negative.sample.rate = 5,
-  a = NULL,
-  b = NULL,
+  a = 1.8956, 
+  b = 0.8006,
   uwot.sgd = FALSE,
   seed.use = 42L,
   metric.kwds = NULL,
@@ -1670,7 +1677,6 @@ FormAdaptiveCombineList<-function(
     size_cluster<-c(size_cluster,
       sum(cluster_label == label_index[i]))
   }
-  print(size_cluster)
   if(sum(size_cluster <= npcs) > 0){
     warning("Produce a cluster whose size is less than npcs: Combine it with other cluster, Or please adjust the npcs or resolution")
     cur_index<-which(size_cluster <= npcs)
@@ -1704,8 +1710,6 @@ FormAdaptiveCombineList<-function(
       size_cluster<-c(size_cluster,
         sum(cluster_label == label_index[i]))
     }
-    print("This is new cluster")
-    print(size_cluster)
   }
   
   if(check_differential & stratification_count >=2){
