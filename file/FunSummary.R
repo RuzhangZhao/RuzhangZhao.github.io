@@ -1729,10 +1729,10 @@ FormAdaptiveCombineList<-function(
           S<-CreateSeuratObject(S)
           label_diff<-c(rep(0,length(index_1)),rep(1,length(index_2)))
           Idents(S)<-factor(label_diff)
-          .<-capture.output(marker_diff<-FindMarkers(S,
+          marker_diff<-FindMarkers(S,
             test.use = "t",
             ident.1 = unique(S@active.ident)[1],
-            ident.2 =  unique(S@active.ident)[2]))
+            ident.2 =  unique(S@active.ident)[2])
           print(sum(marker_diff[,5]<0.05))
           if (sum(marker_diff[,5]<=0.05) < 5){
             #print(paste0("Don't find differential genes between",label_index[i],"vs",label_index[cur_label]))
