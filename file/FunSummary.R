@@ -1712,7 +1712,7 @@ FormAdaptiveCombineList<-function(
     }
   }
   
-  if(check_differential & stratification_count >=2){
+  if(check_differential){
     if(N_label == 1){
       newList<-list("cluster_label"= -1,
         "combined_embedding"=expr_matrix_pca)
@@ -1722,18 +1722,20 @@ FormAdaptiveCombineList<-function(
       cur_label<- N_label
       while(cur_label>1){
         for (i in 1:(cur_label-1)){
-          print(paste0("Current:",label_index[i],"vs",label_index[cur_label]))
+          #print(paste0("Current:",label_index[i],"vs",label_index[cur_label]))
           index_1<-which(cluster_label == label_index[i])
           index_2<-which(cluster_label == label_index[cur_label])
           S<-cbind(expr_matrix[,index_1],expr_matrix[,index_2])
           S<-CreateSeuratObject(S)
           label_diff<-c(rep(0,length(index_1)),rep(1,length(index_2)))
           Idents(S)<-factor(label_diff)
-          suppressMessages(marker_diff<-FindMarkers(S,test.use = "MAST",
+          .<-capture.output(marker_diff<-FindMarkers(S,
+            test.use = "t",
             ident.1 = unique(S@active.ident)[1],
             ident.2 =  unique(S@active.ident)[2]))
-          if (sum(marker_diff[,5]<0.05) == 0){
-            print(paste0("Don't find differential genes between",label_index[i],"vs",label_index[cur_label]))
+          #print(sum(marker_diff[,5]<0.05))
+          if (sum(marker_diff[,5]<=0.05) < 5){
+            #print(paste0("Don't find differential genes between",label_index[i],"vs",label_index[cur_label]))
             cluster_label[index_2]<-label_index[i]
             label_index<-sort(as.numeric(
               unique(as.character(cluster_label))))
