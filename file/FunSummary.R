@@ -12,6 +12,7 @@ library(mclust)
 library(stats)
 library(utils)
 library(uwot)
+library(glue)
 #' savis
 #'
 #' savis: single-cell RNAseq adaptive visualiztaion
@@ -35,9 +36,10 @@ savis<-function(
   is_count_matrix=TRUE,
   npcs = 10,
   nfeatures = 2000,
+  distance_metric = "euclidean",
   cluster_method = "louvain",
   resolution = 0.5,
-  resolution_sub = NULL,
+  resolution_sub = 0,
   adaptive = FALSE,
   max_stratification = 3,
   scale_factor_separation =3,
@@ -235,6 +237,8 @@ savis<-function(
         }
         umap_embedding<-RunAdaUMAP(
           X = combined_embedding,
+          metric = distance_metric,
+          metric_count = 1,
           py_envir = parent.frame(),
           seed.use = seed.use)
       }
@@ -287,7 +291,8 @@ savis<-function(
           }
           umap_embedding<-RunAdaUMAP(
             X = combined_embedding,
-            metric = 'euclidean2',
+            metric = distance_metric,
+            metric_count = 2,
             py_envir = parent.frame(),
             seed.use = seed.use)
         }
@@ -341,7 +346,8 @@ savis<-function(
           }
           umap_embedding<-RunAdaUMAP(
             X = combined_embedding,
-            metric = 'euclidean3',
+            metric = distance_metric,
+            metric_count = 3,
             py_envir = parent.frame(),
             seed.use = seed.use)
           
@@ -392,7 +398,8 @@ savis<-function(
           }
           umap_embedding<-RunAdaUMAP(
             X = combined_embedding,
-            metric = 'euclidean_general',
+            metric = distance_metric,
+            metric_count = 4,
             py_envir = parent.frame(),
             seed.use = seed.use)  
         }
@@ -446,6 +453,8 @@ savis<-function(
       }
       umap_embedding<-RunAdaUMAP(
         X = combined_embedding,
+        metric = distance_metric,
+        metric_count = 1,
         py_envir = parent.frame(),
         seed.use = seed.use)
     }
@@ -503,7 +512,7 @@ savis<-function(
 #' @return nothing useful
 #'
 #' @importFrom reticulate py_run_string import import_main py_get_attr py_module_available py_set_seed
-#'
+#' @import glue
 #' @export
 #'
 #' @examples
@@ -511,10 +520,11 @@ savis<-function(
 #'
 RunAdaUMAP<-function(
   X,
+  metric = 'euclidean',
+  metric_count = 1,
   py_envir = parent.frame(),
   n.neighbors = 30L,
   n.components = 2L,
-  metric = 'euclidean',
   n.epochs = NULL,
   learning.rate = 1.0,
   min.dist = 0.3,
@@ -531,92 +541,66 @@ RunAdaUMAP<-function(
   angular.rp.forest = FALSE,
   verbose = FALSE){
   if (!py_module_available(module = 'umap')) {
-    stop("Cannot find UMAP, please install through pip (e.g. pip install umap-learn) or through reticulate package (e.g. reticulate::py_install('umap') )")
+    stop("Cannot find UMAP, please install through pip in command line(e.g. pip install umap-learn) or through reticulate package in R (e.g. reticulate::py_install('umap') )")
   }
-  py_func_names<-c("adaptive_euclidean_grad",
-    "adaptive_euclidean2_grad",
-    "adaptive_euclidean3_grad",
-    "adaptive_euclidean_general_grad")
+  py_func_names<-c("adaptive_dist_grad",
+    "adaptive_dist2_grad",
+    "adaptive_dist3_grad",
+    "adaptive_dist_general_grad")
   
   # source the python script into the main python module
-  py_run_string(
-"
+  py_run_string(glue(
+    "
 import numba 
 import numpy as np
 import warnings
+
+from umap import distances as dist
+py_metric='{metric}' 
+py_dist = dist.named_distances_with_gradients[py_metric]
 warnings.filterwarnings('ignore')
 @numba.njit(fastmath=True)
-def adaptive_euclidean_grad(x, y):
+def adaptive_dist_grad(x, y):
     result = 0.0
     npcs = int((len(x)-1)/2)
     if x[0] != y[0]:
-        for i in range(1,(npcs+1)):
-            result += (x[i] - y[i]) ** 2
-        d = np.sqrt(result)
-        grad = [(x[i]-y[i])/ (1e-6 + d) for i in range(1,(npcs+1))]
+        d,grad = py_dist(x[1:(npcs+1)],y[1:(npcs+1)])
     else:
-        for i in range((npcs+1),(2*npcs+1)):
-            result += (x[i] - y[i]) ** 2
-        d = np.sqrt(result)
-        grad = [(x[i]-y[i])/ (1e-6 + d) for i in range((npcs+1),(2*npcs+1))]
+        d,grad = py_dist(x[(npcs+1):(2*npcs+1)],y[(npcs+1):(2*npcs+1)])
     return d, grad
 
 @numba.njit(fastmath=True)
-def adaptive_euclidean2_grad(x, y):
+def adaptive_dist2_grad(x, y):
     result = 0.0
     npcs = int((len(x)-2)/3)
     if x[0] != y[0]:
-        for i in range(2,(npcs+2)):
-            result += (x[i] - y[i]) ** 2
-        d = np.sqrt(result)
-        grad = [(x[i]-y[i])/ (1e-6 + d) for i in range(2,(npcs+2))]
-            
+        d,grad = py_dist(x[2:(npcs+2)],y[2:(npcs+2)])
     else:
         if x[1] != y[1] or x[1] == -1:
-            for i in range((npcs+2),(2*npcs+2)):
-                result += (x[i] - y[i]) ** 2
-            d = np.sqrt(result)
-            grad = [(x[i]-y[i])/ (1e-6 + d) for i in range((npcs+2),(2*npcs+2))]
+            d,grad = py_dist(x[(npcs+2):(2*npcs+2)],y[(npcs+2):(2*npcs+2)])
         else:
-            for i in range((2*npcs+2),(3*npcs+2)):
-                result += (x[i] - y[i]) ** 2
-            d = np.sqrt(result)
-            grad = [(x[i]-y[i])/ (1e-6 + d) for i in range((2*npcs+2),(3*npcs+2))]
-
+            d,grad = py_dist(x[(2*npcs+2):(3*npcs+2)],y[(2*npcs+2):(3*npcs+2)])
     return d, grad 
 
 @numba.njit(fastmath=True)
-def adaptive_euclidean3_grad(x, y):
+def adaptive_dist3_grad(x, y):
     
     result = 0.0
     npcs = int((len(x)-3)/4)
     if x[0] != y[0]:
-        for i in range(3,(npcs+3)):
-            result += (x[i] - y[i]) ** 2
-        d = np.sqrt(result)
-        grad = [(x[i]-y[i])/ (1e-6 + d) for i in range(3,(npcs+3))]
-            
+        d,grad = py_dist(x[3:(npcs+3)],y[3:(npcs+3)])
     else:
         if x[1] != y[1] or x[1] == -1:
-            for i in range((npcs+3),(2*npcs+3)):
-                result += (x[i] - y[i]) ** 2
-            d = np.sqrt(result)
-            grad = [(x[i]-y[i])/ (1e-6 + d) for i in range((npcs+3),(2*npcs+3))]
+            d,grad = py_dist(x[(npcs+3):(2*npcs+3)],y[(npcs+3):(2*npcs+3)])
         else:
             if x[2] != y[2] or x[2] == -1:
-                for i in range((2*npcs+3),(3*npcs+3)):
-                    result += (x[i] - y[i]) ** 2
-                d = np.sqrt(result)
-                grad = [(x[i]-y[i])/ (1e-6 + d) for i in range((2*npcs+3),(3*npcs+3))]
+                d,grad = py_dist(x[(2*npcs+3):(3*npcs+3)],y[(2*npcs+3):(3*npcs+3)])
             else:
-                for i in range((3*npcs+3),(4*npcs+3)):
-                    result += (x[i] - y[i]) ** 2
-                d = np.sqrt(result)
-                grad = [(x[i]-y[i])/ (1e-6 + d) for i in range((3*npcs+3),(4*npcs+3))]
+                d,grad = py_dist(x[(3*npcs+3):(4*npcs+3)],y[(3*npcs+3):(4*npcs+3)])
     return d, grad
 
 @numba.njit(fastmath=True)
-def adaptive_euclidean_general_grad(x, y):
+def adaptive_dist_general_grad(x, y):
     result = 0.0
     num_layer = x[0]
     npcs = int((len(x)-num_layer)/num_layer)
@@ -624,22 +608,17 @@ def adaptive_euclidean_general_grad(x, y):
     for layer in range(1,num_layer):
         if x[layer] != y[layer]:
             print(layer)
-            for i in range(((layer-1)*npcs+num_layer),(layer*npcs+num_layer)):
-                print(i)
-                result += (x[i] - y[i]) ** 2
+            d,grad = py_dist(x[((layer-1)*npcs+num_layer):(layer*npcs+num_layer)],y[((layer-1)*npcs+num_layer):(layer*npcs+num_layer)])
             processed = True
             break
     if not processed:
-        for i in range(((num_layer-1)*npcs+num_layer),(num_layer*npcs+num_layer)):
-            result += (x[i] - y[i]) ** 2
-    d = np.sqrt(result)
-    grad = 0
-    return d, 0
-
-"  
-  ,local = FALSE, convert = TRUE)
+        d,grad=py_dist(x[((num_layer-1)*npcs+num_layer):(num_layer*npcs+num_layer)],y[((num_layer-1)*npcs+num_layer):(num_layer*npcs+num_layer)])
+         
+    return d, grad
+")  
+    ,local = FALSE, convert = TRUE)
   
-
+  
   # copy objects from the main python module into the specified R environment
   py_main <- import_main(convert = TRUE)
   py_main_dict <- py_get_attr(py_main, "__dict__")
@@ -656,17 +635,17 @@ def adaptive_euclidean_general_grad(x, y):
     n.epochs <- as.integer(x = n.epochs)
   }
   
-  if (metric == "euclidean"){
-    adaptive_metric<-adaptive_euclidean_grad
+  if (metric_count == 1){
+    adaptive_metric<-adaptive_dist_grad
   }
-  if (metric == "euclidean2"){
-    adaptive_metric<-adaptive_euclidean2_grad
+  if (metric_count == 2){
+    adaptive_metric<-adaptive_dist2_grad
   }
-  if (metric == "euclidean3"){
-    adaptive_metric<-adaptive_euclidean3_grad
+  if (metric_count == 3){
+    adaptive_metric<-adaptive_dist3_grad
   }
-  if (metric == "euclidean_general"){
-    adaptive_metric<-adaptive_euclidean_general_grad
+  if (metric_count == 4){
+    adaptive_metric<-adaptive_dist_general_grad
   }
   umap_import <- import(module = "umap", delay_load = TRUE)
   umap <- umap_import$UMAP(
@@ -697,6 +676,8 @@ def adaptive_euclidean_general_grad(x, y):
 
 
 #
+
+
 get_umap_embedding_adjust<-function(
   pca_embedding,
   pca_center,
@@ -706,6 +687,7 @@ get_umap_embedding_adjust<-function(
   N_label,
   cluster_,
   label_index,
+  distance_metric = "euclidean",
   scale_factor =1,
   rotate = TRUE,
   seed.use = 42
@@ -761,7 +743,7 @@ get_umap_embedding_adjust<-function(
       X = pca_dist,
       n_neighbors = as.integer(x = N_label-1),
       n_components = as.integer(x =2L),
-      metric = 'euclidean',
+      metric = distance_metric,
       learning_rate = 1.0,
       min_dist = 0.3,
       spread =  1.0,
@@ -904,6 +886,7 @@ get_umap_embedding_adjust<-function(
 adjustUMAP<-function(
   pca_embedding,
   umap_embedding,
+  distance_metric = "euclidean",
   scale_factor =1,
   rotate = TRUE,
   seed.use = 42,
@@ -919,7 +902,9 @@ adjustUMAP<-function(
   
   N_label<-length(unique(cluster_))
   label_index<-sort(unique(cluster_))
-  
+  if(N_label <= 2){
+    return(umap_embedding)
+  }
   pca_center<-t(sapply(1:N_label, function(i){
     
     index_i<-which(cluster_ == label_index[i])
@@ -947,6 +932,7 @@ adjustUMAP<-function(
     pca_center=pca_center,
     pca_anchor_index=pca_anchor_index,
     pca_dist=pca_dist,
+    distance_metric=distance_metric,
     umap_embedding=umap_embedding,
     N_label=N_label,
     cluster_ = cluster_,
@@ -998,6 +984,7 @@ adjustUMAP<-function(
       pca_center=pca_center,
       pca_anchor_index=pca_anchor_index,
       pca_dist=pca_dist,
+      distance_metric=distance_metric,
       umap_embedding=umap_embedding,
       N_label=N_label,
       cluster_ = cluster_,
@@ -1038,7 +1025,7 @@ adjustUMAP<-function(
       }
       while (N_label3 != N_label & cur_iter < maxit_push) {
         cur_iter<-cur_iter+1
-        print(cur_iter)
+        #print(cur_iter)
         for (i in 1:length(bad_index)){
           pos<-min(bad_index[[i]])
           other_pos<-bad_index[[i]][bad_index[[i]]>pos]
@@ -1642,6 +1629,7 @@ FormAdaptiveCombineList<-function(
   npcs,
   nfeatures,
   process_min_size,
+  differentail_gene_cutoff = 20,
   do_cluster = TRUE,
   cluster_label = NULL,
   check_differential =TRUE,
@@ -1656,6 +1644,7 @@ FormAdaptiveCombineList<-function(
   if(nrow(expr_matrix_pca)!=ncol(expr_matrix)){
     stop("expr_matrix_pca and expr_matrix do not match")
   }
+  N_gene<-nrow(expr_matrix)
   if(is.null(cluster_label[1])){
     do_cluster<-TRUE
   }
@@ -1722,20 +1711,43 @@ FormAdaptiveCombineList<-function(
       cur_label<- N_label
       while(cur_label>1){
         for (i in 1:(cur_label-1)){
-          #print(paste0("Current:",label_index[i],"vs",label_index[cur_label]))
+          print(paste0("Current:",label_index[i],"vs",label_index[cur_label]))
           index_1<-which(cluster_label == label_index[i])
           index_2<-which(cluster_label == label_index[cur_label])
-          S<-cbind(expr_matrix[,index_1],expr_matrix[,index_2])
-          S<-CreateSeuratObject(S)
-          label_diff<-c(rep(0,length(index_1)),rep(1,length(index_2)))
-          Idents(S)<-factor(label_diff)
-          .<-capture.output(marker_diff<-FindMarkers(S,
-            test.use = "t",
-            ident.1 = unique(S@active.ident)[1],
-            ident.2 =  unique(S@active.ident)[2]))
+          #S<-cbind(expr_matrix[,index_1],expr_matrix[,index_2])
+          #S<-CreateSeuratObject(S)
+          #label_diff<-c(rep(0,length(index_1)),rep(1,length(index_2)))
+          #Idents(S)<-factor(label_diff)
+          #.<-capture.output(marker_diff<-FindMarkers(S,
+          #  test.use = "t",
+          #  ident.1 = unique(S@active.ident)[1],
+          # ident.2 =  unique(S@active.ident)[2]))
           #print(sum(marker_diff[,5]<0.05))
-          if (sum(marker_diff[,5]<=0.05) < 5){
-            #print(paste0("Don't find differential genes between",label_index[i],"vs",label_index[cur_label]))
+          #if (sum(marker_diff[,5]<=0.05) < 5){
+          #print(paste0("Don't find differential genes between",label_index[i],"vs",label_index[cur_label]))
+          #  cluster_label[index_2]<-label_index[i]
+          #  label_index<-sort(as.numeric(
+          #    unique(as.character(cluster_label))))
+          #  N_label<-length(label_index)
+          #  break
+          #}
+          cur_differential_gene<-0
+          cur_gene<-1
+          while (cur_differential_gene < differentail_gene_cutoff & 
+              cur_gene <= N_gene){
+            t_res<-t.test(expr_matrix[cur_gene,index_1],
+              expr_matrix[cur_gene,index_2])
+            t_rest_res<<-t_res
+            if (is.na(t_res$p.value)){
+              t_res$p.value<-1
+            }
+            if (t_res$p.value <0.05){
+              cur_differential_gene <- cur_differential_gene+1
+            }
+            cur_gene<-cur_gene+1
+          }
+          if(cur_differential_gene < differentail_gene_cutoff){
+            print(paste0("Don't find differential genes between",label_index[i],"vs",label_index[cur_label]))
             cluster_label[index_2]<-label_index[i]
             label_index<-sort(as.numeric(
               unique(as.character(cluster_label))))
@@ -1877,6 +1889,7 @@ FormAdaptiveCombineList<-function(
     return(newList)
   }
 }
+
 
 
 #' adaDimPlot
