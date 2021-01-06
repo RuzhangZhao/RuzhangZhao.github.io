@@ -2034,3 +2034,141 @@ ARIEvaluate<-function(
 
 
 
+#################################################################################
+######## This is some extra functions
+newUmapPlot<-function(expr_pca_combined,
+  cell_label= NULL,
+  cluster_ = FALSE,
+  cluster_label=NULL,
+  label_legend =TRUE,
+  pt.size=0){
+  set.seed(42)
+  combinedPC_umap <-
+    uwot::umap(
+      X = expr_pca_combined,
+      a = 1.8956, 
+      b = 0.8006, 
+      approx_pow = TRUE, 
+      init = "spca"
+    )
+  
+  combinedPC_umap<-
+    data.frame(combinedPC_umap)
+  
+  colnames(combinedPC_umap) <- 
+    c("UMAP_1","UMAP_2")
+  
+  if(is.null(cell_label)){
+    return(combinedPC_umap)
+  }
+  combinedPC_umap$label<-factor(cell_label)
+  qual_col_pals <- RColorBrewer::brewer.pal.info[RColorBrewer::brewer.pal.info$category 
+    == 'qual',]
+  col_vector <- unlist(mapply(RColorBrewer::brewer.pal, 
+    qual_col_pals$maxcolors,rownames(qual_col_pals)))
+  
+  
+  gg<-ggplot(combinedPC_umap)+
+    geom_point(aes(x = UMAP_1, 
+      y = UMAP_2,
+      color = label),
+      size = pt.size)+
+    theme(legend.title = element_blank())+
+    theme(panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(), 
+      panel.background = element_blank(), 
+      axis.line = element_line(colour = "black"), 
+      legend.key=element_blank())+
+    guides(color = guide_legend(override.aes =
+        list(size=3)))+
+    scale_colour_manual(values = 
+        col_vector[c(1:length(unique(cell_label)))])
+  #+theme(legend.position="none")
+  if(!label_legend){
+    gg<-gg+theme(legend.position="none")
+  }else{
+    centers<-dplyr::group_by(combinedPC_umap,label) 
+    centers<-dplyr::summarize(centers,x = median(x = UMAP_1),
+      y = median(x = UMAP_2),.groups = 'drop')
+    
+    gg <- gg +
+      ggrepel::geom_text_repel(data = centers, 
+        mapping = aes(x = x, y = y, 
+          label = label), size = 4)
+  }
+  #combinedPC_umap[,c(1,2,which(colnames(
+  #  combinedPC_umap) == "label"))] %>%
+  #  dplyr::group_by(label) %>%
+  #  summarize(x = median(x = UMAP_1),
+  #    y = median(x = UMAP_2)) -> centers
+  
+  
+  if (cluster_){
+    combinedPC_umap$cluster_label<-
+      factor(cluster_label)
+    gg1<-ggplot(combinedPC_umap)+
+      geom_point(aes(x = UMAP_1, 
+        y = UMAP_2,color = cluster_label),
+        size = pt.size)+theme(legend.title =
+            element_blank())+
+      theme(panel.grid.major = 
+          element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(), 
+        axis.line = element_line(colour = 
+            "black"), 
+        legend.key=element_blank())+
+      guides(color = guide_legend(override.aes = 
+          list(size=3)))+
+      theme(legend.position="none")
+    
+    combinedPC_umap[,c(1,2,which(colnames(
+      combinedPC_umap) == "cluster_label"))] %>%
+      dplyr::group_by(cluster_label) %>%
+      summarize(x = mean(x = UMAP_1), 
+        y = mean(x = UMAP_2),.groups = 'drop') -> centers
+    
+    gg1 <- gg1 +
+      geom_text(data = centers, 
+        mapping = aes(x = x, y = y, 
+          label = cluster_label), 
+        size = 4)
+    newList<-list("umap"=gg,
+      "cluster"=gg1,
+      "data"=combinedPC_umap[,c(1,2)])
+    return(newList)
+  }else{
+    newList<-list("umap"=gg,
+      "data"=combinedPC_umap[,c(1,2)])
+    return(newList)
+  }
+}
+
+RunOrPCA<-function(expr_matrix,count = T,npcs=10,nfeatures=2000){
+  if(count){
+    expr_matrix<-NormalizeData(
+      expr_matrix,
+      verbose = F)
+  }
+  expr_matrix_hvg <- FindVariableFeatures(
+    expr_matrix,
+    verbose = F)$vst.variance.standardized
+  hvg<- nth(x = expr_matrix_hvg,
+    k = nfeatures,
+    num.of.nths = 2,
+    descending = T,
+    index.return = T)[,1]
+  
+  expr_matrix<-expr_matrix[hvg,]
+  expr_matrix <- ScaleData(
+    expr_matrix,
+    verbose = F)
+  suppressWarnings(expr_matrix_pca <- RunPCA(
+    object = expr_matrix,
+    features = rownames(expr_matrix),
+    npcs = npcs,
+    verbose = F)@cell.embeddings)
+  rm(expr_matrix)
+  expr_matrix_pca<-data.frame(expr_matrix_pca)
+  return(expr_matrix_pca)
+}
