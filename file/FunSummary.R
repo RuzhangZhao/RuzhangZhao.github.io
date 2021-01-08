@@ -889,7 +889,7 @@ adjustUMAP<-function(
   pca_embedding,
   umap_embedding,
   distance_metric = "euclidean",
-  scale_factor =1,
+  scale_factor =0.9,
   rotate = TRUE,
   seed.use = 42,
   min_size = 200,
@@ -937,10 +937,9 @@ adjustUMAP<-function(
   prop_<-exp(cluster_size/max(cluster_size))/
     max(exp(cluster_size/max(cluster_size)))
   for(i in 1:N_label){
-    pca_dist1[,i]<-pca_dist1[,i]*prop_[i]
-    pca_dist1[i,]<-pca_dist1[i,]*prop_[i]
+    pca_dist1[,i]<-pca_dist1[,i]#*prop_[i]
+    pca_dist1[i,]<-pca_dist1[i,]#*prop_[i]
   }
-  pca_dist1<-pca_dist1/10
   #pca_dist_vec<-c(pca_dist1[pca_dist1>0])
   #pca_dist_cluster<-Ckmeans.1d.dp(pca_dist_vec,k = 2)
   
@@ -2126,6 +2125,7 @@ newUmapPlot<-function(expr_pca_combined,
   cluster_ = FALSE,
   cluster_label=NULL,
   label_legend =TRUE,
+  min.dist = 0.01,
   pt.size=0){
   set.seed(42)
   combinedPC_umap <-
@@ -2133,8 +2133,9 @@ newUmapPlot<-function(expr_pca_combined,
       X = expr_pca_combined,
       a = 1.8956, 
       b = 0.8006, 
+      metric = "cosine",
+      min_dist = min.dist,
       approx_pow = TRUE, 
-      init = "spca"
     )
   
   combinedPC_umap<-
