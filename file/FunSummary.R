@@ -975,7 +975,7 @@ adjustUMAP<-function(
   for(i in 1:N_label){
     index_i<-which(cluster_ == label_index[i])
     cur_umap<-umap_embedding[index_i,]
-    umap_embedding[index_i,]<-t((t(cur_umap)-as.numeric(colMeans(cur_umap)))*min(2,prop_density[i])+as.numeric(colMeans(cur_umap)))
+    umap_embedding[index_i,]<-t((t(cur_umap)-as.numeric(colMeans(cur_umap)))*min(5,prop_density[i])+as.numeric(colMeans(cur_umap)))
   }
   
   pca_center<-t(sapply(1:N_label, function(i){
