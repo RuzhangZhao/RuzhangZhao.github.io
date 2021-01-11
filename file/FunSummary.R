@@ -791,7 +791,7 @@ get_umap_embedding_adjust<-function(
         min_dist = 0.3,
         spread =  1.0,
         set_op_mix_ratio =  1.0,
-        local_connectivity =  max(1,N_label-1),
+        local_connectivity =  1.0,
         repulsion_strength = 1,
         negative_sample_rate = 5,
         fast_sgd = FALSE
