@@ -793,7 +793,7 @@ get_umap_embedding_adjust<-function(
         set_op_mix_ratio =  1.0,
         local_connectivity =  max(1,N_label-1),
         repulsion_strength = 1,
-        negative_sample_rate = 1,
+        negative_sample_rate = 5,
         fast_sgd = FALSE
       )
   }else if (adjust_method == "MDS"){
