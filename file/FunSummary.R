@@ -1001,12 +1001,12 @@ adjustUMAP<-function(
   pca_dist1<-Dist(pca_center)
   
   index_<-which(cluster_size < N_sample*0.1)
-  prop_<-exp(cluster_size/max(cluster_size))/
-    max(exp(cluster_size/max(cluster_size)))
-  for(i in 1:N_label){
-    pca_dist1[,i]<-pca_dist1[,i]*prop_[i]
-    pca_dist1[i,]<-pca_dist1[i,]*prop_[i]
-  }
+  #prop_<-exp(cluster_size/max(cluster_size))/
+  #  max(exp(cluster_size/max(cluster_size)))
+  #for(i in 1:N_label){
+  #  pca_dist1[,i]<-pca_dist1[,i]*prop_[i]
+  #  pca_dist1[i,]<-pca_dist1[i,]*prop_[i]
+  #}
   
   #pca_dist_vec<-c(pca_dist1[pca_dist1>0])
   #pca_dist_cluster<-Ckmeans.1d.dp(pca_dist_vec,k = 2)
