@@ -971,12 +971,12 @@ adjustUMAP<-function(
     sample_local_dist<-Dist(umap_embedding[sample_index_i,])
     mean(c(sample_global_dist))/mean(c(sample_local_dist))
   })
-  print(prop_density)
-  for(i in 1:N_label){
-    index_i<-which(cluster_ == label_index[i])
-    cur_umap<-umap_embedding[index_i,]
-    umap_embedding[index_i,]<-t((t(cur_umap)-as.numeric(colMeans(cur_umap)))*min(2,prop_density[i])+as.numeric(colMeans(cur_umap)))
-  }
+  #print(prop_density)
+  #for(i in 1:N_label){
+  #  index_i<-which(cluster_ == label_index[i])
+  #  cur_umap<-umap_embedding[index_i,]
+  #  umap_embedding[index_i,]<-t((t(cur_umap)-as.numeric(colMeans(cur_umap)))*min(2,prop_density[i])+as.numeric(colMeans(cur_umap)))
+  #}
   
   pca_center<-t(sapply(1:N_label, function(i){
     
