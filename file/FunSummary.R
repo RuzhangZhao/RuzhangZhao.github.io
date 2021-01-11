@@ -1175,7 +1175,7 @@ adjustUMAP<-function(
       }
       
     }}
-  
+  return(umap_embedding_adjust)
   snn_<- FindNeighbors(object = umap_embedding_adjust,
     verbose = F)$snn
   cluster_ <- FindClusters(snn_,
