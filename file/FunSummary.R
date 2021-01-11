@@ -53,6 +53,7 @@ savis<-function(
   verbose_more = FALSE,
   run_adaUMAP = TRUE,
   adjust_UMAP = TRUE,
+  adjust_method = "umap",
   adjust_rotate = TRUE,
   check_differential = TRUE,
   seed.use = 42L
@@ -252,9 +253,17 @@ savis<-function(
             print("Adjusting UMAP...")
             setTxtProgressBar(pb = pb, value = 18)
           }
+          expr_matrix_umap<-umap(
+            X = expr_matrix_pca,
+            a = 1.8956, 
+            b = 0.8006, 
+            metric = distance_metric
+          )
           umap_embedding<-adjustUMAP(
             pca_embedding = expr_matrix_pca,
             umap_embedding = umap_embedding,
+            global_umap_embedding = expr_matrix_umap,
+            adjust_method = adjust_method,
             rotate = adjust_rotate,
             seed.use = seed.use)
         }
@@ -307,9 +316,17 @@ savis<-function(
               print("Adjusting UMAP...")
               setTxtProgressBar(pb = pb, value = 18)
             }
+            expr_matrix_umap<-umap(
+              X = expr_matrix_pca,
+              a = 1.8956, 
+              b = 0.8006, 
+              metric = distance_metric
+            )
             umap_embedding<-adjustUMAP(
               pca_embedding = expr_matrix_pca,
               umap_embedding = umap_embedding,
+              global_umap_embedding = expr_matrix_umap,
+              adjust_method = adjust_method,
               rotate = adjust_rotate,
               seed.use = seed.use)
           }
@@ -362,9 +379,17 @@ savis<-function(
               print("Adjusting UMAP...")
               setTxtProgressBar(pb = pb, value = 18)
             }
+            expr_matrix_umap<-umap(
+              X = expr_matrix_pca,
+              a = 1.8956, 
+              b = 0.8006, 
+              metric = distance_metric
+            )
             umap_embedding<-adjustUMAP(
               pca_embedding = expr_matrix_pca,
               umap_embedding = umap_embedding,
+              global_umap_embedding = expr_matrix_umap,
+              adjust_method = adjust_method,
               rotate = adjust_rotate,
               seed.use = seed.use)
           }
@@ -413,9 +438,17 @@ savis<-function(
               print("Adjusting UMAP...")
               setTxtProgressBar(pb = pb, value = 18)
             }
+            expr_matrix_umap<-umap(
+              X = expr_matrix_pca,
+              a = 1.8956, 
+              b = 0.8006, 
+              metric = distance_metric
+            )
             umap_embedding<-adjustUMAP(
               pca_embedding = expr_matrix_pca,
               umap_embedding = umap_embedding,
+              global_umap_embedding = expr_matrix_umap,
+              adjust_method = adjust_method,
               rotate = adjust_rotate,
               seed.use = seed.use)
           }
@@ -468,9 +501,17 @@ savis<-function(
           print("Adjusting UMAP...")
           setTxtProgressBar(pb = pb, value = 18)
         }
+        expr_matrix_umap<-umap(
+          X = expr_matrix_pca,
+          a = 1.8956, 
+          b = 0.8006, 
+          metric = distance_metric
+        )
         umap_embedding<-adjustUMAP(
           pca_embedding = expr_matrix_pca,
           umap_embedding = umap_embedding,
+          global_umap_embedding = expr_matrix_umap,
+          adjust_method = adjust_method,
           rotate = adjust_rotate,
           seed.use = seed.use)
       }
@@ -688,6 +729,7 @@ get_umap_embedding_adjust<-function(
   N_label,
   cluster_,
   label_index,
+  adjust_method = "umap",
   distance_metric = "euclidean",
   scale_factor =1,
   rotate = TRUE,
@@ -737,24 +779,28 @@ get_umap_embedding_adjust<-function(
     R2to1[1,2]<- -R2to1[2,1]
     R2to1
   }
-  
-  set.seed(seed.use)
-  #umap_center <-
-  #umap(
-  #  X = pca_dist,
-  #  n_neighbors = as.integer(x = N_label-1),
-  #  n_components = as.integer(x =2L),
-  #  metric = distance_metric,
-  #  learning_rate = 1.0,
-  #  min_dist = 0.3,
-  #  spread =  1.0,
-  #  set_op_mix_ratio =  1.0,
-  # local_connectivity =  max(1,N_label-1),
-  #  repulsion_strength = 1,
-  #  negative_sample_rate = 1,
-  #  fast_sgd = FALSE
-  #)
-  umap_center<-isoMDS(pca_dist)$points
+  if (adjust_method == "umap"){
+    set.seed(seed.use)
+    umap_center <-
+      umap(
+        X = pca_dist,
+        n_neighbors = as.integer(x = N_label-1),
+        n_components = as.integer(x =2L),
+        metric = distance_metric,
+        learning_rate = 1.0,
+        min_dist = 0.3,
+        spread =  1.0,
+        set_op_mix_ratio =  1.0,
+        local_connectivity =  max(1,N_label-1),
+        repulsion_strength = 1,
+        negative_sample_rate = 1,
+        fast_sgd = FALSE
+      )
+  }else if (adjust_method == "MDS"){
+    umap_center<-isoMDS(pca_dist)$points 
+  }else{
+    stop("wrong adjust method")
+  }
   colnames(umap_center)<-c("UMAP_1","UMAP_2")
   umap_center<-data.frame(umap_center)
   sf1<-(max(umap_embedding[,1])-min(umap_embedding[,1]))/(max(umap_center[,1]) -min(umap_center[,1]))
@@ -888,13 +934,18 @@ get_umap_embedding_adjust<-function(
 adjustUMAP<-function(
   pca_embedding,
   umap_embedding,
+  global_umap_embedding = NULL,
+  adjust_method = "umap",
   distance_metric = "euclidean",
-  scale_factor =0.9,
+  scale_factor =1,
   rotate = TRUE,
   seed.use = 42,
-  min_size = 200,
+  min_size = 100,
   maxit_push = NULL
 ){
+  if(is.null(global_umap_embedding)){
+    global_umap_embedding<-umap_embedding
+  }
   snn_<- FindNeighbors(object = umap_embedding,
     verbose = F)$snn
   cluster_ <- FindClusters(snn_,
@@ -911,6 +962,22 @@ adjustUMAP<-function(
     sum(cluster_==label_index[i])
   })
   N_sample<-nrow(pca_embedding)
+  
+  prop_density<-sapply(1:N_label, function(i){
+    index_i<-which(cluster_ == label_index[i])
+    set.seed(seed.use)
+    sample_index_i<-sample(index_i,min(min_size,length(index_i)) )
+    sample_global_dist<-Dist(global_umap_embedding[sample_index_i,])
+    sample_local_dist<-Dist(umap_embedding[sample_index_i,])
+    mean(c(sample_global_dist))/mean(c(sample_local_dist))
+  })
+  print(prop_density)
+  for(i in 1:N_label){
+    index_i<-which(cluster_ == label_index[i])
+    cur_umap<-umap_embedding[index_i,]
+    umap_embedding[index_i,]<-t((t(cur_umap)-as.numeric(colMeans(cur_umap)))*min(2,prop_density[i])+as.numeric(colMeans(cur_umap)))
+  }
+  
   pca_center<-t(sapply(1:N_label, function(i){
     
     index_i<-which(cluster_ == label_index[i])
@@ -940,6 +1007,7 @@ adjustUMAP<-function(
     pca_dist1[,i]<-pca_dist1[,i]*prop_[i]
     pca_dist1[i,]<-pca_dist1[i,]*prop_[i]
   }
+  
   #pca_dist_vec<-c(pca_dist1[pca_dist1>0])
   #pca_dist_cluster<-Ckmeans.1d.dp(pca_dist_vec,k = 2)
   
@@ -957,6 +1025,7 @@ adjustUMAP<-function(
     pca_center=pca_center,
     pca_anchor_index=pca_anchor_index,
     pca_dist=pca_dist,
+    adjust_method = adjust_method,
     distance_metric=distance_metric,
     umap_embedding=umap_embedding,
     N_label=N_label,
@@ -1007,6 +1076,7 @@ adjustUMAP<-function(
       pca_center=pca_center,
       pca_anchor_index=pca_anchor_index,
       pca_dist=pca_dist,
+      adjust_method = adjust_method,
       distance_metric=distance_metric,
       umap_embedding=umap_embedding,
       N_label=N_label,
