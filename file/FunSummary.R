@@ -14,6 +14,7 @@ library(utils)
 library(uwot)
 library(glue)
 library(MASS)
+library(cluster)
 #' savis
 #'
 #' savis: single-cell RNAseq adaptive visualiztaion
@@ -939,12 +940,15 @@ adjustUMAP<-function(
   distance_metric = "euclidean",
   scale_factor = 0.9,
   rotate = TRUE,
+  density_adjust = TRUE,
+  shrink_distance = FALSE,
   seed.use = 42,
   min_size = 100,
   maxit_push = NULL
 ){
   if(is.null(global_umap_embedding)){
     global_umap_embedding<-umap_embedding
+    density_adjust<-FALSE
   }
   snn_<- FindNeighbors(object = umap_embedding,
     verbose = F)$snn
@@ -962,32 +966,29 @@ adjustUMAP<-function(
     sum(cluster_==label_index[i])
   })
   N_sample<-nrow(pca_embedding)
-  
-  prop_density<-sapply(1:N_label, function(i){
-    index_i<-which(cluster_ == label_index[i])
-    set.seed(seed.use)
-    sample_index_i<-sample(index_i,min(min_size,length(index_i)) )
-    sample_global_dist<-Dist(global_umap_embedding[sample_index_i,])
-    sample_local_dist<-Dist(umap_embedding[sample_index_i,])
-    mean(c(sample_global_dist))/mean(c(sample_local_dist))
-  })
-  print(prop_density)
-  for(i in 1:N_label){
-    index_i<-which(cluster_ == label_index[i])
-    cur_umap<-umap_embedding[index_i,]
-    umap_embedding[index_i,]<-t((t(cur_umap)-as.numeric(colMeans(cur_umap)))*min(5,prop_density[i])+as.numeric(colMeans(cur_umap)))
+  if (density_adjust){
+    prop_density<-sapply(1:N_label, function(i){
+      index_i<-which(cluster_ == label_index[i])
+      set.seed(seed.use)
+      sample_index_i<-sample(index_i,min(min_size,length(index_i)) )
+      sample_global_dist<-Dist(global_umap_embedding[sample_index_i,])
+      sample_local_dist<-Dist(umap_embedding[sample_index_i,])
+      mean(c(sample_global_dist))/mean(c(sample_local_dist))
+    })
+    for(i in 1:N_label){
+      index_i<-which(cluster_ == label_index[i])
+      cur_umap<-umap_embedding[index_i,]
+      umap_embedding[index_i,]<-t((t(cur_umap)-as.numeric(colMeans(cur_umap)))*min(2,prop_density[i])+as.numeric(colMeans(cur_umap)))
+    }
   }
   
   pca_center<-t(sapply(1:N_label, function(i){
-    
     index_i<-which(cluster_ == label_index[i])
-    
     colMeans(as.matrix(pca_embedding[index_i,]))
   }))
   
   
   pca_anchor_index<-lapply(1:N_label, function(i){
-    #print(label_index[i])
     index_i<-which(cluster_ == label_index[i])
     set.seed(seed.use)
     sample_index_i<-sample(index_i,min(min_size,length(index_i)) )
@@ -1007,18 +1008,32 @@ adjustUMAP<-function(
     pca_dist1[,i]<-pca_dist1[,i]*prop_[i]
     pca_dist1[i,]<-pca_dist1[i,]*prop_[i]
   }
+  if(adjust_method == "MDS"& shrink_distance){
+    pam_res<-pam(x = pca_dist1,k = 2)
+    
+    var_1<-sum(pca_center[which(pam_res$clustering==1),]^2)/sum(pam_res$clustering==1)
+    var_2<-sum(pca_center[which(pam_res$clustering==2),]^2)/sum(pam_res$clustering==2)
+    
+    if(var_1 >= var_2){
+      clu1<-1
+      clu2<-2
+    }else{
+      clu1<-2
+      clu2<-1
+    }
+    index_clu1<-which(pam_res$clustering==clu1)
+    index_clu2<-which(pam_res$clustering==clu2)
+    for( i in index_clu1){
+      closed_dist<-min(pca_dist1[i,index_clu2])
+      pca_dist1[i,-i]<-pca_dist1[i,-i] - closed_dist*2/3
+      if(sum(pca_dist1[i,-i]<0)>0){
+        index_neg<-which(pca_dist1[i,-i]<0)
+        pca_dist1[i,index_neg]<-min(pca_dist1[i,which(pca_dist1[i,]>0)])
+      }
+      pca_dist1[,i]<-pca_dist1[i,]
+    }
+  }
   
-  #pca_dist_vec<-c(pca_dist1[pca_dist1>0])
-  #pca_dist_cluster<-Ckmeans.1d.dp(pca_dist_vec,k = 2)
-  
-  #if(max(pca_dist_vec[pca_dist_cluster$cluster==1])*1.5<
-  #    min(pca_dist_vec[pca_dist_cluster$cluster==2])){
-  
-  #  pca_dist1[pca_dist1 > min(pca_dist_vec[pca_dist_cluster$cluster==2])]<- 
-  #    pca_dist1[pca_dist1 > min(pca_dist_vec[pca_dist_cluster$cluster==2])] +
-  #    (max(pca_dist_vec[pca_dist_cluster$cluster==1])-
-  #    min(pca_dist_vec[pca_dist_cluster$cluster==2]))
-  #}
   pca_dist<-as.dist(pca_dist1)
   step1_res<-get_umap_embedding_adjust(
     pca_embedding=pca_embedding,
@@ -1243,7 +1258,6 @@ adjustUMAP<-function(
     return(umap_embedding_adjust4)
   }
 }
-
 
 #' ScaleFactor
 #'
