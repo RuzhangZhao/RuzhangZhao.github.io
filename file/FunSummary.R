@@ -940,7 +940,6 @@ adjustUMAP<-function(
   distance_metric = "euclidean",
   scale_factor = 0.9,
   rotate = TRUE,
-  density_adjust = TRUE,
   shrink_distance = TRUE,
   seed.use = 42,
   min_size = 100,
@@ -1093,8 +1092,9 @@ adjustUMAP<-function(
   cluster_1 <- as.numeric(as.character(cluster_1))
   
   N_label1<-length(unique(cluster_1))
-  if ( N_label1 != N_label){
+  if (N_label1 < N_label){
     ## First Adjustment
+    print("first")
     label_index1<-sort(unique(cluster_1))
     
     bad_index<-list()
@@ -1144,8 +1144,9 @@ adjustUMAP<-function(
     cluster_2 <- as.numeric(as.character(cluster_2))
     
     N_label2<-length(unique(cluster_2))
-    if(N_label2 != N_label){
+    if(N_label2 < N_label){
       ## Second Adjustment Push Away
+      print("second")
       label_index2<-sort(unique(cluster_2))
       
       bad_index<-list()
@@ -1163,9 +1164,12 @@ adjustUMAP<-function(
       if(is.null(maxit_push)){
         maxit_push<-N_label
       }
-      while (N_label3 != N_label & cur_iter < maxit_push) {
+      print(N_label)
+      print(N_label2)
+      badbad<<-bad_index
+      while (N_label3 < N_label & cur_iter < maxit_push) {
         cur_iter<-cur_iter+1
-        #print(cur_iter)
+        print(cur_iter)
         for (i in 1:length(bad_index)){
           pos<-min(bad_index[[i]])
           other_pos<-bad_index[[i]][bad_index[[i]]>pos]
@@ -1206,8 +1210,7 @@ adjustUMAP<-function(
         }
         
       }
-      
-      if(N_label3 != N_label){
+      if(N_label3 < N_label){
         print("Use Third")
         ## Third Adjustment Rescale
         for (i in 1:length(bad_index)){
@@ -1223,7 +1226,8 @@ adjustUMAP<-function(
         }
       }
       
-    }}
+    }
+  }
   return(umap_embedding_adjust)
   snn_<- FindNeighbors(object = umap_embedding_adjust,
     verbose = F)$snn
@@ -1263,9 +1267,9 @@ adjustUMAP<-function(
     cluster_4 <- as.numeric(as.character(cluster_4))
     
     N_label4<-length(unique(cluster_4))
-    if(N_label4 != N_label){
+    if(N_label4 < N_label){
       ## Fourth Adjustment
-      while (N_label4 != N_label) {
+      while (N_label4 < N_label) {
         update_prop<-update_prop*2/3
         umap_embedding_adjust4<-umap_embedding_adjust
         if(max(min_dist_vec)> max(min_dist_vec[min_dist_vec<max(min_dist_vec)])*1.5){
