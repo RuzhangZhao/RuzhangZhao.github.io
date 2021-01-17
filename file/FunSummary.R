@@ -941,11 +941,44 @@ adjustUMAP<-function(
   scale_factor = 0.9,
   rotate = TRUE,
   density_adjust = TRUE,
-  shrink_distance = FALSE,
+  shrink_distance = TRUE,
   seed.use = 42,
   min_size = 100,
   maxit_push = NULL
 ){
+  if(adjust_method == "all"){
+    umap_adjust<-adjustUMAP(
+      pca_embedding=pca_embedding,
+      umap_embedding=umap_embedding,
+      global_umap_embedding=global_umap_embedding,
+      adjust_method = "umap",
+      distance_metric =distance_metric,
+      scale_factor = scale_factor,
+      rotate = rotate,
+      density_adjust = density_adjust,
+      shrink_distance = shrink_distance,
+      seed.use = seed.use,
+      min_size = min_size,
+      maxit_push = maxit_push
+    )
+    MDS_adjust<-adjustUMAP(
+      pca_embedding=pca_embedding,
+      umap_embedding=umap_embedding,
+      global_umap_embedding=global_umap_embedding,
+      adjust_method = "MDS",
+      distance_metric =distance_metric,
+      scale_factor = scale_factor,
+      rotate = rotate,
+      density_adjust = density_adjust,
+      shrink_distance = shrink_distance,
+      seed.use = seed.use,
+      min_size = min_size,
+      maxit_push = maxit_push
+    )
+    newList<-list("umap" = umap_adjust,
+      "MDS"=MDS_adjust)
+    return(newList)
+  }
   if(is.null(global_umap_embedding)){
     global_umap_embedding<-umap_embedding
     density_adjust<-FALSE
@@ -1259,6 +1292,7 @@ adjustUMAP<-function(
     return(umap_embedding_adjust4)
   }
 }
+
 
 #' ScaleFactor
 #'
