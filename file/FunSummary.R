@@ -54,7 +54,7 @@ savis<-function(
   verbose_more = FALSE,
   run_adaUMAP = TRUE,
   adjust_UMAP = TRUE,
-  adjust_method = "umap",
+  adjust_method = "all",
   adjust_rotate = TRUE,
   check_differential = TRUE,
   seed.use = 42L
