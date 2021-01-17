@@ -1075,13 +1075,14 @@ adjustUMAP<-function(
       }
     }
     for (i in 1:length(bad_index)){
+      
       pos<-min(bad_index[[i]])
       other_pos<-bad_index[[i]][bad_index[[i]]>pos]
       pos<-pos+1
       other_pos<-other_pos+1
       dist_vec<-pca_dist1[,pos]
-      all_pos<-dist_vec <= max(dist_vec[other_pos])
-      pca_dist1[all_pos,pos]<-min(dist_vec[dist_vec>max(dist_vec[other_pos])])
+      all_pos<- dist_vec <= max(dist_vec[other_pos])
+      pca_dist1[all_pos,pos]<-min(dist_vec[dist_vec>=max(dist_vec[other_pos])])
       pca_dist1[pos,all_pos]<-pca_dist1[all_pos,pos]
     }
     pca_dist<-as.dist(pca_dist1)
