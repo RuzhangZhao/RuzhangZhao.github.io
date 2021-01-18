@@ -762,6 +762,8 @@ get_umap_embedding_adjust<-function(
       umap2<-umap_center2_tmp[i,]
       umap1<-umap1/sqrt(sum(umap1^2))
       umap2<-umap2/sqrt(sum(umap2^2))
+      umap11<<-umap1
+      umap22<<-umap2
       Rumap2toumap1<-rotation(umap2,umap1)
       angle<-acos(Rumap2toumap1[1,1])
       if(Rumap2toumap1[2,1]>=0){
