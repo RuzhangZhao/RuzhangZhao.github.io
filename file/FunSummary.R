@@ -1095,7 +1095,6 @@ adjustUMAP<-function(
   N_label1<-length(unique(cluster_1))
   if (N_label1 < N_label){
     ## First Adjustment
-    print("first")
     label_index1<-sort(unique(cluster_1))
     
     bad_index<-list()
@@ -1147,7 +1146,6 @@ adjustUMAP<-function(
     N_label2<-length(unique(cluster_2))
     if(N_label2 < N_label){
       ## Second Adjustment Push Away
-      print("second")
       label_index2<-sort(unique(cluster_2))
       
       bad_index<-list()
@@ -1165,12 +1163,8 @@ adjustUMAP<-function(
       if(is.null(maxit_push)){
         maxit_push<-N_label
       }
-      print(N_label)
-      print(N_label2)
-      badbad<<-bad_index
       while (N_label3 < N_label & cur_iter < maxit_push) {
         cur_iter<-cur_iter+1
-        print(cur_iter)
         for (i in 1:length(bad_index)){
           pos<-min(bad_index[[i]])
           other_pos<-bad_index[[i]][bad_index[[i]]>pos]
