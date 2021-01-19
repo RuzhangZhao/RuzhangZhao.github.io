@@ -787,6 +787,7 @@ get_umap_embedding_adjust<-function(
       }
       angle
     })
+    pos1<<-pos
     angles1<<-angles
     umap11<<-umap_center1
     umap22<<-umap_center2
@@ -816,6 +817,7 @@ get_umap_embedding_adjust<-function(
         fast_sgd = FALSE
       )
   }else if (adjust_method == "MDS"){
+    set.seed(seed.use)
     umap_center<-isoMDS(pca_dist)$points 
   }else{
     stop("wrong adjust method")
