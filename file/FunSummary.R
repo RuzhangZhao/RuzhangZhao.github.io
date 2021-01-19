@@ -787,6 +787,7 @@ get_umap_embedding_adjust<-function(
       }
       angle
     })
+    angles1<<-angles
     umap11<<-umap_center1
     umap22<<-umap_center2
     #angle2to1<-mean(angles)
