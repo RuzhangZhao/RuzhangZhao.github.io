@@ -762,8 +762,7 @@ get_umap_embedding_adjust<-function(
       umap2<-umap_center2_tmp[i,]
       umap1<-umap1/sqrt(sum(umap1^2))
       umap2<-umap2/sqrt(sum(umap2^2))
-      umap11<<-umap1
-      umap22<<-umap2
+      
       Rumap2toumap1<-rotation(umap2,umap1)
       angle<-acos(Rumap2toumap1[1,1])
       if(Rumap2toumap1[2,1]>=0){
@@ -772,6 +771,7 @@ get_umap_embedding_adjust<-function(
         angle<- -acos(Rumap2toumap1[1,1])
       }
       angle
+      umap11<<-c(umap11,angle)
     })
     
     #angle2to1<-mean(angles)
@@ -848,6 +848,7 @@ get_umap_embedding_adjust<-function(
         Rx2y <- rotation(x,y)
         Rx2y <- pmax(Rx2y,-1)
         Rx2y <- pmin(Rx2y,1)
+        RRRR<<-Rx2y
         if(Rx2y[2,1]>=0){
           i
           angle<-acos(Rx2y[1,1])
