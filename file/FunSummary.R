@@ -260,6 +260,9 @@ savis<-function(
             b = 0.8006, 
             metric = distance_metric
           )
+          expr_matrix_pca1<<-expr_matrix_pca
+          expr_matrix_umap1<<-expr_matrix_umap
+          umap_embedding1<<-umap_embedding
           umap_embedding<-adjustUMAP(
             pca_embedding = expr_matrix_pca,
             umap_embedding = umap_embedding,
@@ -323,6 +326,9 @@ savis<-function(
               b = 0.8006, 
               metric = distance_metric
             )
+            expr_matrix_pca1<<-expr_matrix_pca
+            expr_matrix_umap1<<-expr_matrix_umap
+            umap_embedding1<<-umap_embedding
             umap_embedding<-adjustUMAP(
               pca_embedding = expr_matrix_pca,
               umap_embedding = umap_embedding,
@@ -386,6 +392,9 @@ savis<-function(
               b = 0.8006, 
               metric = distance_metric
             )
+            expr_matrix_pca1<<-expr_matrix_pca
+            expr_matrix_umap1<<-expr_matrix_umap
+            umap_embedding1<<-umap_embedding
             umap_embedding<-adjustUMAP(
               pca_embedding = expr_matrix_pca,
               umap_embedding = umap_embedding,
@@ -445,6 +454,9 @@ savis<-function(
               b = 0.8006, 
               metric = distance_metric
             )
+            expr_matrix_pca1<<-expr_matrix_pca
+            expr_matrix_umap1<<-expr_matrix_umap
+            umap_embedding1<<-umap_embedding
             umap_embedding<-adjustUMAP(
               pca_embedding = expr_matrix_pca,
               umap_embedding = umap_embedding,
@@ -508,6 +520,9 @@ savis<-function(
           b = 0.8006, 
           metric = distance_metric
         )
+        expr_matrix_pca1<<-expr_matrix_pca
+        expr_matrix_umap1<<-expr_matrix_umap
+        umap_embedding1<<-umap_embedding
         umap_embedding<-adjustUMAP(
           pca_embedding = expr_matrix_pca,
           umap_embedding = umap_embedding,
@@ -537,9 +552,6 @@ savis<-function(
     print("Finished...")
     setTxtProgressBar(pb = pb, value = 20)
   }
-  expr_matrix_pca1<<-expr_matrix_pca
-  expr_matrix_umap1<<-expr_matrix_umap
-  umap_embedding1<<-umap_embedding
   return(newList)
 }
 
