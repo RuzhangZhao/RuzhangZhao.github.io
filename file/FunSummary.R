@@ -260,9 +260,6 @@ savis<-function(
             b = 0.8006, 
             metric = distance_metric
           )
-          expr_matrix_pca1<<-expr_matrix_pca
-          expr_matrix_umap1<<-expr_matrix_umap
-          umap_embedding1<<-umap_embedding
           umap_embedding<-adjustUMAP(
             pca_embedding = expr_matrix_pca,
             umap_embedding = umap_embedding,
@@ -326,9 +323,6 @@ savis<-function(
               b = 0.8006, 
               metric = distance_metric
             )
-            expr_matrix_pca1<<-expr_matrix_pca
-            expr_matrix_umap1<<-expr_matrix_umap
-            umap_embedding1<<-umap_embedding
             umap_embedding<-adjustUMAP(
               pca_embedding = expr_matrix_pca,
               umap_embedding = umap_embedding,
@@ -392,9 +386,7 @@ savis<-function(
               b = 0.8006, 
               metric = distance_metric
             )
-            expr_matrix_pca1<<-expr_matrix_pca
-            expr_matrix_umap1<<-expr_matrix_umap
-            umap_embedding1<<-umap_embedding
+         
             umap_embedding<-adjustUMAP(
               pca_embedding = expr_matrix_pca,
               umap_embedding = umap_embedding,
@@ -454,9 +446,7 @@ savis<-function(
               b = 0.8006, 
               metric = distance_metric
             )
-            expr_matrix_pca1<<-expr_matrix_pca
-            expr_matrix_umap1<<-expr_matrix_umap
-            umap_embedding1<<-umap_embedding
+        
             umap_embedding<-adjustUMAP(
               pca_embedding = expr_matrix_pca,
               umap_embedding = umap_embedding,
@@ -520,9 +510,6 @@ savis<-function(
           b = 0.8006, 
           metric = distance_metric
         )
-        expr_matrix_pca1<<-expr_matrix_pca
-        expr_matrix_umap1<<-expr_matrix_umap
-        umap_embedding1<<-umap_embedding
         umap_embedding<-adjustUMAP(
           pca_embedding = expr_matrix_pca,
           umap_embedding = umap_embedding,
@@ -773,13 +760,17 @@ get_umap_embedding_adjust<-function(
     #weight_2<-1/pdist(umap_center2_tmp,c(0,0))@dist
     #weight_2<-weight_2/sum(weight_2)
     angles<-sapply(1:(N_label-1), function(i){
+      
       umap1<-umap_center1_tmp[i,]
       umap2<-umap_center2_tmp[i,]
       umap1<-umap1/sqrt(sum(umap1^2))
       umap2<-umap2/sqrt(sum(umap2^2))
       
       Rumap2toumap1<-rotation(umap2,umap1)
+      Rumap2toumap1 <- pmax(Rumap2toumap1,-1)
+      Rumap2toumap1 <- pmin(Rumap2toumap1,1)
       angle<-acos(Rumap2toumap1[1,1])
+      
       if(Rumap2toumap1[2,1]>=0){
         angle<-acos(Rumap2toumap1[1,1])
       }else{
@@ -787,10 +778,6 @@ get_umap_embedding_adjust<-function(
       }
       angle
     })
-    pos1<<-pos
-    angles1<<-angles
-    umap11<<-umap_center1
-    umap22<<-umap_center2
     #angle2to1<-mean(angles)
     #angle2to1<-median(angles)
     angle2to1<-sum(angles*weight_1)
@@ -866,7 +853,7 @@ get_umap_embedding_adjust<-function(
         Rx2y <- rotation(x,y)
         Rx2y <- pmax(Rx2y,-1)
         Rx2y <- pmin(Rx2y,1)
-        RRRR<<-Rx2y
+
         if(Rx2y[2,1]>=0){
           i
           angle<-acos(Rx2y[1,1])
@@ -1305,7 +1292,7 @@ adjustUMAP<-function(
         N_label4<-length(unique(cluster_4))
       }
     }
-    adjust_umap_center<<-t(sapply(1:N_label, function(i){
+    adjust_umap_center<-t(sapply(1:N_label, function(i){
       index_i<-which(cluster_ == label_index[i])
       colMeans(as.matrix(umap_embedding_adjust4[index_i,]))
     }))
@@ -1992,9 +1979,6 @@ FormAdaptiveCombineList<-function(
       "combined_embedding"=expr_matrix_pca)
     return(newList)
   }
-  global_matrix<<-expr_matrix
-  global_pca<<-expr_matrix_pca
-  global_cluster<<-cluster_label
   
   combined_embedding<-FormCombinedEmbedding(
     expr_matrix=expr_matrix,
