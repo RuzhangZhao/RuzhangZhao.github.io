@@ -537,6 +537,9 @@ savis<-function(
     print("Finished...")
     setTxtProgressBar(pb = pb, value = 20)
   }
+  expr_matrix_pca1<<-expr_matrix_pca
+  expr_matrix_umap1<<-expr_matrix_umap
+  umap_embedding1<<-umap_embedding
   return(newList)
 }
 
