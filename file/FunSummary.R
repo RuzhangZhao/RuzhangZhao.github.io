@@ -786,9 +786,9 @@ get_umap_embedding_adjust<-function(
         angle<- -acos(Rumap2toumap1[1,1])
       }
       angle
-      umap11<<-c(umap11,angle)
     })
-    
+    umap11<<-umap_center1
+    umap22<<-umap_center2
     #angle2to1<-mean(angles)
     #angle2to1<-median(angles)
     angle2to1<-sum(angles*weight_1)
