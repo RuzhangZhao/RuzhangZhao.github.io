@@ -949,6 +949,7 @@ adjustUMAP<-function(
   scale_factor = 0.9,
   rotate = TRUE,
   density_adjust = TRUE,
+  shrink_all_distance = FALSE,
   shrink_distance = TRUE,
   seed.use = 42,
   min_size = 100,
@@ -964,6 +965,7 @@ adjustUMAP<-function(
       scale_factor = scale_factor,
       rotate = rotate,
       density_adjust = density_adjust,
+      shrink_all_distance = shrink_all_distance,
       shrink_distance = shrink_distance,
       seed.use = seed.use,
       min_size = min_size,
@@ -978,6 +980,7 @@ adjustUMAP<-function(
       scale_factor = scale_factor,
       rotate = rotate,
       density_adjust = density_adjust,
+      shrink_all_distance = shrink_all_distance,
       shrink_distance = shrink_distance,
       seed.use = seed.use,
       min_size = min_size,
@@ -1041,13 +1044,13 @@ adjustUMAP<-function(
       index.return = T)[,1]
   })
   pca_dist1<-Dist(pca_center)
-  
-  index_<-which(cluster_size < N_sample*0.1)
-  prop_<-exp(cluster_size/max(cluster_size))/
-    max(exp(cluster_size/max(cluster_size)))
-  for(i in 1:N_label){
-    pca_dist1[,i]<-pca_dist1[,i]*prop_[i]
-    pca_dist1[i,]<-pca_dist1[i,]*prop_[i]
+  if(shrink_all_distance){
+    prop_<-exp(cluster_size/max(cluster_size))/
+      max(exp(cluster_size/max(cluster_size)))
+    for(i in 1:N_label){
+      pca_dist1[,i]<-pca_dist1[,i]*prop_[i]
+      pca_dist1[i,]<-pca_dist1[i,]*prop_[i]
+    } 
   }
   if(adjust_method == "MDS"& shrink_distance){
     pam_res<-pam(x = pca_dist1,k = 2)
