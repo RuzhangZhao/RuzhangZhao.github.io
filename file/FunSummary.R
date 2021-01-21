@@ -1084,7 +1084,7 @@ adjustUMAP<-function(
     index_clu2<-which(pam_res$clustering==clu2)
     for( i in index_clu1){
       closed_dist<-min(pca_dist1[i,index_clu2])
-      pca_dist1[i,-i]<-pca_dist1[i,-i] - closed_dist*2/3
+      pca_dist1[i,-i]<-pca_dist1[i,-i] - closed_dist/4
       if(sum(pca_dist1[i,-i]<0)>0){
         index_neg<-which(pca_dist1[i,-i]<0)
         pca_dist1[i,index_neg]<-min(pca_dist1[i,which(pca_dist1[i,]>0)])
