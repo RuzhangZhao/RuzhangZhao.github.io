@@ -965,10 +965,11 @@ adjustUMAP<-function(
   density_adjust = TRUE,
   #shrink_all_distance = FALSE,
   shrink_distance = TRUE,
+  shrink_factor = 0.3,
   seed.use = 42,
   min_size = 100,
-  maxit_push = NULL,
-  shrink_factor = 0.25
+  maxit_push = NULL
+  
 ){
   if(adjust_method == "all"){
     umap_adjust<-adjustUMAP(
@@ -1067,7 +1068,7 @@ adjustUMAP<-function(
   #   pca_dist1[i,]<-pca_dist1[i,]*prop_[i]
   # } 
   #}
-  if(adjust_method == "MDS"& shrink_distance){
+  if(adjust_method == "MDS" & shrink_distance){
     pam_res<-pam(x = pca_dist1,k = 2)
     
     var_1<-sum(pca_center[which(pam_res$clustering==1),]^2)/sum(pam_res$clustering==1)
@@ -1240,7 +1241,7 @@ adjustUMAP<-function(
           pos<-pos+1
           other_pos<-other_pos+1
           dist_mat<-pdist(umap_center[pos,],umap_center)@dist
-          target_distance<-min(dist_mat[dist_mat>max(dist_mat[other_pos])])
+          target_distance<-min(dist_mat[dist_mat>=max(dist_mat[other_pos])])
           re_sf<-target_distance/max(dist_mat[other_pos])
           
           umap_embedding_adjust<-umap_embedding_adjust*re_sf
