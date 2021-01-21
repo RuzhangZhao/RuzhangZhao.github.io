@@ -963,11 +963,12 @@ adjustUMAP<-function(
   scale_factor = 0.9,
   rotate = TRUE,
   density_adjust = TRUE,
-  shrink_all_distance = FALSE,
+  #shrink_all_distance = FALSE,
   shrink_distance = TRUE,
   seed.use = 42,
   min_size = 100,
-  maxit_push = NULL
+  maxit_push = NULL,
+  shrink_factor = 0.25
 ){
   if(adjust_method == "all"){
     umap_adjust<-adjustUMAP(
@@ -979,7 +980,7 @@ adjustUMAP<-function(
       scale_factor = scale_factor,
       rotate = rotate,
       density_adjust = density_adjust,
-      shrink_all_distance = shrink_all_distance,
+      #shrink_all_distance = shrink_all_distance,
       shrink_distance = shrink_distance,
       seed.use = seed.use,
       min_size = min_size,
@@ -994,7 +995,7 @@ adjustUMAP<-function(
       scale_factor = scale_factor,
       rotate = rotate,
       density_adjust = density_adjust,
-      shrink_all_distance = shrink_all_distance,
+      #shrink_all_distance = shrink_all_distance,
       shrink_distance = shrink_distance,
       seed.use = seed.use,
       min_size = min_size,
@@ -1033,7 +1034,6 @@ adjustUMAP<-function(
       sample_local_dist<-Dist(umap_embedding[sample_index_i,])
       mean(c(sample_global_dist))/mean(c(sample_local_dist))
     })
-    print(prop_density)
     for(i in 1:N_label){
       index_i<-which(cluster_ == label_index[i])
       cur_umap<-umap_embedding[index_i,]
@@ -1059,14 +1059,14 @@ adjustUMAP<-function(
       index.return = T)[,1]
   })
   pca_dist1<-Dist(pca_center)
-  if(shrink_all_distance){
-    prop_<-exp(cluster_size/max(cluster_size))/
-      max(exp(cluster_size/max(cluster_size)))
-    for(i in 1:N_label){
-      pca_dist1[,i]<-pca_dist1[,i]*prop_[i]
-      pca_dist1[i,]<-pca_dist1[i,]*prop_[i]
-    } 
-  }
+  #if(shrink_all_distance){
+  #  prop_<-exp(cluster_size/max(cluster_size))/
+  #    max(exp(cluster_size/max(cluster_size)))
+  #  for(i in 1:N_label){
+  #    pca_dist1[,i]<-pca_dist1[,i]*prop_[i]
+  #   pca_dist1[i,]<-pca_dist1[i,]*prop_[i]
+  # } 
+  #}
   if(adjust_method == "MDS"& shrink_distance){
     pam_res<-pam(x = pca_dist1,k = 2)
     
@@ -1084,7 +1084,7 @@ adjustUMAP<-function(
     index_clu2<-which(pam_res$clustering==clu2)
     for( i in index_clu1){
       closed_dist<-min(pca_dist1[i,index_clu2])
-      pca_dist1[i,-i]<-pca_dist1[i,-i] - closed_dist/4
+      pca_dist1[i,-i]<-pca_dist1[i,-i] - closed_dist*shrink_factor
       if(sum(pca_dist1[i,-i]<0)>0){
         index_neg<-which(pca_dist1[i,-i]<0)
         pca_dist1[i,index_neg]<-min(pca_dist1[i,which(pca_dist1[i,]>0)])
