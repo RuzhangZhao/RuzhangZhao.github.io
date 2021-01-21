@@ -260,6 +260,9 @@ savis<-function(
             b = 0.8006, 
             metric = distance_metric
           )
+          pca_embedding1<<-expr_matrix_pca
+          umap_embedding1<<-umap_embedding
+          global_umap_embedding1<<-expr_matrix_umap
           umap_embedding<-adjustUMAP(
             pca_embedding = expr_matrix_pca,
             umap_embedding = umap_embedding,
@@ -323,6 +326,9 @@ savis<-function(
               b = 0.8006, 
               metric = distance_metric
             )
+            pca_embedding1<<-expr_matrix_pca
+            umap_embedding1<<-umap_embedding
+            global_umap_embedding1<<-expr_matrix_umap
             umap_embedding<-adjustUMAP(
               pca_embedding = expr_matrix_pca,
               umap_embedding = umap_embedding,
@@ -386,7 +392,9 @@ savis<-function(
               b = 0.8006, 
               metric = distance_metric
             )
-         
+            pca_embedding1<<-expr_matrix_pca
+            umap_embedding1<<-umap_embedding
+            global_umap_embedding1<<-expr_matrix_umap
             umap_embedding<-adjustUMAP(
               pca_embedding = expr_matrix_pca,
               umap_embedding = umap_embedding,
@@ -446,7 +454,9 @@ savis<-function(
               b = 0.8006, 
               metric = distance_metric
             )
-        
+            pca_embedding1<<-expr_matrix_pca
+            umap_embedding1<<-umap_embedding
+            global_umap_embedding1<<-expr_matrix_umap
             umap_embedding<-adjustUMAP(
               pca_embedding = expr_matrix_pca,
               umap_embedding = umap_embedding,
@@ -510,6 +520,9 @@ savis<-function(
           b = 0.8006, 
           metric = distance_metric
         )
+        pca_embedding1<<-expr_matrix_pca
+        umap_embedding1<<-umap_embedding
+        global_umap_embedding1<<-expr_matrix_umap
         umap_embedding<-adjustUMAP(
           pca_embedding = expr_matrix_pca,
           umap_embedding = umap_embedding,
@@ -1019,6 +1032,7 @@ adjustUMAP<-function(
       sample_local_dist<-Dist(umap_embedding[sample_index_i,])
       mean(c(sample_global_dist))/mean(c(sample_local_dist))
     })
+    print(prop_density)
     for(i in 1:N_label){
       index_i<-which(cluster_ == label_index[i])
       cur_umap<-umap_embedding[index_i,]

@@ -280,6 +280,7 @@ useoptim<-function(no_of_studies,
   C_iter<-C
   estimated_coef <- as.vector(initial_val)
   #estimated_coef<-c(1.1605597 ,-2.0090653,  3.6657561 ,-1.8231836, -0.6630903 , 0.7562909)
+  print("Once")
   res<-optim(par=estimated_coef,
     fn=UTCU,
     C=C_iter,

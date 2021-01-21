@@ -198,6 +198,7 @@ ggmeta <- function(study_info, ref_dat,
     }
     # End of Calculating initial value when the variable_intercepts is FALSE
   }
+  print(initial_val)
   ## End of initial_val calculation
   
   #print(initial_val)
