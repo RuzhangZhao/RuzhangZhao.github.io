@@ -57,7 +57,7 @@ savis<-function(
   adjust_method = "all",
   adjust_rotate = TRUE,
   shrink_distance = TRUE,
-  check_differential = TRUE,
+  check_differential = FALSE,
   seed.use = 42L
 ){
   if(max_stratification == 1){
@@ -1204,7 +1204,7 @@ adjustUMAP<-function(
           pos<-pos+1
           other_pos<-other_pos+1
           dist_mat<-pdist(umap_center[pos,],umap_center)@dist
-          target_distance<-min(dist_mat[dist_mat>max(dist_mat[other_pos])])
+          target_distance<-min(dist_mat[dist_mat>=max(dist_mat[other_pos])])
           target_distance<-(target_distance+dist_mat[other_pos])/2
           for (k in 1:length(other_pos)){
             cur_pos<-other_pos[k]
