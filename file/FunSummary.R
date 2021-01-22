@@ -56,6 +56,7 @@ savis<-function(
   adjust_UMAP = TRUE,
   adjust_method = "all",
   adjust_rotate = TRUE,
+  shrink_distance = TRUE,
   check_differential = TRUE,
   seed.use = 42L
 ){
@@ -268,6 +269,7 @@ savis<-function(
             umap_embedding = umap_embedding,
             global_umap_embedding = expr_matrix_umap,
             adjust_method = adjust_method,
+            shrink_distance = shrink_distance,
             rotate = adjust_rotate,
             seed.use = seed.use)
         }
@@ -334,6 +336,7 @@ savis<-function(
               umap_embedding = umap_embedding,
               global_umap_embedding = expr_matrix_umap,
               adjust_method = adjust_method,
+              shrink_distance = shrink_distance,
               rotate = adjust_rotate,
               seed.use = seed.use)
           }
@@ -400,6 +403,7 @@ savis<-function(
               umap_embedding = umap_embedding,
               global_umap_embedding = expr_matrix_umap,
               adjust_method = adjust_method,
+              shrink_distance = shrink_distance,
               rotate = adjust_rotate,
               seed.use = seed.use)
           }
@@ -462,6 +466,7 @@ savis<-function(
               umap_embedding = umap_embedding,
               global_umap_embedding = expr_matrix_umap,
               adjust_method = adjust_method,
+              shrink_distance = shrink_distance,
               rotate = adjust_rotate,
               seed.use = seed.use)
           }
@@ -528,6 +533,7 @@ savis<-function(
           umap_embedding = umap_embedding,
           global_umap_embedding = expr_matrix_umap,
           adjust_method = adjust_method,
+          shrink_distance = shrink_distance,
           rotate = adjust_rotate,
           seed.use = seed.use)
       }
