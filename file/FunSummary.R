@@ -2257,6 +2257,42 @@ adaDimPlot<-function(
   gg
 }
 
+adaDimPlot2<-function(
+  umap_embedding,
+  label,
+  pt.size=0
+){
+  set.seed(42)
+  shuffle_index<-sample(1:nrow(umap_embedding))
+  umap_embedding<-umap_embedding[shuffle_index,]
+  label<-label[shuffle_index]
+  umap_embedding<-data.frame(umap_embedding)
+  if(is.null(colnames(umap_embedding))[1]){
+    colnames(umap_embedding)<-paste0("UMAP_",1:ncol(umap_embedding)) 
+    xynames<-colnames(umap_embedding)
+  }else{
+    xynames<-colnames(umap_embedding)
+    colnames(umap_embedding)<-paste0("UMAP_",1:ncol(umap_embedding)) 
+  }
+  umap_embedding$label<-label
+  
+  gg<-ggplot(umap_embedding)+
+    geom_point(aes(x = UMAP_1,
+      y = UMAP_2,
+      color = label),
+      size = pt.size)+
+    theme(legend.title = element_blank())+
+    theme(panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+      panel.background = element_blank(),
+      axis.line = element_line(colour = "black"),
+      legend.key=element_blank())
+  labs(x = xynames[1],y=xynames[2])
+  gg
+}
+
+
+
 #' ARIEvaluate
 #'
 #' Adaptively Plot the UMAP Embedding
