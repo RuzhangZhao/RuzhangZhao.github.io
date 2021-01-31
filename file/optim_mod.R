@@ -1,7 +1,18 @@
+#coef<-initial_val
+#C<-C_init
+sigmoid<-function(vec){
+  index_nonneg<-which(vec >= 0)
+  index_neg<-which(vec < 0)
+  res<-rep(NA,length(vec))
+  res[index_nonneg]<-1/(1+exp(-vec[index_nonneg]))
+  res[index_neg]<-exp(vec[index_neg])/(1+exp(vec[index_neg]))
+  res
+}
 # Use optim function, Given C, calculate estimated coefficient
 useoptim<-function(no_of_studies, 
   study_info, 
   ref_dat, 
+  col_inds,
   X_bdiag_list, 
   C, 
   initial_val, 
@@ -16,51 +27,51 @@ useoptim<-function(no_of_studies,
 {
   ## Define Cost Function U^T*C*U
   UTCU<-function(coef,C){
-    U <- matrix(NA, nrow(C), nrow(ref_dat))
-    e1 <- c(1/(1 + exp(-ref_dat %*% coef)))
-    k_U = 1
-    for(k in 1: no_of_studies)
-    {
-      col_ind <-  which(colnames(ref_dat) %in% names(study_info[[k]][[1]]) == TRUE)
-      r_second_U <- c(1/(1 + exp(-ref_dat[,col_ind] %*% study_info[[k]][[1]])))
-      U[k_U:(k_U + length(col_ind)-1), ] <- t((e1-r_second_U)*ref_dat[ ,col_ind])
-      k_U <- k_U + length(col_ind)
-    }
-    
-    
-    Un = Rfast::rowmeans(U)
-    hatQ = t(Un)%*%C%*%Un
+    e1 <- sigmoid(ref_dat %*% coef)
+    U<-sapply(1:no_of_studies, function(k){
+      col_ind <-  col_inds[[k]]
+      if(length(study_info[[k]][[1]]) == 1){
+        r_second_U <- sigmoid(ref_dat[,col_ind] * study_info[[k]][[1]])
+      }else{
+        r_second_U <- sigmoid(ref_dat[,col_ind] %*% study_info[[k]][[1]]) 
+      }
+      t((e1-r_second_U)*ref_dat[ ,col_ind])
+    })
+    U<-do.call(rbind,U)
+    Un <-Rfast::rowmeans(U)
+    hatQ <- t(Un)%*%C%*%Un
     
     if (lambda.gam == 0){
       res<-hatQ[1]*nrow(ref_dat)
     }else{
-      res<-hatQ[1]*nrow(ref_dat) + lambda.gam*coef%*%D%*%coef
+      res<-hatQ[1]*nrow(ref_dat) + lambda.gam*(coef%*%D%*%coef)[1]
     }
     res
   }
   
+  
+  
   ## Define Gradient of Cost Function 
   grad<-function(coef,C)
   {
-    #r <- c()
-    Dn_1 <- matrix(NA, ncol(ref_dat), nrow(C))
-    Dn_2 <- c()
-    k_j <- 1
-    W_temp_1 <- c((1/(1 + exp(-ref_dat %*% coef)))*(1/(1 + exp(ref_dat %*% coef))))
-    e1 <- c(1/(1 + exp(-ref_dat %*% coef)))
-    
-    for(k in 1 : no_of_studies)
-    {
-      col_ind <-  which(colnames(ref_dat) %in% names(study_info[[k]][[1]]) == TRUE)
-      r_second <-  c(1/(1 + exp(-ref_dat[,col_ind] %*% study_info[[k]][[1]])))
-      Dn_2 <- c(Dn_2, c(t((e1 - r_second)%*%ref_dat[,col_ind]) ))
-      ncol_study <- length(col_ind)
-      Dn_1[,k_j: (k_j + ncol_study -1)] <- crossprod(ref_dat,(W_temp_1 * ref_dat[, col_ind]))
-      k_j <- k_j + ncol_study
-      #r = c(r, (e1 - r_second))
-    }
-    
-    Dn <- Dn_1 %*% C %*% Dn_2
+    e1 <- sigmoid(ref_dat%*%coef)
+    W_temp_1 <- c(e1*sigmoid(-ref_dat%*%coef))
+    W_temp_1_ref_dat<-crossprod(ref_dat,(W_temp_1 * ref_dat))
+    Dn_2<- lapply(1:no_of_studies, function(k){
+      col_ind<-col_inds[[k]]
+      if(length(study_info[[k]][[1]]) == 1){
+        r_second <- sigmoid(ref_dat[,col_ind] * study_info[[k]][[1]])
+      }else{
+        r_second <- sigmoid(ref_dat[,col_ind] %*% study_info[[k]][[1]])
+      }
+      c((e1 - r_second)%*%ref_dat[,col_ind])
+    })
+    Dn_2<-unlist(Dn_2)
+    Dn_1 <- lapply(1:no_of_studies, function(k){
+      W_temp_1_ref_dat[,col_inds[[k]]]
+    })
+    Dn_1<-do.call(cbind,Dn_1)
+    Dn <- Dn_1 %*% (C %*% Dn_2)
     if(lambda.gam == 0){
       res_grad<-Dn/nrow(ref_dat)
     }else{
@@ -72,143 +83,111 @@ useoptim<-function(no_of_studies,
   
   ## Define Hessian Matrix of Cost Function
   Hessian<-function(coef,C){
-    #X_abdiag = Reduce(magic::adiag,X_bdiag_list)## NO
     ref_dat_size<-nrow(ref_dat)
-    U <- matrix(NA, nrow(C), nrow(ref_dat))
-    Gamma_hat <- matrix(NA, nrow(C), ncol(ref_dat))
-    
-    r_list <- list()
-    #r_first <- c()
-    #r_second <- c()
-    W_star_first_list <- list()
-    V <- c()
-    
-    #k_j  <- 1
-    
-    W_temp_1 <- c((1/(1 + exp(-ref_dat %*% coef)))*(1/(1 + exp(ref_dat %*% coef))))
-    #W <- diag(W_temp_1)## NO
-    
-    e1 <- c(1/(1 + exp(-ref_dat %*% coef)))
-    e2 <- c((exp(-ref_dat %*% coef) - 1)/(exp(-ref_dat %*% coef) + 1))
-    e3 <- c(1/(1 + exp(ref_dat %*% coef)))
-    l <- e1*e2*e3
+    e1 <- sigmoid(ref_dat %*% coef)
+    e3 <- sigmoid(-ref_dat %*% coef)
+    l <- e1*(1-2*e1)*e3
     nan_indices <- which(l %in% NaN == TRUE)
     l[nan_indices] <- 0
-    #L <- diag(l)## NO
-    ############r_first can be deleted
-    for(k in 1 : no_of_studies)
-    {
-      #r_first[[k]] <- e1
-      col_ind <-  which(colnames(ref_dat) %in% names(study_info[[k]][[1]]) == TRUE)
-      #r_second[[k]] <-  c(1/(1 + exp(-ref_dat[,col_ind] %*% study_info[[k]][[1]])))
-      #ncol_study <- length(col_ind)
-      W_star_first_list[[k]] <- W_temp_1*ref_dat[,col_ind]
-      #k_j <- k_j + ncol_study
-      #r = c(r, (r_first[[k]] - r_second[[k]]))
-      r_list[[k]]<- c(e1 - c(1/(1 + exp(-ref_dat[,col_ind] %*% study_info[[k]][[1]]))))
-    }
+    W_temp_1 <- e1*e3
     
-    
-    #L = diag(rep(l, no_of_studies))
-    
-    X_abdiag2<-c()
-    for(k in 1 : no_of_studies)
-    {
-      X_abdiag2<-c(X_abdiag2,r_list[[k]]%*%X_bdiag_list[[k]])
-    }
+    X_abdiag2<-lapply(1:no_of_studies, function(k){
+      col_ind<-col_inds[[k]]
+      if(length(study_info[[k]][[1]]) == 1){
+        r_list_k<- c(e1 - sigmoid(ref_dat[,col_ind] * study_info[[k]][[1]]))
+      }else{
+        r_list_k<- c(e1 - sigmoid(ref_dat[,col_ind] %*% study_info[[k]][[1]]))
+      }
+      c(r_list_k%*%X_bdiag_list[[k]])
+    })
+    X_abdiag2<-unlist(X_abdiag2)
     X_abdiag3<-c(X_abdiag2%*%C)
-    V<-c()
-    k_j<-1
-    for(k in 1:no_of_studies)
-    {
-      ncol_study<-ncol(X_bdiag_list[[k]])
-      V<-c(V,l*X_bdiag_list[[k]]%*%X_abdiag3[k_j: (k_j + ncol_study -1)])
-      k_j<-k_j+ncol_study
+    col_ind_culcount<-c()
+    initial_count<-1
+    for(i in 1:no_of_studies){
+      ncol_study<-length(col_inds[[i]])
+      col_ind_culcount<-c(col_ind_culcount,initial_count)
+      initial_count<-initial_count+ncol_study
     }
-    #V = c(t(r) %*% X_abdiag %*% C %*% t(X_abdiag) %*% L)
-    #print(class(V))
-    #W_star_second <- diag(V)
     
-    #W_star_first <- Reduce(magic::adiag,W_star_first_list) %*% C %*% t(Reduce(magic::adiag,W_star_first_list))
-    #W_star <- W_star_first + W_star_second
-    
-    #t(X_rbind) %*% W_star %*% X_rbind
-    HH<-matrix(0, ncol(ref_dat), ncol(ref_dat))
-    k_j<-1
-    for(k in 1:no_of_studies)
-    {
-      ncol_study<-ncol(X_bdiag_list[[k]])
-      HH<-HH+(t(ref_dat)%*%W_star_first_list[[k]])%*%C[k_j: (k_j + ncol_study -1),k_j: (k_j + ncol_study -1)]%*%(t(W_star_first_list[[k]])%*%ref_dat)
-      HH<-HH+crossprod(ref_dat,V[(((k-1)*ref_dat_size+1):(k*ref_dat_size))]*ref_dat)
+    V<-lapply(1:no_of_studies, function(k){
+      k_j<-col_ind_culcount[k]
+      ncol_study<-length(col_inds[[k]])
+      V_tmp<-c(l*X_bdiag_list[[k]]%*%X_abdiag3[k_j: (k_j + ncol_study -1)])
       k_j<-k_j+ncol_study
-    }
+      V_tmp
+    })
+    V<-Reduce('+',V)
+    HH<-crossprod(ref_dat,V*ref_dat)
+    col_inds_collect<-unlist(col_inds)
+    W_star_first_list <- W_temp_1*ref_dat[,col_inds_collect]
+    W_star_first_list <-crossprod(W_star_first_list,ref_dat)
+    HH<-HH+crossprod(W_star_first_list,C%*%(W_star_first_list))
     HH
   }
   
+  
+  
   ## Calculate new C based on new estimated coef
   C_beta<-function(coef,C){
-    r_first_U <- c()
-    r_second_U <- c()
-    U <- matrix(NA, nrow(C), nrow(ref_dat))
     
-    r = c()
-    r_first <- c()
-    r_second <- c()
-    
-    k_j  <- 1
-    
-    W_temp_1 <- c((1/(1 + exp(-ref_dat %*% coef)))*(1/(1 + exp(ref_dat %*% coef))))
-    W <- diag(W_temp_1)
-    
-    #W <- diag(rep(1/W_temp_1, no_of_studies))
-    #print(is.nan(W))
-    e1 <- c(1/(1 + exp(-ref_dat %*% coef)))
-    e2 <- c((exp(-ref_dat %*% coef) - 1)/(exp(-ref_dat %*% coef) + 1))
-    e3 <- c(1/(1 + exp(ref_dat %*% coef)))
-    
-    #-----------------------------
-    #This seems to define some estimating equations
-    # I need to write down the estimating equation from linear and logistic regression 
-    for(k in 1 : no_of_studies)
-    {
-      r_first[[k]] <- e1
-      col_ind <-  which(colnames(ref_dat) %in% names(study_info[[k]][[1]]) == TRUE)
-      r_second[[k]] <-  c(1/(1 + exp(-ref_dat[,col_ind] %*% study_info[[k]][[1]])))
-      ncol_study <- length(col_ind)
-      k_j <- k_j + ncol_study
-      r = c(r, (r_first[[k]] - r_second[[k]]))
-    }
-    
-    study_indices <- seq(1,no_of_studies,1)
-    non_missing_covariance_study_indices <- study_indices[-which(study_indices %in% missing_covariance_study_indices)]
-    #print(non_missing_covariance_study_indices)
-    #print(missing_covariance_study_indices)
-    
-    #Define lambda_ref here
-    lambda_ref <- list()
+    e1 <- sigmoid(ref_dat %*% coef)
+    e3 <- sigmoid(-ref_dat %*% coef)
     if(length(missing_covariance_study_indices) > 0)
     {
+      lambda_ref<-lapply(1:no_of_studies, function(k){
+        if(k %in% missing_covariance_study_indices){
+          col_ind <-  col_inds[[k]]
+          if(length(study_info[[k]][[1]]) == 1){
+            tmp<-ref_dat[, col_ind] * study_info[[k]][[1]]
+          }else{
+            tmp<-ref_dat[, col_ind] %*% study_info[[k]][[1]]
+          }
+          e1_tmp<-sigmoid(tmp)
+          e3_tmp<-sigmoid(-tmp)
+          w_lambda_ref_logistic_vec <- (e3_tmp^2)*e1 + (e1_tmp^2)*e3
+          W_lambda_ref_logistic <- diag(c(w_lambda_ref_logistic_vec))
+          lambda_ref_k<-crossprod(ref_dat[,col_ind],(w_lambda_ref_logistic_vec*ref_dat[,col_ind]))/study_info[[k]][[3]]
+        }else{
+          col_ind <-  col_inds[[k]]
+          if(length(study_info[[k]][[1]]) == 1){
+            tmp<-ref_dat[, col_ind] * study_info[[k]][[1]]
+          }else{
+            tmp<-ref_dat[, col_ind] %*% study_info[[k]][[1]]
+          }
+          temp_weight_logistic <- sigmoid(tmp)*sigmoid(-tmp)
+          W_k <- crossprod(ref_dat[,col_ind],temp_weight_logistic*ref_dat[,col_ind])
+          lambda_ref_k <- (W_k %*% study_info[[k]][[2]] %*% t(W_k))/(nrow(ref_dat))
+        }
+        lambda_ref_k
+      })
       for(k in missing_covariance_study_indices)
       {
-        col_ind <-  which(colnames(ref_dat) %in% names(study_info[[k]][[1]]) == TRUE)
-        #Define W_lambda_ref_logistic
-        w_lambda_ref_logistic_vec <- (((1/(1 + exp(ref_dat[,col_ind] %*% study_info[[k]][[1]])))^2)*(1/(1 + exp(-ref_dat %*% coef)))) + (((1/(1 + exp(-ref_dat[,col_ind] %*% study_info[[k]][[1]])))^2)*(1/(1 + exp(ref_dat %*% coef))))
-        #print(w_lambda_ref_logistic_vec )
+        col_ind <-  col_inds[[k]]
+        if(length(study_info[[k]][[1]]) == 1){
+          tmp<-ref_dat[, col_ind] * study_info[[k]][[1]]
+        }else{
+          tmp<-ref_dat[, col_ind] %*% study_info[[k]][[1]]
+        }
+        e1_tmp<-sigmoid(tmp)
+        e3_tmp<-sigmoid(-tmp)
+        w_lambda_ref_logistic_vec <- (e3_tmp^2)*e1 + (e1_tmp^2)*e3
         W_lambda_ref_logistic <- diag(c(w_lambda_ref_logistic_vec))
-        #print(class(W_lambda_ref_logistic))
-        lambda_ref[[k]] <- (t(ref_dat[,col_ind]) %*% W_lambda_ref_logistic %*% ref_dat[,col_ind])/(study_info[[k]][[3]])
-        #print(dim(lambda_ref[[k]]))
+        lambda_ref[[k]] <- crossprod(ref_dat[,col_ind],(w_lambda_ref_logistic_vec*ref_dat[,col_ind]))/study_info[[k]][[3]]
       }
       
       for(k in non_missing_covariance_study_indices)
       {
-        col_ind <-  which(colnames(ref_dat) %in% names(study_info[[k]][[1]]) == TRUE)
+        col_ind <-  col_inds[[k]]
         #Define W_k here
-        temp_weight_logistic <- c((1/(1 + exp(-ref_dat[, col_ind] %*% study_info[[k]][[1]])))*(1/(1 + exp(ref_dat[,col_ind] %*% study_info[[k]][[1]]))))
-        #temp_weight_logistic <- (exp(ref_dat[,col_ind] %*% study_info[[k]][[1]]))/((1 + exp(ref_dat[,col_ind] %*% study_info[[k]][[1]]))^2)
-        W_k <- t(ref_dat[,col_ind]) %*% diag(temp_weight_logistic) %*% ref_dat[,col_ind]
+        if(length(study_info[[k]][[1]]) == 1){
+          tmp<-ref_dat[, col_ind] * study_info[[k]][[1]]
+        }else{
+          tmp<-ref_dat[, col_ind] %*% study_info[[k]][[1]]
+        }
+        temp_weight_logistic <- sigmoid(tmp)*sigmoid(-tmp)
+        W_k <- crossprod(ref_dat[,col_ind],temp_weight_logistic*ref_dat[,col_ind])
         lambda_ref[[k]] <- (W_k %*% study_info[[k]][[2]] %*% t(W_k))/(nrow(ref_dat))
-        #print(dim(lambda_ref[[k]]))
       }
       
     }
@@ -216,33 +195,33 @@ useoptim<-function(no_of_studies,
     if(length(missing_covariance_study_indices) == 0)
     {
       #print("all the estimates for var-cov are provided")
-      for(k in 1 : no_of_studies)
-      {
-        col_ind <-  which(colnames(ref_dat) %in% names(study_info[[k]][[1]]) == TRUE)
+      lambda_ref<-lapply(1:no_of_studies, function(k){
+        col_ind <-  col_inds[[k]]
         #Define W_k here
-        temp_weight_logistic <- c((1/(1 + exp(-ref_dat[, col_ind] %*% study_info[[k]][[1]])))*(1/(1 + exp(ref_dat[,col_ind] %*% study_info[[k]][[1]]))))
-        #temp_weight_logistic <- (exp(ref_dat[,col_ind] %*% study_info[[k]][[1]]))/((1 + exp(ref_dat[,col_ind] %*% study_info[[k]][[1]]))^2)
-        W_k <- t(ref_dat[,col_ind]) %*% diag(temp_weight_logistic) %*% ref_dat[,col_ind]
-        lambda_ref[[k]] <- (W_k %*% study_info[[k]][[2]] %*% t(W_k))/(nrow(ref_dat))
-        #print(dim(lambda_ref[[k]]))
-      }
+        if(length(study_info[[k]][[1]]) == 1){
+          tmp<-ref_dat[, col_ind] * study_info[[k]][[1]]
+        }else{
+          tmp<-ref_dat[, col_ind] %*% study_info[[k]][[1]]
+        }
+        temp_weight_logistic <- sigmoid(tmp)*sigmoid(-tmp)
+        W_k <- crossprod(ref_dat[,col_ind],temp_weight_logistic*ref_dat[,col_ind])
+        (W_k %*% study_info[[k]][[2]] %*% t(W_k))/(nrow(ref_dat))
+      })
       
     }
     
     Lambda_ref <- Reduce(magic::adiag,lambda_ref)
     #print(dim(Lambda_ref))
-    k_U = 1
-    r_first_1 <- c(1/(1 + exp(-ref_dat %*% coef)))
-    
-    for(k in 1: no_of_studies)
-    {
-      col_ind <-  which(colnames(ref_dat) %in% names(study_info[[k]][[1]]) == TRUE)
-      r_first_U[[k]] <- r_first_1
-      r_second_U[[k]] <- c(1/(1 + exp(-ref_dat[,col_ind] %*% study_info[[k]][[1]])))
-      U[k_U:(k_U + length(col_ind)-1), ] <- t(ref_dat[ ,col_ind]) %*% diag(r_first_U[[k]]-r_second_U[[k]])
-      k_U <- k_U + length(col_ind)
-    }
-    
+    U<-sapply(1:no_of_studies, function(k){
+      col_ind <-  col_inds[[k]]
+      if(length(study_info[[k]][[1]]) == 1){
+        r_second_U <- sigmoid(ref_dat[,col_ind] * study_info[[k]][[1]])
+      }else{
+        r_second_U <- sigmoid(ref_dat[,col_ind] %*% study_info[[k]][[1]]) 
+      }
+      t((e1-r_second_U)*ref_dat[ ,col_ind])
+    })
+    U<-do.call(rbind,U)
     # Defining delta_hat here...
     Delta_hat <- (U %*% t(U))/(nrow(ref_dat))
     
@@ -262,10 +241,8 @@ useoptim<-function(no_of_studies,
     fn=UTCU,
     C=C_iter,
     gr = grad,
-    method = "BFGS",hessian = T)
-  
+    method = "BFGS")
   estimated_coef<-res$par
-  
   names(estimated_coef)<-colnames(ref_dat)
   C_iter<-C_beta(estimated_coef,C_iter)
   no_of_iter<-c(res$counts[2])

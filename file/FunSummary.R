@@ -15,13 +15,44 @@ library(uwot)
 library(glue)
 library(MASS)
 library(cluster)
+library(sparsepca)
 #' savis
 #'
 #' savis: single-cell RNAseq adaptive visualiztaion
 #'
 #' @details This function argument to the function
 #'
-#' @param expr_matrix character
+#' @param expr_matrix The expression matrix: gene(feature) as row; cell(sample) as column.
+#' @param is_count_matrix Whether expr_matrix is count matrix or normalized version. If the expression matrix is count matrix, normalization will be performed. Default is TRUE.
+#' @param npcs The number of principle components will be computed. Default is 10.
+#' @param nfeatures The number of highly variable genes will be selected. Default is 2000.
+#' @param distance_metric The default is "euclidean".
+#' @param cluster_method The default is "louvain".
+#' @param resolution The default is 0.5.
+#' @param resolution_sub The default is 0.
+#' @param adaptive The default is FALSE.
+#' @param max_stratification The default is 3.
+#' @param scale_factor_separation The default is3.
+#' @param process_min_size The default is NULL.
+#' @param process_min_count The default is NULL.
+#' @param run_adaUMAP The default is TRUE.
+#' @param adjust_UMAP The default is TRUE.
+#' @param adjust_method The default is "all".
+#' @param adjust_rotate The default is TRUE.
+#' @param shrink_distance The default is TRUE.
+#' @param check_differential The default is FALSE.
+#' @param verbose The default is TRUE.
+#' @param show_cluster The default is FALSE.
+#' @param return_cluster The default is FALSE.
+#' @param return_global_umap The default is FALSE.
+#' @param verbose_more The default is FALSE.
+#' @param seed.use The default is 42L
+#' 
+#' 
+#' 
+#' 
+#' 
+#' 
 #'
 #' @return nothing useful
 #'
@@ -47,17 +78,18 @@ savis<-function(
   scale_factor_separation =3,
   process_min_size = NULL,
   process_min_count = NULL,
-  center_method = "mean",
-  verbose = TRUE,
-  show_cluster = FALSE,
-  return_cluster = FALSE,
-  verbose_more = FALSE,
   run_adaUMAP = TRUE,
   adjust_UMAP = TRUE,
   adjust_method = "all",
   adjust_rotate = TRUE,
   shrink_distance = TRUE,
   check_differential = FALSE,
+  verbose = TRUE,
+  show_cluster = FALSE,
+  return_cluster = FALSE,
+  return_global_umap = FALSE,
+  verbose_more = FALSE,
+  #center_method = "mean",
   seed.use = 42L
 ){
   if(max_stratification == 1){
@@ -97,7 +129,9 @@ savis<-function(
       expr_matrix,
       verbose = verbose_more)
   }else{
-    pb <- txtProgressBar(min = 0, max = 20, style = 3, file = stderr())
+    if(verbose){
+      pb <- txtProgressBar(min = 0, max = 20, style = 3, file = stderr())
+    }
   }
   expr_matrix_process<-expr_matrix
   if(verbose){
@@ -108,7 +142,7 @@ savis<-function(
   expr_matrix_hvg <- FindVariableFeatures(
     expr_matrix_process,
     verbose = verbose_more)$vst.variance.standardized
-  hvg<- nth(x = expr_matrix_hvg,
+  hvg<- Rfast::nth(x = expr_matrix_hvg,
     k = nfeatures,
     num.of.nths = 2,
     descending = T,
@@ -184,7 +218,7 @@ savis<-function(
       cluster_label=cluster_label,
       npcs=npcs,
       nfeatures =nfeatures,
-      center_method = center_method,
+      #center_method = center_method,
       scale_factor_separation=scale_factor_separation)
     adaptive<-FALSE
   }
@@ -261,9 +295,9 @@ savis<-function(
             b = 0.8006, 
             metric = distance_metric
           )
-          pca_embedding1<<-expr_matrix_pca
-          umap_embedding1<<-umap_embedding
-          global_umap_embedding1<<-expr_matrix_umap
+          #pca_embedding1<<-expr_matrix_pca
+          #umap_embedding1<<-umap_embedding
+          #global_umap_embedding1<<-expr_matrix_umap
           umap_embedding<-adjustUMAP(
             pca_embedding = expr_matrix_pca,
             umap_embedding = umap_embedding,
@@ -328,9 +362,9 @@ savis<-function(
               b = 0.8006, 
               metric = distance_metric
             )
-            pca_embedding1<<-expr_matrix_pca
-            umap_embedding1<<-umap_embedding
-            global_umap_embedding1<<-expr_matrix_umap
+            #pca_embedding1<<-expr_matrix_pca
+            #umap_embedding1<<-umap_embedding
+            #global_umap_embedding1<<-expr_matrix_umap
             umap_embedding<-adjustUMAP(
               pca_embedding = expr_matrix_pca,
               umap_embedding = umap_embedding,
@@ -395,9 +429,9 @@ savis<-function(
               b = 0.8006, 
               metric = distance_metric
             )
-            pca_embedding1<<-expr_matrix_pca
-            umap_embedding1<<-umap_embedding
-            global_umap_embedding1<<-expr_matrix_umap
+            #pca_embedding1<<-expr_matrix_pca
+            #umap_embedding1<<-umap_embedding
+            #global_umap_embedding1<<-expr_matrix_umap
             umap_embedding<-adjustUMAP(
               pca_embedding = expr_matrix_pca,
               umap_embedding = umap_embedding,
@@ -458,9 +492,9 @@ savis<-function(
               b = 0.8006, 
               metric = distance_metric
             )
-            pca_embedding1<<-expr_matrix_pca
-            umap_embedding1<<-umap_embedding
-            global_umap_embedding1<<-expr_matrix_umap
+            #pca_embedding1<<-expr_matrix_pca
+            #umap_embedding1<<-umap_embedding
+            #global_umap_embedding1<<-expr_matrix_umap
             umap_embedding<-adjustUMAP(
               pca_embedding = expr_matrix_pca,
               umap_embedding = umap_embedding,
@@ -525,9 +559,9 @@ savis<-function(
           b = 0.8006, 
           metric = distance_metric
         )
-        pca_embedding1<<-expr_matrix_pca
-        umap_embedding1<<-umap_embedding
-        global_umap_embedding1<<-expr_matrix_umap
+        #pca_embedding1<<-expr_matrix_pca
+        #umap_embedding1<<-umap_embedding
+        #global_umap_embedding1<<-expr_matrix_umap
         umap_embedding<-adjustUMAP(
           pca_embedding = expr_matrix_pca,
           umap_embedding = umap_embedding,
@@ -560,6 +594,7 @@ savis<-function(
   }
   return(newList)
 }
+
 
 
 
@@ -733,15 +768,30 @@ def adaptive_dist_general_grad(x, y):
   )
   umap_embedding<-umap$fit_transform(as.matrix(x = X))
   umap_embedding<-data.frame(umap_embedding)
-  colnames(umap_embedding)<-paste0("UMAP_",1:n.components)
+  colnames(umap_embedding)<-paste0("SAVIS_",1:n.components)
   umap_embedding
 }
 
 
 
-#
-
-
+#' get_umap_embedding_adjust
+#'
+#' Adjust UMAP to deal with distortion 
+#'
+#' @details amazing umap
+#' @param expr_matrix character
+#'
+#' @return nothing useful
+#'
+#' @importFrom Seurat FindNeighbors FindClusters
+#' @importFrom pdist pdist
+#' @importFrom uwot umap
+#' @export
+#'
+#' @examples
+#' a<-1
+#'
+#'
 get_umap_embedding_adjust<-function(
   pca_embedding,
   pca_center,
@@ -825,7 +875,8 @@ get_umap_embedding_adjust<-function(
   }else if (adjust_method == "MDS"){
     set.seed(seed.use)
     umap_center<-cmdscale(pca_dist)
-    #umap_center<-isoMDS(pca_dist)$points 
+  }else if (adjust_method == "isoMDS"){
+    umap_center<-isoMDS(pca_dist)$points 
   }else{
     stop("wrong adjust method")
   }
@@ -954,6 +1005,8 @@ get_umap_embedding_adjust<-function(
 #' @importFrom Seurat FindNeighbors FindClusters
 #' @importFrom pdist pdist
 #' @importFrom uwot umap
+#' @importFrom MASS isoMDS
+#' @importFrom stats cmdscale var as.dist dist
 #' @export
 #'
 #' @examples
@@ -975,7 +1028,6 @@ adjustUMAP<-function(
   seed.use = 42,
   min_size = 100,
   maxit_push = NULL
-  
 ){
   if(adjust_method == "all"){
     umap_adjust<-adjustUMAP(
@@ -1059,7 +1111,7 @@ adjustUMAP<-function(
     set.seed(seed.use)
     sample_index_i<-sample(index_i,min(min_size,length(index_i)) )
     sample_index_dist<-pdist(pca_embedding[sample_index_i,c(1,2)],pca_center[i,c(1,2)])@dist
-    nth(x=sample_index_dist,
+    Rfast::nth(x=sample_index_dist,
       k = max(1,min(ceiling(min_size/5),length(index_i))),
       num.of.nths = 2,
       descending = T,
@@ -1338,6 +1390,7 @@ adjustUMAP<-function(
 #'
 #' @importFrom Rfast Dist
 #' @importFrom pdist pdist
+#' @importFrom stats dist as.dist
 #'
 #' @export
 #'
@@ -1597,7 +1650,7 @@ SubPCEmbedding<-function(
       expr_tmp,verbose = F)$vst.variance.standardized
     #tmp_hvg<- which(expr_tmp_hvg %in%
     #    sort(expr_tmp_hvg,decreasing = T)[1:nfeatures])
-    tmp_hvg<- nth(x = expr_tmp_hvg,
+    tmp_hvg<- Rfast::nth(x = expr_tmp_hvg,
       k = nfeatures,
       num.of.nths = 2,
       descending = T,
@@ -1733,6 +1786,7 @@ AdaptiveCombine<-function(expr_matrix,
   cluster_label_i,
   npcs=10,
   nfeatures=2000,
+  scale_factor_separation = 3,
   process_min_size=0
 ){
   expr_matrix_pca<-combined_embedding[,(1:(npcs))]
@@ -1972,7 +2026,6 @@ FormAdaptiveCombineList<-function(
               cur_gene <= N_gene){
             t_res<-t.test(expr_matrix[cur_gene,index_1],
               expr_matrix[cur_gene,index_2])
-            t_rest_res<<-t_res
             if (is.na(t_res$p.value)){
               t_res$p.value<-1
             }
@@ -2150,17 +2203,29 @@ adaDimPlot<-function(
   umap_embedding,
   label,
   pt.size=0,
-  show.legend=TRUE
+  show.legend=TRUE,
+  seed.use = 42
 ){
+  set.seed(seed.use)
+  shuffle_index<-sample(1:nrow(umap_embedding))
+  umap_embedding<-umap_embedding[shuffle_index,]
+  label<-label[shuffle_index]
+  
   umap_embedding<-data.frame(umap_embedding)
-  colnames(umap_embedding)<-paste0("UMAP_",1:ncol(umap_embedding))
+  if(is.null(colnames(umap_embedding))[1]){
+    colnames(umap_embedding)<-paste0("UMAP_",1:ncol(umap_embedding)) 
+    xynames<-colnames(umap_embedding)
+  }else{
+    xynames<-colnames(umap_embedding)
+    colnames(umap_embedding)<-paste0("UMAP_",1:ncol(umap_embedding)) 
+  }
   umap_embedding$label<-factor(label)
   
   qual_col_pals <- brewer.pal.info[brewer.pal.info$category == 'qual',]
   col_vector <- unlist(mapply(brewer.pal,
     qual_col_pals$maxcolors,rownames(qual_col_pals)))
-  
-  
+  col_vector <- unique(col_vector)
+  col_vector[4]<-"#ffd000"
   gg<-ggplot(umap_embedding)+
     geom_point(aes(x = UMAP_1,
       y = UMAP_2,
@@ -2174,6 +2239,7 @@ adaDimPlot<-function(
       legend.key=element_blank())+
     guides(color = guide_legend(override.aes =
         list(size=3)))+
+    labs(x = xynames[1],y=xynames[2])+
     scale_colour_manual(values =
         col_vector[c(1:length(unique(label)))])
   if (!show.legend){
@@ -2387,7 +2453,7 @@ RunOrPCA<-function(expr_matrix,count = T,npcs=10,nfeatures=2000){
   expr_matrix_hvg <- FindVariableFeatures(
     expr_matrix,
     verbose = F)$vst.variance.standardized
-  hvg<- nth(x = expr_matrix_hvg,
+  hvg<- Rfast::nth(x = expr_matrix_hvg,
     k = nfeatures,
     num.of.nths = 2,
     descending = T,
@@ -2406,6 +2472,23 @@ RunOrPCA<-function(expr_matrix,count = T,npcs=10,nfeatures=2000){
   expr_matrix_pca<-data.frame(expr_matrix_pca)
   return(expr_matrix_pca)
 }
+
+RunSparsePCA<-function(expr_matrix,count = T,npcs=2){
+  if(count){
+    expr_matrix<-NormalizeData(
+      expr_matrix,
+      verbose = F)
+  }
+  expr_matrix <- ScaleData(
+    expr_matrix,
+    verbose = F)
+  expr_matrix<-t(expr_matrix)
+  expr_matrix_spca <- rspca(expr_matrix,k=2,verbose = F)$scores
+  rm(expr_matrix)
+  expr_matrix_spca<-data.frame(expr_matrix_spca)
+  return(expr_matrix_spca)
+}
+
 
 RunSeuratPCA<-function(expr_matrix,npcs=10,nfeatures=2000){
   expr_matrix <- CreateSeuratObject(counts = expr_matrix)

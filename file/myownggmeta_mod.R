@@ -1,5 +1,6 @@
 ggmeta <- function(study_info, ref_dat, 
   model, 
+  estimated_intercept = NULL,
   variable_intercepts=FALSE, 
   initial_val=NULL,
   tune_lambda=FALSE,
@@ -49,7 +50,7 @@ ggmeta <- function(study_info, ref_dat,
   if(indicator_missing_covariance_sample_size == 1){
     print("Error: All the studies should have either
       an estimate for the var-cov matrix or the sample size.
-      Atleast one of them is missing(NULL) in atleast one of
+      At least one of them is missing(NULL) in at least one of
       the studies")
     error_1 <-1
   }
@@ -92,10 +93,18 @@ ggmeta <- function(study_info, ref_dat,
   
   ## Needed for calculating initial value
   names_wo_intercept <- c()
-  for(i in 1:no_of_studies)
-  {
-    names_wo_intercept <- union(names_wo_intercept,
-      names(study_info[[i]][[1]][-1]))
+  if (is.null(estimated_intercept)){
+    for(i in 1:no_of_studies)
+    {
+      names_wo_intercept <- union(names_wo_intercept,
+        names(study_info[[i]][[1]][-1]))
+    } 
+  }else{
+    for(i in 1:no_of_studies)
+    {
+      names_wo_intercept <- union(names_wo_intercept,
+        names(study_info[[i]][[1]]))
+    }
   }
   weight_sum <- 0
   sum <- 0
@@ -122,36 +131,6 @@ ggmeta <- function(study_info, ref_dat,
   if(length(initial_val) == 0)
   {
     initial_val <- c()
-    # Calculating initial value when the variable_intercepts is TRUE
-    if(variable_intercepts == TRUE)
-    {
-      initial_val <- c(initial_val, unlist(lapply(lapply(study_info, `[[`, 1), `[[`, 1)))
-      
-      for(k in 1: length(names_wo_intercept))
-      {
-        for(j in estimates_in_which_studies_indices[[k]])
-        {
-          if(is.null(study_info[[j]][[2]]) == F)
-          {
-            index_cov <- which(names(study_info[[j]][[1]]) %in% names_wo_intercept[k]  == T)
-            weight <- 1/study_info[[j]][[2]][index_cov, index_cov]
-            weight_sum <- weight_sum + weight
-            sum <- sum + study_info[[j]][[1]][index_cov]*weight
-          }
-          if(is.null(study_info[[j]][[2]]) == T)
-          {
-            index_cov <- which(names(study_info[[j]][[1]]) %in% names_wo_intercept[k]  == T)
-            weight <- study_info[[j]][[3]]
-            weight_sum <- weight_sum + weight
-            sum <- sum + study_info[[j]][[1]][index_cov]*weight
-          }
-        }
-        initial_val[k+length(study_info)] <- sum/weight_sum
-        weight_sum <- 0
-        sum <- 0
-      }
-    }
-    # End of Calculating initial value when the variable_intercepts is TRUE
     
     # Calculating initial value when the variable_intercepts is FALSE
     if(variable_intercepts == F)
@@ -179,30 +158,33 @@ ggmeta <- function(study_info, ref_dat,
         weight_sum <- 0
         sum <- 0
       }
-      for(j in 1:no_of_studies)
-      {
-        if(is.null(study_info[[j]][[2]]) == F)
+      if(is.null(estimated_intercept)){
+        for(j in 1:no_of_studies)
         {
-          weight <- 1/study_info[[j]][[2]][1, 1]
-          weight_sum <- weight_sum + weight
-          sum <- sum + study_info[[j]][[1]][1]*weight
+          if(is.null(study_info[[j]][[2]]) == F)
+          {
+            weight <- 1/study_info[[j]][[2]][1, 1]
+            weight_sum <- weight_sum + weight
+            sum <- sum + study_info[[j]][[1]][1]*weight
+          }
+          if(is.null(study_info[[j]][[2]]) == T)
+          {
+            weight <- study_info[[j]][[3]]
+            weight_sum <- weight_sum + weight
+            sum <- sum + study_info[[j]][[1]][1]*weight
+          }
         }
-        if(is.null(study_info[[j]][[2]]) == T)
-        {
-          weight <- study_info[[j]][[3]]
-          weight_sum <- weight_sum + weight
-          sum <- sum + study_info[[j]][[1]][1]*weight
-        }
+        initial_val[1] <- sum/weight_sum
       }
-      initial_val[1] <- sum/weight_sum
+    }
+    if(is.na(initial_val[1])){
+      initial_val<-initial_val[-1]
     }
     # End of Calculating initial value when the variable_intercepts is FALSE
   }
   initial_val1<<-initial_val
-  print(initial_val)
   ## End of initial_val calculation
-  
-  #print(initial_val)
+
   
   ## Creating X_rbind and X_bdiag matrices
   
@@ -214,10 +196,14 @@ ggmeta <- function(study_info, ref_dat,
   #}
   ## Defining X_abdiag  here
   X_bdiag_list <- list()
-  dim_C<- 0 
+  dim_C<- 0
+  
+  col_inds<-lapply(1:no_of_studies, function(k){
+    which(colnames(ref_dat) %in% names(study_info[[k]][[1]]) == TRUE)
+  })
   for(k in 1 : no_of_studies)
   {
-    col_ind <-  which(colnames(ref_dat) %in% names(study_info[[k]][[1]]) == TRUE)
+    col_ind <-  col_inds[[k]]
     dim_C <- dim_C + length(col_ind)
     X_bdiag_list[[k]] <- as.matrix(ref_dat[,col_ind])
   }
@@ -236,7 +222,7 @@ ggmeta <- function(study_info, ref_dat,
     output_initial <- useoptim(no_of_studies = no_of_studies, 
       study_info = study_info, 
       ref_dat = ref_dat, 
-      #X_rbind = X_rbind,
+      col_inds = col_inds,
       X_bdiag_list = X_bdiag_list,
       C = C_init,
       initial_val = initial_val,
@@ -255,11 +241,12 @@ ggmeta <- function(study_info, ref_dat,
     cost_val_new<-output_initial$cost_val
       while(total_iter < maxit & eps > threshold)
       {
+        print("1")
         output_iter <- 
           useoptim(no_of_studies = no_of_studies, 
           study_info = study_info, 
           ref_dat = ref_dat, 
-          #X_rbind = X_rbind,
+          col_inds = col_inds,
           X_bdiag_list = X_bdiag_list,
           C = C_iter,
           initial_val = coef_iter,
@@ -283,7 +270,7 @@ ggmeta <- function(study_info, ref_dat,
       useoptim(no_of_studies = no_of_studies, 
         study_info = study_info, 
         ref_dat = ref_dat, 
-        #X_rbind = X_rbind,
+        col_inds = col_inds,
         X_bdiag_list = X_bdiag_list,
         C = C_iter,
         initial_val = coef_iter,
@@ -316,14 +303,14 @@ ggmeta <- function(study_info, ref_dat,
                 "convergence"=convergence,
                 "no_of_iter"=total_iter)
           }else{
-      
+            print("go here")
             logistic_result <- lapply(lambda.gam, function(lam){
               coef_iter_lam<-coef_iter
               output_lam <- 
                 useoptim(no_of_studies = no_of_studies, 
                   study_info = study_info, 
                   ref_dat = ref_dat, 
-                  #X_rbind = X_rbind,
+                  col_inds = col_inds,
                   X_bdiag_list = X_bdiag_list,
                   C = C_iter,
                   initial_val = coef_iter_lam,
