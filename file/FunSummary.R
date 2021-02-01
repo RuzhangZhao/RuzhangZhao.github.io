@@ -1,6 +1,7 @@
 library(Seurat)
 library(reticulate)
 library(RColorBrewer)
+library(grDevices)
 library(ggplot2)
 library(dplyr)
 library(ggrepel)
@@ -2286,7 +2287,8 @@ adaDimPlot2<-function(
       panel.grid.minor = element_blank(),
       panel.background = element_blank(),
       axis.line = element_line(colour = "black"),
-      legend.key=element_blank())
+      legend.key=element_blank())+
+    scale_color_manual(colors=rainbow(15)[c(12:1,14,15)])
   labs(x = xynames[1],y=xynames[2])
   gg
 }
