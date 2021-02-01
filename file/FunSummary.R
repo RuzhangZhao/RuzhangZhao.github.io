@@ -2288,7 +2288,7 @@ adaDimPlot2<-function(
       panel.background = element_blank(),
       axis.line = element_line(colour = "black"),
       legend.key=element_blank())+
-    scale_color_manual(colors=rainbow(15)[c(12:1,14,15)])
+    scale_colour_gradientn(colors=rainbow(15)[c(12:1,14,15)])
   labs(x = xynames[1],y=xynames[2])
   gg
 }
