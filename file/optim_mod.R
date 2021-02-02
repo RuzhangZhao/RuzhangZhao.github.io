@@ -28,7 +28,7 @@ useoptim<-function(no_of_studies,
   ## Define Cost Function U^T*C*U
   UTCU<-function(coef,C){
     e1 <- sigmoid(ref_dat %*% coef)
-    U<-sapply(1:no_of_studies, function(k){
+    U<-lapply(1:no_of_studies, function(k){
       col_ind <-  col_inds[[k]]
       if(length(study_info[[k]][[1]]) == 1){
         r_second_U <- sigmoid(ref_dat[,col_ind] * study_info[[k]][[1]])
@@ -175,7 +175,8 @@ useoptim<-function(no_of_studies,
         W_lambda_ref_logistic <- diag(c(w_lambda_ref_logistic_vec))
         lambda_ref[[k]] <- crossprod(ref_dat[,col_ind],(w_lambda_ref_logistic_vec*ref_dat[,col_ind]))/study_info[[k]][[3]]
       }
-      
+      study_indices <- seq(1,no_of_studies,1)
+      non_missing_covariance_study_indices <- study_indices[-which(study_indices %in% missing_covariance_study_indices)]
       for(k in non_missing_covariance_study_indices)
       {
         col_ind <-  col_inds[[k]]
@@ -212,7 +213,7 @@ useoptim<-function(no_of_studies,
     
     Lambda_ref <- Reduce(magic::adiag,lambda_ref)
     #print(dim(Lambda_ref))
-    U<-sapply(1:no_of_studies, function(k){
+    U<-lapply(1:no_of_studies, function(k){
       col_ind <-  col_inds[[k]]
       if(length(study_info[[k]][[1]]) == 1){
         r_second_U <- sigmoid(ref_dat[,col_ind] * study_info[[k]][[1]])
@@ -250,8 +251,10 @@ useoptim<-function(no_of_studies,
   cost_val<-res$value
   if (res$convergence == 0){
     convergence <- TRUE
+    print("converge")
   }else{
     convergence <- FALSE
+    print("Not converge")
   }
   if (return_C & return_Hessian){
     H_<-Hessian(estimated_coef,C_iter)

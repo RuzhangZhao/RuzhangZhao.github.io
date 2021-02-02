@@ -183,6 +183,7 @@ ggmeta <- function(study_info, ref_dat,
     # End of Calculating initial value when the variable_intercepts is FALSE
   }
   initial_val1<<-initial_val
+  print(length(initial_val))
   ## End of initial_val calculation
 
   
@@ -287,6 +288,7 @@ ggmeta <- function(study_info, ref_dat,
     total_iter<- total_iter + output_iter$no_of_iter
     convergence<-output_iter$convergence
     if (det(output_iter$Hessian) < threshold ){
+      print(det(output_iter$Hessian))
       convergence<-FALSE
     }
     
