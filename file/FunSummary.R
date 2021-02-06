@@ -802,7 +802,8 @@ get_umap_embedding_adjust<-function(
   N_label,
   cluster_,
   label_index,
-  adjust_method = "umap",
+  adjust_method = "tsMDS",
+  main_index = NULL,
   distance_metric = "euclidean",
   scale_factor =1,
   rotate = TRUE,
@@ -860,7 +861,7 @@ get_umap_embedding_adjust<-function(
     set.seed(seed.use)
     umap_center <-
       umap(
-        X = pca_dist,
+        X = dist(pca_dist),
         n_neighbors = as.integer(x = N_label-1),
         n_components = as.integer(x =2L),
         metric = distance_metric,
@@ -873,15 +874,19 @@ get_umap_embedding_adjust<-function(
         negative_sample_rate = 5,
         fast_sgd = FALSE
       )
-  }else if (adjust_method == "MDS"){
+    colnames(umap_center)<-c("UMAP_1","UMAP_2")
+  }else if (adjust_method == "tsMDS"){
     set.seed(seed.use)
-    umap_center<-cmdscale(pca_dist)
+    umap_center<-tsMDS(dist_full = pca_dist,
+      main_index = main_index)
+    colnames(umap_center)<-c("tsMDS_1","tsMDS_2")
   }else if (adjust_method == "isoMDS"){
-    umap_center<-isoMDS(pca_dist)$points 
+    umap_center<-isoMDS(dist(pca_dist))$points 
+    colnames(umap_center)<-c("isoMDS_1","isoMDS_2")
   }else{
     stop("wrong adjust method")
   }
-  colnames(umap_center)<-c("UMAP_1","UMAP_2")
+  
   umap_center<-data.frame(umap_center)
   sf1<-(max(umap_embedding[,1])-min(umap_embedding[,1]))/(max(umap_center[,1]) -min(umap_center[,1]))
   sf2<-(max(umap_embedding[,2])-min(umap_embedding[,2]))/(max(umap_center[,2]) -min(umap_center[,2]))
@@ -925,7 +930,7 @@ get_umap_embedding_adjust<-function(
         Rx2y <- rotation(x,y)
         Rx2y <- pmax(Rx2y,-1)
         Rx2y <- pmin(Rx2y,1)
-
+        
         if(Rx2y[2,1]>=0){
           i
           angle<-acos(Rx2y[1,1])
@@ -994,6 +999,12 @@ get_umap_embedding_adjust<-function(
 }
 
 
+
+
+
+
+
+
 #' adjustUMAP
 #'
 #' Adjust UMAP to deal with distortion 
@@ -1018,14 +1029,13 @@ adjustUMAP<-function(
   pca_embedding,
   umap_embedding,
   global_umap_embedding = NULL,
-  adjust_method = "umap",
+  adjust_method = "tsMDS",
   distance_metric = "euclidean",
   scale_factor = 0.9,
   rotate = TRUE,
   density_adjust = TRUE,
-  #shrink_all_distance = FALSE,
   shrink_distance = TRUE,
-  shrink_factor = 0.3,
+  shrink_factor = 0.2,
   seed.use = 42,
   min_size = 100,
   maxit_push = NULL
@@ -1046,11 +1056,11 @@ adjustUMAP<-function(
       min_size = min_size,
       maxit_push = maxit_push
     )
-    MDS_adjust<-adjustUMAP(
+    tsMDS_adjust<-adjustUMAP(
       pca_embedding=pca_embedding,
       umap_embedding=umap_embedding,
       global_umap_embedding=global_umap_embedding,
-      adjust_method = "MDS",
+      adjust_method = "tsMDS",
       distance_metric =distance_metric,
       scale_factor = scale_factor,
       rotate = rotate,
@@ -1062,7 +1072,7 @@ adjustUMAP<-function(
       maxit_push = maxit_push
     )
     newList<-list("umap" = umap_adjust,
-      "MDS"=MDS_adjust)
+      "tsMDS"=tsMDS_adjust)
     return(newList)
   }
   if(is.null(global_umap_embedding)){
@@ -1085,6 +1095,8 @@ adjustUMAP<-function(
     sum(cluster_==label_index[i])
   })
   N_sample<-nrow(pca_embedding)
+  
+  main_index<-c(1:N_label)[which(cluster_size > 0.01*N_sample)]
   if (density_adjust){
     prop_density<-sapply(1:N_label, function(i){
       index_i<-which(cluster_ == label_index[i])
@@ -1119,15 +1131,17 @@ adjustUMAP<-function(
       index.return = T)[,1]
   })
   pca_dist1<-Dist(pca_center)
-  #if(shrink_all_distance){
-  #  prop_<-exp(cluster_size/max(cluster_size))/
-  #    max(exp(cluster_size/max(cluster_size)))
-  #  for(i in 1:N_label){
-  #    pca_dist1[,i]<-pca_dist1[,i]*prop_[i]
-  #   pca_dist1[i,]<-pca_dist1[i,]*prop_[i]
-  # } 
-  #}
-  if(adjust_method == "MDS" & shrink_distance){
+  
+  if(shrink_distance){
+    remain_index<-c(1:N_label)[which(!c(1:N_label)%in%main_index)]
+    prop_<-sqrt(exp(cluster_size/max(cluster_size))/
+        max(exp(cluster_size/max(cluster_size))))
+    for(i in remain_index){
+      pca_dist1[main_index,i]<-pca_dist1[main_index,i]*prop_[i]
+      pca_dist1[i,main_index]<-pca_dist1[i,main_index]*prop_[i]
+    } 
+  }
+  if(adjust_method == "tsMDS" & shrink_distance){
     pam_res<-pam(x = pca_dist1,k = 2)
     
     var_1<-sum(pca_center[which(pam_res$clustering==1),]^2)/sum(pam_res$clustering==1)
@@ -1153,13 +1167,13 @@ adjustUMAP<-function(
     }
   }
   
-  pca_dist<-as.dist(pca_dist1)
   step1_res<-get_umap_embedding_adjust(
     pca_embedding=pca_embedding,
     pca_center=pca_center,
     pca_anchor_index=pca_anchor_index,
-    pca_dist=pca_dist,
+    pca_dist=pca_dist1,
     adjust_method = adjust_method,
+    main_index = main_index,
     distance_metric=distance_metric,
     umap_embedding=umap_embedding,
     N_label=N_label,
@@ -1210,8 +1224,9 @@ adjustUMAP<-function(
       pca_embedding=pca_embedding,
       pca_center=pca_center,
       pca_anchor_index=pca_anchor_index,
-      pca_dist=pca_dist,
+      pca_dist=pca_dist1,
       adjust_method = adjust_method,
+      main_index = main_index,
       distance_metric=distance_metric,
       umap_embedding=umap_embedding,
       N_label=N_label,
@@ -1377,6 +1392,10 @@ adjustUMAP<-function(
     return(umap_embedding_adjust4)
   }
 }
+
+
+
+
 
 
 #' ScaleFactor
