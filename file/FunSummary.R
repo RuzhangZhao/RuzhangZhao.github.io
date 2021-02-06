@@ -1134,7 +1134,7 @@ adjustUMAP<-function(
   
   if(shrink_distance){
     remain_index<-c(1:N_label)[which(!c(1:N_label)%in%main_index)]
-    prop_<-sqrt(exp(cluster_size/max(cluster_size))/
+    prop_<-(exp(cluster_size/max(cluster_size))/
         max(exp(cluster_size/max(cluster_size))))
     for(i in remain_index){
       pca_dist1[main_index,i]<-pca_dist1[main_index,i]*prop_[i]
@@ -1392,6 +1392,10 @@ adjustUMAP<-function(
     return(umap_embedding_adjust4)
   }
 }
+
+
+
+
 
 
 
