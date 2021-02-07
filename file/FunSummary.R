@@ -774,6 +774,104 @@ def adaptive_dist_general_grad(x, y):
 }
 
 
+### Two step MDS
+tsMDS<-function(dist_full,main_index,dist_main=NULL){
+  N<-nrow(dist_full)
+  if(is.null(dist_main)){
+    dist_main<-dist_full[main_index,main_index] 
+  }
+  main_initial<-cmdscale(dist(dist_main))
+  remain_index<-c(1:N)[which(!c(1:N)%in%main_index)]
+  dist_remain<-dist_full[remain_index,remain_index]
+  remain_initial<-cmdscale(dist(dist_remain)) 
+  ### First Step of two-step MDS  
+  cost_fun <- function(R, D) {
+    diff2 <- (R - D) ^ 2
+    sum(diff2) * 0.5
+  }
+  
+  cost_grad <- function(R, D, y) {
+    K <- (R - D) / (D + 1.e-10)
+    
+    G <- matrix(nrow = nrow(y), ncol = ncol(y))
+    
+    for (i in 1:nrow(y)) {
+      dyij <- sweep(-y, 2, -y[i, ])
+      G[i, ] <- apply(dyij * K[, i], 2, sum)
+    }
+    
+    as.vector(t(G)) * -2
+  }
+  
+  mmds_fn <- function(par) {
+    R <- dist_main
+    y <- matrix(par, ncol = 2, byrow = TRUE)
+    D <- Rfast::Dist(y)
+    cost_fun(R, D)
+  }
+  
+  mmds_gr <- function(par) {
+    R <- dist_main
+    y <- matrix(par, ncol = 2, byrow = TRUE)
+    D <- Rfast::Dist(y)
+    
+    cost_grad(R, D, y)
+  }
+  
+  initial_val_main<-c(t(main_initial))
+  res_main <- mize(initial_val_main, list(fn = mmds_fn, gr = mmds_gr), 
+    method = "L-BFGS", verbose = TRUE, 
+    grad_tol = 1e-5, check_conv_every = 10)
+  
+  main_mds<-matrix(res_main$par, ncol = 2, byrow = TRUE)
+  
+  ### Second Step of two-step MDS
+  cost_fun <- function(R, D) {
+    diff2 <- (R - D) ^ 2
+    sum(diff2) * 0.5
+  }
+  cost_grad <- function(R, D, y1, y2) {
+    K <- (R - D) / (D + 1.e-10)
+    y<-rbind(y1,y2)
+    G <- matrix(nrow = nrow(y)-nrow(y1), ncol = ncol(y))
+    
+    for (i in 1:(nrow(y)-nrow(y1))) {
+      i1<-nrow(y1)+i
+      dyij <- sweep(-y, 2, -y[i1, ])
+      G[i, ] <- apply(dyij * K[, i1], 2, sum)
+    }
+    
+    as.vector(t(G)) * -2
+  }
+  
+  mmds_fn <- function(par) {
+    R <- dist_full
+    y1<- main_mds
+    y2 <- matrix(par, ncol = 2, byrow = TRUE)
+    y<-rbind(y1,y2)
+    D <- Rfast::Dist(y)
+    cost_fun(R, D)
+  }
+  
+  mmds_gr <- function(par) {
+    R <- dist_full
+    y1<- main_mds
+    y2 <- matrix(par, ncol = 2, byrow = TRUE)
+    y<-rbind(y1,y2)
+    D <- Rfast::Dist(y)
+    cost_grad(R, D, y1, y2)
+  }
+  initial_val_remain<-c(t(remain_initial))
+  
+  res_remain <- mize(initial_val_remain, list(fn = mmds_fn, gr = mmds_gr), 
+    method = "L-BFGS", verbose = TRUE, 
+    grad_tol = 1e-5, check_conv_every = 10)
+  remain_mds<-matrix(res_remain$par, ncol = 2, byrow = TRUE)
+  
+  tsMDS_res<-rbind(main_mds,remain_mds)
+  
+}
+
 
 #' get_umap_embedding_adjust
 #'
@@ -804,6 +902,7 @@ get_umap_embedding_adjust<-function(
   label_index,
   adjust_method = "tsMDS",
   main_index = NULL,
+  pca_dist_main=NULL,
   distance_metric = "euclidean",
   scale_factor =1,
   rotate = TRUE,
@@ -878,7 +977,8 @@ get_umap_embedding_adjust<-function(
   }else if (adjust_method == "tsMDS"){
     set.seed(seed.use)
     umap_center<-tsMDS(dist_full = pca_dist,
-      main_index = main_index)
+      main_index = main_index,
+      dist_main = pca_dist_main)
     colnames(umap_center)<-c("tsMDS_1","tsMDS_2")
   }else if (adjust_method == "isoMDS"){
     umap_center<-isoMDS(dist(pca_dist))$points 
@@ -997,6 +1097,11 @@ get_umap_embedding_adjust<-function(
     "umap_embedding_adjust"=umap_embedding_adjust)
   return(newList)
 }
+
+
+
+
+
 
 
 
@@ -1131,12 +1236,12 @@ adjustUMAP<-function(
       index.return = T)[,1]
   })
   pca_dist1<-Dist(pca_center)
-  
+  pca_dist_main<-pca_dist1[main_index,main_index]
   if(shrink_distance){
     #remain_index<-c(1:N_label)[which(!c(1:N_label)%in%main_index)]
     prop_<-sqrt(exp(cluster_size/max(cluster_size))/
         max(exp(cluster_size/max(cluster_size))))
-    for(i in remain_index){
+    for(i in 1:N_label){
       #x<-main_index[which.min(pca_dist1[main_index,i])]
       #pca_dist1[x,i]<-pca_dist1[x,i]*prop_[i]
       #pca_dist1[i,x]<-pca_dist1[i,x]*prop_[i]
@@ -1177,6 +1282,7 @@ adjustUMAP<-function(
     pca_center=pca_center,
     pca_anchor_index=pca_anchor_index,
     pca_dist=pca_dist1,
+    pca_dist_main = pca_dist_main,
     adjust_method = adjust_method,
     main_index = main_index,
     distance_metric=distance_metric,
