@@ -1237,9 +1237,11 @@ adjustUMAP<-function(
   })
   pca_dist1<-Dist(pca_center)
   pca_dist_main<-pca_dist1[main_index,main_index]
+  pca_dist1<-pca_dist1*0.8
+  shrink_distance<-FALSE
   if(shrink_distance){
     #remain_index<-c(1:N_label)[which(!c(1:N_label)%in%main_index)]
-    prop_<-(exp(cluster_size/max(cluster_size))/
+    prop_<-sqrt(exp(cluster_size/max(cluster_size))/
         max(exp(cluster_size/max(cluster_size))))
     for(i in 1:N_label){
       #x<-main_index[which.min(pca_dist1[main_index,i])]
