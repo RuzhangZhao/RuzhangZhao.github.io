@@ -17,6 +17,7 @@ library(glue)
 library(MASS)
 library(cluster)
 library(sparsepca)
+library(mize)
 #' savis
 #'
 #' savis: single-cell RNAseq adaptive visualiztaion
