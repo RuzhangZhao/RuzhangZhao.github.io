@@ -1245,7 +1245,7 @@ adjustUMAP<-function(
         max(exp(cluster_size/max(cluster_size))))
     for(i in remain_index){
       x<-main_index[which.min(pca_dist1[main_index,i])]
-      min_x<-min(pca_dist1[,i])*0.8
+      min_x<-min(pca_dist1[,i])*0.5
       pca_dist1[x,i]<-min_x
       pca_dist1[i,x]<-min_x
       #pca_dist1[main_index,i]<-pca_dist1[main_index,i]*prop_[i]
