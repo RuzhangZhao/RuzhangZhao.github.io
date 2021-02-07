@@ -1239,7 +1239,7 @@ adjustUMAP<-function(
   pca_dist1<-Dist(pca_center)
   pca_dist_main<-pca_dist1[main_index,main_index]
   
-  if(shrink_distance){
+  if(adjust_method == "tsMDS" &shrink_distance){
     remain_index<-c(1:N_label)[which(!c(1:N_label)%in%main_index)]
     #prop_<-sqrt(exp(cluster_size/max(cluster_size))/
     #    max(exp(cluster_size/max(cluster_size))))
