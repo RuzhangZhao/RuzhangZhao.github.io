@@ -1237,6 +1237,7 @@ adjustUMAP<-function(
       index.return = T)[,1]
   })
   pca_dist1<-Dist(pca_center)
+  pca_dist2<-pca_dist1
   pca_dist_main<-pca_dist1[main_index,main_index]
   
   if(adjust_method == "tsMDS" &shrink_distance){
@@ -1285,7 +1286,8 @@ adjustUMAP<-function(
       pca_dist1[,i]<-pca_dist1[i,]
     }
   }
-  
+  print(adjust_method)
+  print(sum(pca_dist1!=pca_dist2))
   step1_res<-get_umap_embedding_adjust(
     pca_embedding=pca_embedding,
     pca_center=pca_center,
