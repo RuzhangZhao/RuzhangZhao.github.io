@@ -1237,7 +1237,7 @@ adjustUMAP<-function(
   })
   pca_dist1<-Dist(pca_center)
   pca_dist_main<-pca_dist1[main_index,main_index]
-  pca_dist1<-pca_dist1*0.8
+  pca_dist1<-pca_dist1*0.2
   shrink_distance<-FALSE
   if(shrink_distance){
     #remain_index<-c(1:N_label)[which(!c(1:N_label)%in%main_index)]
