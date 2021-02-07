@@ -1096,7 +1096,7 @@ adjustUMAP<-function(
   })
   N_sample<-nrow(pca_embedding)
   
-  main_index<-c(1:N_label)[which(cluster_size > 0.01*N_sample)]
+  main_index<-c(1:N_label)[which(cluster_size > 0.015*N_sample)]
   if (density_adjust){
     prop_density<-sapply(1:N_label, function(i){
       index_i<-which(cluster_ == label_index[i])
@@ -1133,15 +1133,17 @@ adjustUMAP<-function(
   pca_dist1<-Dist(pca_center)
   
   if(shrink_distance){
-    remain_index<-c(1:N_label)[which(!c(1:N_label)%in%main_index)]
+    #remain_index<-c(1:N_label)[which(!c(1:N_label)%in%main_index)]
     prop_<-(exp(cluster_size/max(cluster_size))/
         max(exp(cluster_size/max(cluster_size))))
     for(i in remain_index){
       #x<-main_index[which.min(pca_dist1[main_index,i])]
       #pca_dist1[x,i]<-pca_dist1[x,i]*prop_[i]
       #pca_dist1[i,x]<-pca_dist1[i,x]*prop_[i]
-      pca_dist1[main_index,i]<-pca_dist1[main_index,i]*prop_[i]
-      pca_dist1[i,main_index]<-pca_dist1[i,main_index]*prop_[i]
+      #pca_dist1[main_index,i]<-pca_dist1[main_index,i]*prop_[i]
+      #pca_dist1[i,main_index]<-pca_dist1[i,main_index]*prop_[i]
+      pca_dist1[,i]<-pca_dist1[,i]*prop_[i]
+      pca_dist1[i,]<-pca_dist1[i,]*prop_[i]
     } 
   }
   if(adjust_method == "tsMDS" & shrink_distance){
@@ -1395,18 +1397,6 @@ adjustUMAP<-function(
     return(umap_embedding_adjust4)
   }
 }
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
