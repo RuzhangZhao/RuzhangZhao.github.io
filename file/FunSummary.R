@@ -1237,20 +1237,21 @@ adjustUMAP<-function(
   })
   pca_dist1<-Dist(pca_center)
   pca_dist_main<-pca_dist1[main_index,main_index]
-  pca_dist1<-pca_dist1*0.5
-  shrink_distance<-FALSE
+  #pca_dist1<-pca_dist1*0.5
+  
   if(shrink_distance){
-    #remain_index<-c(1:N_label)[which(!c(1:N_label)%in%main_index)]
+    remain_index<-c(1:N_label)[which(!c(1:N_label)%in%main_index)]
     prop_<-sqrt(exp(cluster_size/max(cluster_size))/
         max(exp(cluster_size/max(cluster_size))))
-    for(i in 1:N_label){
-      #x<-main_index[which.min(pca_dist1[main_index,i])]
-      #pca_dist1[x,i]<-pca_dist1[x,i]*prop_[i]
-      #pca_dist1[i,x]<-pca_dist1[i,x]*prop_[i]
+    for(i in remain_index){
+      x<-main_index[which.min(pca_dist1[main_index,i])]
+      min_x<-min(pca_dist1[,i])*0.9
+      pca_dist1[x,i]<-min_x
+      pca_dist1[i,x]<-min_x
       #pca_dist1[main_index,i]<-pca_dist1[main_index,i]*prop_[i]
       #pca_dist1[i,main_index]<-pca_dist1[i,main_index]*prop_[i]
-      pca_dist1[,i]<-pca_dist1[,i]*prop_[i]
-      pca_dist1[i,]<-pca_dist1[i,]*prop_[i]
+      #pca_dist1[,i]<-pca_dist1[,i]*prop_[i]
+      #pca_dist1[i,]<-pca_dist1[i,]*prop_[i]
     } 
   }
   if(adjust_method == "tsMDS" & shrink_distance){
