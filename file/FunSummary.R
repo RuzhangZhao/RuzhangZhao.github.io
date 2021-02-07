@@ -1240,8 +1240,10 @@ adjustUMAP<-function(
   
   if(shrink_distance){
     remain_index<-c(1:N_label)[which(!c(1:N_label)%in%main_index)]
+    #prop_<-sqrt(exp(cluster_size/max(cluster_size))/
+    #    max(exp(cluster_size/max(cluster_size))))
     prop_<-sqrt(exp(cluster_size/max(cluster_size))/
-        max(exp(cluster_size/max(cluster_size))))
+        mean(exp(cluster_size/max(cluster_size))[main_index]))
     for(i in remain_index){
       pca_dist1[remain_index,i]<-pca_dist1[remain_index,i]*prop_[i]
       pca_dist1[i,remain_index]<-pca_dist1[i,remain_index]*prop_[i]
