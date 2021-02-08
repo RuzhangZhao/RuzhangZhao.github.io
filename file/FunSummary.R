@@ -1286,8 +1286,7 @@ adjustUMAP<-function(
       pca_dist1[,i]<-pca_dist1[i,]
     }
   }
-  print(adjust_method)
-  print(sum(pca_dist1!=pca_dist2))
+
   step1_res<-get_umap_embedding_adjust(
     pca_embedding=pca_embedding,
     pca_center=pca_center,
@@ -1306,7 +1305,6 @@ adjustUMAP<-function(
     seed.use = seed.use)
   umap_center<-step1_res$umap_center
   umap_embedding_adjust<-step1_res$umap_embedding_adjust
-  library(Seurat)
   snn_1<- FindNeighbors(object = umap_embedding_adjust,
     verbose = F)$snn
   cluster_1 <- FindClusters(snn_1,
@@ -2350,7 +2348,8 @@ adaDimPlot<-function(
   label,
   pt.size=0,
   show.legend=TRUE,
-  seed.use = 42
+  seed.use = 42,
+  color.mode = 1
 ){
   set.seed(seed.use)
   shuffle_index<-sample(1:nrow(umap_embedding))
@@ -2370,8 +2369,10 @@ adaDimPlot<-function(
   qual_col_pals <- brewer.pal.info[brewer.pal.info$category == 'qual',]
   col_vector <- unlist(mapply(brewer.pal,
     qual_col_pals$maxcolors,rownames(qual_col_pals)))
-  col_vector <- unique(col_vector)
-  col_vector[4]<-"#ffd000"
+  if(color.mode==1){
+    col_vector <- unique(col_vector)
+    col_vector[4]<-"#ffd000" 
+  }
   gg<-ggplot(umap_embedding)+
     geom_point(aes(x = UMAP_1,
       y = UMAP_2,
@@ -2433,7 +2434,8 @@ adaDimPlot2<-function(
       panel.background = element_blank(),
       axis.line = element_line(colour = "black"),
       legend.key=element_blank())+
-    scale_colour_gradientn(colors=rainbow(15)[c(12:1,14,15)])
+    #scale_colour_gradientn(colors=rainbow(15)[c(12:1,14,15)])+
+    scale_colour_gradientn(colors=c("grey", "red","black"))+
   labs(x = xynames[1],y=xynames[2])
   gg
 }
