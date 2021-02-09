@@ -289,7 +289,8 @@ ggmeta <- function(study_info, ref_dat,
     convergence<-output_iter$convergence
     if (det(output_iter$Hessian) < threshold ){
       print(det(output_iter$Hessian))
-      convergence<-FALSE
+      warning("convergence to Hessian singular result!")
+      #convergence<-FALSE
     }
     
     if (convergence){
