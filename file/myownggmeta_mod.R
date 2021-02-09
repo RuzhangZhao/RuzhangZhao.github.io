@@ -324,6 +324,7 @@ ggmeta <- function(study_info, ref_dat,
                   return_C = FALSE,
                   return_Hessian = TRUE,
                   lambda.gam = lam,
+                  maxit=maxit,
                   D = D)
               coef_iter_lam<-output_lam$estimated_coef
               #output_lam$cost_val<-output_lam$cost_val*nrow(ref_dat)

@@ -23,6 +23,7 @@ useoptim<-function(no_of_studies,
   return_C = FALSE,
   return_Hessian = FALSE,
   lambda.gam = 0,
+  maxit = 100,
   D = NULL)
 {
   ## Define Cost Function U^T*C*U
