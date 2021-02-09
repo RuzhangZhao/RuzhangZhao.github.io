@@ -220,7 +220,11 @@ ggmeta <- function(study_info, ref_dat,
     C_init <- diag(dim_C)
     total_iter <- 0
     eps<-1
-    
+    if(is.null(lambda.gam.first)){
+      D1<-NULL
+    }else{
+      D1<-D
+    }
     output_initial <- useoptim(no_of_studies = no_of_studies, 
       study_info = study_info, 
       ref_dat = ref_dat, 
@@ -234,7 +238,7 @@ ggmeta <- function(study_info, ref_dat,
       variable_intercepts = variable_intercepts,
       return_C = TRUE,
       lambda.gam = lambda.gam.first,
-      D = NULL)
+      D = D1)
     coef_iter <- output_initial$estimated_coef
     # the variance will be considered later
     #asy_var_beta_converged_initial <- output_initial$Asy_var_optim
@@ -258,7 +262,7 @@ ggmeta <- function(study_info, ref_dat,
           variable_intercepts = variable_intercepts,
           return_C = TRUE,
           lambda.gam = lambda.gam.first,
-          D = NULL)
+          D = D1)
         coef_iter <- output_iter$estimated_coef
         C_iter <- output_iter$C
         cost_val_old<-cost_val_new
@@ -283,7 +287,7 @@ ggmeta <- function(study_info, ref_dat,
         return_C = TRUE,
         return_Hessian = TRUE,
         lambda.gam = lambda.gam.first,
-        D = NULL)
+        D = D1)
     coef_iter <- output_iter$estimated_coef
     C_iter <- output_iter$C
     total_iter<- total_iter + output_iter$no_of_iter
