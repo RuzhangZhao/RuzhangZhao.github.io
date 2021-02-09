@@ -7,6 +7,7 @@ ggmeta <- function(study_info, ref_dat,
   lambda.gam=NULL,
   D=NULL, 
   lambda_tune_initial = 1,
+  lambda.gam.first = 0,
   control = list(epsilon = 1e-03, 
     maxit = 1e3, maxit_lam = 1e3,
     lambda_tune_eps=1e-06))
@@ -232,7 +233,7 @@ ggmeta <- function(study_info, ref_dat,
       missing_covariance_study_indices = missing_covariance_study_indices, 
       variable_intercepts = variable_intercepts,
       return_C = TRUE,
-      lambda.gam = 0,
+      lambda.gam = lambda.gam.first,
       D = NULL)
     coef_iter <- output_initial$estimated_coef
     # the variance will be considered later
@@ -256,7 +257,7 @@ ggmeta <- function(study_info, ref_dat,
           missing_covariance_study_indices = missing_covariance_study_indices, 
           variable_intercepts = variable_intercepts,
           return_C = TRUE,
-          lambda.gam = 0 ,
+          lambda.gam = lambda.gam.first,
           D = NULL)
         coef_iter <- output_iter$estimated_coef
         C_iter <- output_iter$C
@@ -281,7 +282,7 @@ ggmeta <- function(study_info, ref_dat,
         variable_intercepts = variable_intercepts,
         return_C = TRUE,
         return_Hessian = TRUE,
-        lambda.gam = 0 ,
+        lambda.gam = lambda.gam.first,
         D = NULL)
     coef_iter <- output_iter$estimated_coef
     C_iter <- output_iter$C
