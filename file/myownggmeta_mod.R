@@ -292,8 +292,9 @@ ggmeta <- function(study_info, ref_dat,
     C_iter <- output_iter$C
     total_iter<- total_iter + output_iter$no_of_iter
     convergence<-output_iter$convergence
-    if (det(output_iter$Hessian) < threshold ){
-      print(det(output_iter$Hessian))
+    res<-eigen(output_iter$Hessian)
+    print(sum(res$values[which(abs(res$values) > threshold)] > 0))
+    if (sum(res$values[which(abs(res$values) > threshold)] < 0) > 0 ){
       warning("convergence to Hessian singular result!")
       #convergence<-FALSE
     }
