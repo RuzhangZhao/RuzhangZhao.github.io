@@ -231,11 +231,11 @@ useoptim<-function(no_of_studies,
     inv_C<-Lambda_ref + Delta_hat
     print("inv_C")
     print(det(inv_C))
-    print(det(inv_C+(10^(-60/dim(inv_C)[1]))*diag(1,dim(inv_C)[1])))
+    print(det(inv_C+(10^(-20/dim(inv_C)[1]))*diag(1,dim(inv_C)[1])))
     if (abs(det(inv_C))<1e-10){
       C_beta <- solve(inv_C, tol = 1e-60)
     }else{
-      C_beta <- solve(inv_C+(10^(-60/dim(inv_C)[1]))*diag(1,dim(inv_C)[1]), tol = 1e-60)
+      C_beta <- solve(inv_C+(10^(-20/dim(inv_C)[1]))*diag(1,dim(inv_C)[1]), tol = 1e-60)
     }
     print("C_beta")
     print(det(C_beta))
