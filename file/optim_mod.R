@@ -232,7 +232,7 @@ useoptim<-function(no_of_studies,
     if (abs(det(inv_C))<1e-60){
       C_beta <- solve(inv_C, tol = 1e-60)
     }else{
-      C_beta <- solve(inv_C+(10^(-60/dim(inv_C)[1]))*diag(1,dim(inv_C)[1]), tol = 1e-60)
+      C_beta <- solve(inv_C+(10^(-10/dim(inv_C)[1]))*diag(1,dim(inv_C)[1]), tol = 1e-60)
     }
     C_beta
   }
