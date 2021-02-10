@@ -220,7 +220,7 @@ ggmeta <- function(study_info, ref_dat,
     C_init <- diag(dim_C)
     total_iter <- 0
     eps<-1
-    if(is.null(lambda.gam.first)){
+    if(lambda.gam.first==0){
       D1<-NULL
     }else{
       D1<-D
@@ -294,6 +294,8 @@ ggmeta <- function(study_info, ref_dat,
     convergence<-output_iter$convergence
     res<-eigen(output_iter$Hessian)
     print(sum(res$values[which(abs(res$values) > threshold)] > 0))
+    print(max(res$values))
+    print(min(res$values))
     if (sum(res$values[which(abs(res$values) > threshold)] < 0) > 0 ){
       warning("convergence to Hessian singular result!")
       #convergence<-FALSE
