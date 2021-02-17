@@ -1,15 +1,15 @@
 ggmeta <- function(study_info, ref_dat, 
   model, 
   estimated_intercept = NULL,
-  variable_intercepts=FALSE, 
+  variable_intercepts=FALSE,
   initial_val=NULL,
   tune_lambda=FALSE,
   lambda.gam=NULL,
-  D=NULL, 
-  lambda_tune_initial = 1,
+  D=NULL,
   lambda.gam.first = 0,
+  one_step = TRUE,
   control = list(epsilon = 1e-03, 
-    maxit = 1e3, maxit_lam = 1e3,
+    maxit = 200, maxit_lam = 1e3,
     lambda_tune_eps=1e-06))
 {
   call_ggmeta <- match.call()
@@ -245,11 +245,36 @@ ggmeta <- function(study_info, ref_dat,
     total_iter<- total_iter + output_initial$no_of_iter
     C_iter <- output_initial$C
     cost_val_new<-output_initial$cost_val
+    if(one_step==FALSE){
       while(total_iter < maxit & eps > threshold)
       {
         print("1")
         output_iter <- 
           useoptim(no_of_studies = no_of_studies, 
+            study_info = study_info, 
+            ref_dat = ref_dat, 
+            col_inds = col_inds,
+            X_bdiag_list = X_bdiag_list,
+            C = C_iter,
+            initial_val = coef_iter,
+            threshold = threshold,
+            model = model, 
+            missing_covariance_study_indices = missing_covariance_study_indices, 
+            variable_intercepts = variable_intercepts,
+            return_C = TRUE,
+            lambda.gam = lambda.gam.first,
+            D = D1)
+        coef_iter <- output_iter$estimated_coef
+        C_iter <- output_iter$C
+        cost_val_old<-cost_val_new
+        cost_val_new<-output_iter$cost_val
+        total_iter<- total_iter + output_iter$no_of_iter
+        convergence<-output_iter$convergence
+        eps<-abs(cost_val_new - cost_val_old)
+      }
+      
+      output_iter <- 
+        useoptim(no_of_studies = no_of_studies, 
           study_info = study_info, 
           ref_dat = ref_dat, 
           col_inds = col_inds,
@@ -260,47 +285,46 @@ ggmeta <- function(study_info, ref_dat,
           model = model, 
           missing_covariance_study_indices = missing_covariance_study_indices, 
           variable_intercepts = variable_intercepts,
-          return_C = TRUE,
+          return_C = FALSE,
+          return_Hessian = TRUE,
           lambda.gam = lambda.gam.first,
           D = D1)
-        coef_iter <- output_iter$estimated_coef
-        C_iter <- output_iter$C
-        cost_val_old<-cost_val_new
-        cost_val_new<-output_iter$cost_val
-        total_iter<- total_iter + output_iter$no_of_iter
-        convergence<-output_iter$convergence
-        eps<-abs(cost_val_new - cost_val_old)
-      }
-      
-    output_iter <- 
-      useoptim(no_of_studies = no_of_studies, 
-        study_info = study_info, 
-        ref_dat = ref_dat, 
-        col_inds = col_inds,
-        X_bdiag_list = X_bdiag_list,
-        C = C_iter,
-        initial_val = coef_iter,
-        threshold = threshold,
-        model = model, 
-        missing_covariance_study_indices = missing_covariance_study_indices, 
-        variable_intercepts = variable_intercepts,
-        return_C = TRUE,
-        return_Hessian = TRUE,
-        lambda.gam = lambda.gam.first,
-        D = D1)
-    coef_iter <- output_iter$estimated_coef
-    C_iter <- output_iter$C
-    total_iter<- total_iter + output_iter$no_of_iter
-    convergence<-output_iter$convergence
-    res<-eigen(output_iter$Hessian)
-    print(sum(res$values[which(abs(res$values) > threshold)] > 0))
-    print(max(res$values))
-    print(min(res$values))
-    HH<<-output_iter$Hessian
-    CC<<-output_iter$C
+      coef_iter <- output_iter$estimated_coef
+      total_iter<- total_iter + output_iter$no_of_iter
+      convergence<-output_iter$convergence
+      res<-eigen(output_iter$Hessian)
+    }else{
+      print("use this")
+      output_iter <- 
+        useoptim(no_of_studies = no_of_studies, 
+          study_info = study_info, 
+          ref_dat = ref_dat, 
+          col_inds = col_inds,
+          X_bdiag_list = X_bdiag_list,
+          C = C_iter,
+          initial_val = coef_iter,
+          threshold = threshold,
+          model = model, 
+          missing_covariance_study_indices = missing_covariance_study_indices, 
+          variable_intercepts = variable_intercepts,
+          return_C = FALSE,
+          return_Hessian = TRUE,
+          lambda.gam = lambda.gam.first,
+          maxit = maxit/2,
+          D = D1)
+      coef_iter <- output_iter$estimated_coef
+      total_iter<- total_iter + output_iter$no_of_iter
+      convergence<-output_iter$convergence
+      res<-eigen(output_iter$Hessian)
+    }
+    
     if (sum(res$values[which(abs(res$values) > threshold)] < 0) > 0 ){
       warning("convergence to Hessian singular result!")
-      #convergence<-FALSE
+      convergence<-FALSE
+    }else{
+      print(sum(res$values[which(abs(res$values) > threshold)] > 0))
+      print("Hessian is good!!!")
+      convergence<-TRUE
     }
     
     if (convergence){
@@ -314,7 +338,8 @@ ggmeta <- function(study_info, ref_dat,
           if (lambdais0){
               logistic_result<-list("estimated_coef" = coef_iter,
                 "convergence"=convergence,
-                "no_of_iter"=total_iter)
+                "no_of_iter"=total_iter,
+                "C_final"=C_iter)
           }else{
             print("go here")
             logistic_result <- lapply(lambda.gam, function(lam){
@@ -368,13 +393,15 @@ ggmeta <- function(study_info, ref_dat,
         }else{
           logistic_result<-list("estimated_coef" = coef_iter,
             "convergence"=convergence,
-            "no_of_iter"=total_iter)
+            "no_of_iter"=total_iter,
+            "C_final"=C_iter)
         }
       
     }else{
       logistic_result<-list("estimated_coef" = coef_iter,
         "convergence"=convergence,
-        "no_of_iter"=total_iter)
+        "no_of_iter"=total_iter,
+        "C_final"=C_iter)
     }
     
     return(logistic_result)

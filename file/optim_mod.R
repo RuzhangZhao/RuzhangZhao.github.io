@@ -229,24 +229,25 @@ useoptim<-function(no_of_studies,
     
     # Defining optimal C here...
     inv_C<-Lambda_ref + Delta_hat
-    print("inv_C")
-    print(det(inv_C))
-    print(det(inv_C+(10^(-100/dim(inv_C)[1]))*diag(1,dim(inv_C)[1])))
+    #print("inv_C")
+    #print(det(inv_C))
+    #print(det(inv_C+(mean(diag(inv_C))*0.01)*diag(1,dim(inv_C)[1])))
+    #print(mean(diag(inv_C))*0.01)
     if (abs(det(inv_C))>1e-20){
-      print("original")
+      #print("original")
       C_beta <- solve(inv_C, tol = 1e-60)
     }else{
-      C_beta <- solve(inv_C+(10^(-60/dim(inv_C)[1]))*diag(1,dim(inv_C)[1]), tol = 1e-60)
+      C_beta <- solve(inv_C+(mean(diag(inv_C))*0.01)*diag(1,dim(inv_C)[1]), tol = 1e-60)
     }
-    print("C_beta")
-    print(det(C_beta))
+    #print("C_beta")
+    #print(det(C_beta))
     C_beta
   }
   
   ## Use optim to calculate new estimated coef
   #X_abdiag = Reduce(magic::adiag,X_bdiag_list)
   C_iter<-C
-  print(det(C))
+  #print(det(C))
   estimated_coef <- c(initial_val)
   #estimated_coef<-c(1.1605597 ,-2.0090653,  3.6657561 ,-1.8231836, -0.6630903 , 0.7562909)
   print("Once")
@@ -254,10 +255,12 @@ useoptim<-function(no_of_studies,
     fn=UTCU,
     C=C_iter,
     gr = grad,
-    method = "BFGS")
+    method = "BFGS",
+    control = list(maxit=maxit))
+  print(paste0("func value before:",UTCU(estimated_coef,C_iter)))
+  print(paste0("func value after:",res$value))
   estimated_coef<-res$par
   names(estimated_coef)<-colnames(ref_dat)
-  C_iter<-C_beta(estimated_coef,C_iter)
   no_of_iter<-c(res$counts[2])
   names(no_of_iter)<-NULL
   cost_val<-res$value
@@ -270,10 +273,12 @@ useoptim<-function(no_of_studies,
   }
   if (return_C & return_Hessian){
     H_<-Hessian(estimated_coef,C_iter)
+    C_iter<-C_beta(estimated_coef,C_iter)
     newList<-list("estimated_coef" = estimated_coef,
       "cost_val"=cost_val,"no_of_iter"=no_of_iter,
       "convergence"=convergence,"C"=C_iter,"Hessian" = H_)  
   }else if (return_C & (!return_Hessian)){
+    C_iter<-C_beta(estimated_coef,C_iter)
     newList<-list("estimated_coef" = estimated_coef,
       "cost_val"=cost_val,"no_of_iter"=no_of_iter,
       "convergence"=convergence,"C"=C_iter)
