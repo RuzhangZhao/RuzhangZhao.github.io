@@ -310,7 +310,7 @@ ggmeta <- function(study_info, ref_dat,
           return_C = FALSE,
           return_Hessian = TRUE,
           lambda.gam = lambda.gam.first,
-          maxit = maxit/2,
+          maxit = 100,
           D = D1)
       coef_iter <- output_iter$estimated_coef
       total_iter<- total_iter + output_iter$no_of_iter
@@ -318,11 +318,11 @@ ggmeta <- function(study_info, ref_dat,
       res<-eigen(output_iter$Hessian)
     }
     
-    if (sum(res$values[which(abs(res$values) > threshold)] < 0) > 0 ){
+    if (sum(Re(res$values)[which(abs(Re(res$values)) > threshold)] < 0) > 0 ){
       warning("convergence to Hessian singular result!")
-      convergence<-FALSE
+      convergence<-TRUE
     }else{
-      print(sum(res$values[which(abs(res$values) > threshold)] > 0))
+      print(sum(Re(res$values)[which(abs(Re(res$values)) > threshold)] > 0))
       print("Hessian is good!!!")
       convergence<-TRUE
     }
