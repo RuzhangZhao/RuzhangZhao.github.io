@@ -1,3 +1,4 @@
+library(parallel)
 ggmeta <- function(study_info, ref_dat, 
   model, 
   estimated_intercept = NULL,
@@ -9,7 +10,7 @@ ggmeta <- function(study_info, ref_dat,
   lambda.gam.first = 0,
   one_step = TRUE,
   control = list(epsilon = 1e-03, 
-    maxit = 200, maxit_lam = 1e3,
+    maxit = 500, maxit_lam = 1e3,
     lambda_tune_eps=1e-06))
 {
   call_ggmeta <- match.call()
@@ -238,6 +239,7 @@ ggmeta <- function(study_info, ref_dat,
       variable_intercepts = variable_intercepts,
       return_C = TRUE,
       lambda.gam = lambda.gam.first,
+      maxit=maxit,
       D = D1)
     coef_iter <- output_initial$estimated_coef
     # the variance will be considered later
@@ -342,7 +344,7 @@ ggmeta <- function(study_info, ref_dat,
                 "C_final"=C_iter)
           }else{
             print("go here")
-            logistic_result <- lapply(lambda.gam, function(lam){
+            logistic_result <- mclapply(lambda.gam, function(lam){
               coef_iter_lam<-coef_iter
               output_lam <- 
                 useoptim(no_of_studies = no_of_studies, 
@@ -386,7 +388,7 @@ ggmeta <- function(study_info, ref_dat,
                 "convergence_lambda_tune"=output_lam$convergence,
                 "no_of_iter"=total_iter,
                 "no_of_iter_lambda_tune"=output_lam$no_of_iter) 
-            })
+            },mc.cores = 4)
             
           }
           
