@@ -91,7 +91,7 @@ savis<-function(
   return_cluster = FALSE,
   return_global_umap = FALSE,
   verbose_more = FALSE,
-  #center_method = "mean",
+  compressed_storage = TRUE,
   seed.use = 42L
 ){
   if(max_stratification == 1){
@@ -222,9 +222,9 @@ savis<-function(
       nfeatures =nfeatures,
       #center_method = center_method,
       scale_factor_separation=scale_factor_separation)
+    rm(expr_matrix)
     adaptive<-FALSE
   }
-  
   if(adaptive){
     if (!is.null(process_min_count)){
       process_min_size<-sort(size_cluster,decreasing = T)[process_min_count]
@@ -261,334 +261,134 @@ savis<-function(
       cluster_label = cluster_label,
       check_differential = check_differential,
       verbose = verbose_more)
+    rm(expr_matrix)
     cluster_label<-umap_res$cluster_label
     if(is.null(dim(cluster_label)[1])){
       combined_embedding<-data.frame(
-        "Layer2"=cluster_label,
+        "Layer2Cluster"=cluster_label,
         umap_res$combined_embedding)
       if(ncol(umap_res$combined_embedding)!=(2*npcs)){
         stop("label and combined embedding size do not match")
       }
-      if(run_adaUMAP){
-        if(verbose){
-          cat('\n')
-          print("Running Adaptive UMAP...")
-          setTxtProgressBar(pb = pb, value = 12)
-        }
-        umap_embedding<-RunAdaUMAP(
-          X = combined_embedding,
-          metric = distance_metric,
-          metric_count = 1,
-          py_envir = parent.frame(),
-          seed.use = seed.use)
+      metric_count<-1
+    }else if (ncol(cluster_label) == 2) {
+      colnames(cluster_label)<-paste0("Layer",
+        2:(ncol(cluster_label)+1),"Cluster")
+      combined_embedding<-data.frame(
+        cluster_label,
+        umap_res$combined_embedding)
+      if(ncol(umap_res$combined_embedding)!=(3*npcs)){
+        stop("label and combined embedding size do not match")
       }
-      
-      
-      if(run_adaUMAP){
-        if(adjust_UMAP){
-          if(verbose){
-            cat('\n')
-            print("Adjusting UMAP...")
-            setTxtProgressBar(pb = pb, value = 18)
-          }
-          expr_matrix_umap<-umap(
-            X = expr_matrix_pca,
-            a = 1.8956, 
-            b = 0.8006, 
-            metric = distance_metric
-          )
-          #pca_embedding1<<-expr_matrix_pca
-          #umap_embedding1<<-umap_embedding
-          #global_umap_embedding1<<-expr_matrix_umap
-          umap_embedding<-adjustUMAP(
-            pca_embedding = expr_matrix_pca,
-            umap_embedding = umap_embedding,
-            global_umap_embedding = expr_matrix_umap,
-            adjust_method = adjust_method,
-            shrink_distance = shrink_distance,
-            rotate = adjust_rotate,
-            seed.use = seed.use)
-        }
-        if(return_cluster){
-          newList<-list("umap_embedding"=umap_embedding,
-            "cluster_label"=cluster_label)
-          
-        }else{
-          newList<-umap_embedding
-        }
-      }else{
-        if(return_cluster){
-          newList<-list("combined_embedding"=combined_embedding,
-            "cluster_label"=cluster_label)
-          
-        }else{
-          newList<-combined_embedding
-        }
+      metric_count<-2
+    }else if (ncol(cluster_label) == 3){
+      colnames(cluster_label)<-paste0("Layer",
+        2:(ncol(cluster_label)+1),"Cluster")
+      combined_embedding<-data.frame(
+        cluster_label,
+        umap_res$combined_embedding)
+      if(ncol(umap_res$combined_embedding)!=(4*npcs)){
+        stop("label and combined embedding size do not match")
       }
+      metric_count<-3
     }else{
-      if (ncol(cluster_label) == 2) {
-        colnames(cluster_label)<-paste0("Layer",
-          2:(ncol(cluster_label)+1))
-        combined_embedding<-data.frame(
-          cluster_label,
-          umap_res$combined_embedding)
-        if(ncol(umap_res$combined_embedding)!=(3*npcs)){
-          stop("label and combined embedding size do not match")
-        }
-        if(run_adaUMAP){
-          if(verbose){
-            cat('\n')
-            print("Running Adaptive UMAP...")
-            setTxtProgressBar(pb = pb, value = 12)
-          }
-          umap_embedding<-RunAdaUMAP(
-            X = combined_embedding,
-            metric = distance_metric,
-            metric_count = 2,
-            py_envir = parent.frame(),
-            seed.use = seed.use)
-        }
-        
-        
-        
-        if(run_adaUMAP){
-          if(adjust_UMAP){
-            if(verbose){
-              cat('\n')
-              print("Adjusting UMAP...")
-              setTxtProgressBar(pb = pb, value = 18)
-            }
-            expr_matrix_umap<-umap(
-              X = expr_matrix_pca,
-              a = 1.8956, 
-              b = 0.8006, 
-              metric = distance_metric
-            )
-            #pca_embedding1<<-expr_matrix_pca
-            #umap_embedding1<<-umap_embedding
-            #global_umap_embedding1<<-expr_matrix_umap
-            umap_embedding<-adjustUMAP(
-              pca_embedding = expr_matrix_pca,
-              umap_embedding = umap_embedding,
-              global_umap_embedding = expr_matrix_umap,
-              adjust_method = adjust_method,
-              shrink_distance = shrink_distance,
-              rotate = adjust_rotate,
-              seed.use = seed.use)
-          }
-          if(return_cluster){
-            newList<-list("umap_embedding"=umap_embedding,
-              "cluster_label"=cluster_label)
-            
-          }else{
-            newList<-umap_embedding
-          }
-        }else{
-          if(return_cluster){
-            newList<-list("combined_embedding"=combined_embedding,
-              "cluster_label"=cluster_label)
-            
-          }else{
-            newList<-combined_embedding
-          }
-        }
-        
-      }else if (ncol(cluster_label) == 3){
-        colnames(cluster_label)<-paste0("Layer",
-          2:(ncol(cluster_label)+1))
-        combined_embedding<-data.frame(
-          cluster_label,
-          umap_res$combined_embedding)
-        if(ncol(umap_res$combined_embedding)!=(4*npcs)){
-          stop("label and combined embedding size do not match")
-        }
-        if(run_adaUMAP){
-          if(verbose){
-            cat('\n')
-            print("Running Adaptive UMAP...")
-            setTxtProgressBar(pb = pb, value = 12)
-          }
-          umap_embedding<-RunAdaUMAP(
-            X = combined_embedding,
-            metric = distance_metric,
-            metric_count = 3,
-            py_envir = parent.frame(),
-            seed.use = seed.use)
-          
-        }
-        
-        
-        if(run_adaUMAP){
-          if(adjust_UMAP){
-            if(verbose){
-              cat('\n')
-              print("Adjusting UMAP...")
-              setTxtProgressBar(pb = pb, value = 18)
-            }
-            expr_matrix_umap<-umap(
-              X = expr_matrix_pca,
-              a = 1.8956, 
-              b = 0.8006, 
-              metric = distance_metric
-            )
-            #pca_embedding1<<-expr_matrix_pca
-            #umap_embedding1<<-umap_embedding
-            #global_umap_embedding1<<-expr_matrix_umap
-            umap_embedding<-adjustUMAP(
-              pca_embedding = expr_matrix_pca,
-              umap_embedding = umap_embedding,
-              global_umap_embedding = expr_matrix_umap,
-              adjust_method = adjust_method,
-              shrink_distance = shrink_distance,
-              rotate = adjust_rotate,
-              seed.use = seed.use)
-          }
-          if(return_cluster){
-            newList<-list("umap_embedding"=umap_embedding,
-              "cluster_label"=cluster_label)
-            
-          }else{
-            newList<-umap_embedding
-          }
-        }else{
-          if(return_cluster){
-            newList<-list("combined_embedding"=combined_embedding,
-              "cluster_label"=cluster_label)
-            
-          }else{
-            newList<-combined_embedding
-          }
-        }
-        
-      }else{
-        colnames(cluster_label)<-paste0("Layer",
-          2:(ncol(cluster_label)+1))
-        combined_embedding<-data.frame("Num_Layer"=(ncol(cluster_label)+1),
-          cluster_label,
-          umap_res$combined_embedding)
-        if(run_adaUMAP){
-          if(verbose){
-            cat('\n')
-            print("Running Adaptive UMAP...")
-            setTxtProgressBar(pb = pb, value = 12)
-          }
-          umap_embedding<-RunAdaUMAP(
-            X = combined_embedding,
-            metric = distance_metric,
-            metric_count = 4,
-            py_envir = parent.frame(),
-            seed.use = seed.use)  
-        }
-        
-        
-        if(run_adaUMAP){
-          if(adjust_UMAP){
-            if(verbose){
-              cat('\n')
-              print("Adjusting UMAP...")
-              setTxtProgressBar(pb = pb, value = 18)
-            }
-            expr_matrix_umap<-umap(
-              X = expr_matrix_pca,
-              a = 1.8956, 
-              b = 0.8006, 
-              metric = distance_metric
-            )
-            #pca_embedding1<<-expr_matrix_pca
-            #umap_embedding1<<-umap_embedding
-            #global_umap_embedding1<<-expr_matrix_umap
-            umap_embedding<-adjustUMAP(
-              pca_embedding = expr_matrix_pca,
-              umap_embedding = umap_embedding,
-              global_umap_embedding = expr_matrix_umap,
-              adjust_method = adjust_method,
-              shrink_distance = shrink_distance,
-              rotate = adjust_rotate,
-              seed.use = seed.use)
-          }
-          if(return_cluster){
-            newList<-list("umap_embedding"=umap_embedding,
-              "cluster_label"=cluster_label)
-            
-          }else{
-            newList<-umap_embedding
-          }
-        }else{
-          if(return_cluster){
-            newList<-list("combined_embedding"=combined_embedding,
-              "cluster_label"=cluster_label)
-          }else{
-            newList<-combined_embedding
-          }
-        }
-        
-      }
+      colnames(cluster_label)<-paste0("Layer",
+        2:(ncol(cluster_label)+1),"Cluster")
+      combined_embedding<-data.frame("Num_Layer"=(ncol(cluster_label)+1),
+        cluster_label,
+        umap_res$combined_embedding)
+      metric_count<-4
     }
-    
-    
-    
+    rm(umap_res)
   }else{
-    
     combined_embedding<-data.frame(
       "cluster_label"=cluster_label,
       combined_embedding)
-    
-    if(run_adaUMAP){
-      if(verbose){
-        cat('\n')
-        print("Running Adaptive UMAP...")
-        setTxtProgressBar(pb = pb, value = 10)
-      }
-      umap_embedding<-RunAdaUMAP(
-        X = combined_embedding,
-        metric = distance_metric,
-        metric_count = 1,
-        py_envir = parent.frame(),
-        seed.use = seed.use)
-    }
-    
-    
-    if(run_adaUMAP){
-      if(adjust_UMAP){
-        if(verbose){
-          cat('\n')
-          print("Adjusting UMAP...")
-          setTxtProgressBar(pb = pb, value = 18)
+    metric_count <- 1
+  }
+  
+  
+  combined_embedding_list<-list()
+  if(compressed_storage){
+    if(metric_count > 1){
+      #combined_embedding_list[[1]]<-cluster_label
+      ncol_cluster<-ncol(cluster_label)
+      start_col<-ncol_cluster+1
+      for ( i in 2:ncol_cluster){
+        if(sum(cluster_label[,i]== -1) > 0){
+          start_col<-i
+          break
         }
-        expr_matrix_umap<-umap(
-          X = expr_matrix_pca,
-          a = 1.8956, 
-          b = 0.8006, 
-          metric = distance_metric
-        )
-        #pca_embedding1<<-expr_matrix_pca
-        #umap_embedding1<<-umap_embedding
-        #global_umap_embedding1<<-expr_matrix_umap
-        umap_embedding<-adjustUMAP(
-          pca_embedding = expr_matrix_pca,
-          umap_embedding = umap_embedding,
-          global_umap_embedding = expr_matrix_umap,
-          adjust_method = adjust_method,
-          shrink_distance = shrink_distance,
-          rotate = adjust_rotate,
-          seed.use = seed.use)
       }
-      if(return_cluster){
-        newList<-list("umap_embedding"=umap_embedding,
-          "cluster_label"=cluster_label)
+      if(start_col <= ncol_cluster){
+        combined_embedding_list[[1]]<-combined_embedding[,1:(ncol_cluster+start_col*npcs)]
+        for ( i in start_col:ncol_cluster){
+          index_i<-which(cluster_label[,i]!= -1)
+          combined_embedding_list[[i]]<-combined_embedding[index_i,(ncol_cluster+i*npcs+1):(ncol_cluster+(i+1)*npcs)]
+        } 
+      }
+    }
+  }
+  
+  if(!run_adaUMAP){
+    if(return_cluster){
+      if(length(combined_embedding_list)>0){
+        newList<-list("combined_embedding"=combined_embedding_list,
+          "cluster_label"=cluster_label) 
       }else{
-        newList<-umap_embedding
-      }
-    }else{
-      if(return_cluster){
         newList<-list("combined_embedding"=combined_embedding,
           "cluster_label"=cluster_label)
-        
+      }
+    }else{
+      if(length(combined_embedding_list)>0){
+        newList<-combined_embedding_list
       }else{
         newList<-combined_embedding
       }
     }
+  }else{
+    if(verbose){
+      cat('\n')
+      print("Running Adaptive UMAP...")
+      setTxtProgressBar(pb = pb, value = 12)
+    }
+    umap_embedding<-RunAdaUMAP(
+      X = combined_embedding,
+      metric = distance_metric,
+      metric_count = metric_count,
+      py_envir = parent.frame(),
+      seed.use = seed.use)
+    if(adjust_UMAP){
+      if(verbose){
+        cat('\n')
+        print("Adjusting UMAP...")
+        setTxtProgressBar(pb = pb, value = 17)
+      }
+      expr_matrix_umap<-umap(
+        X = expr_matrix_pca,
+        a = 1.8956, 
+        b = 0.8006, 
+        metric = distance_metric
+      )
+      umap_embedding<-adjustUMAP(
+        pca_embedding = expr_matrix_pca,
+        umap_embedding = umap_embedding,
+        global_umap_embedding = expr_matrix_umap,
+        adjust_method = adjust_method,
+        shrink_distance = shrink_distance,
+        rotate = adjust_rotate,
+        seed.use = seed.use)
+    }
+    if(return_cluster){
+      newList<-list("savis_embedding"=umap_embedding,
+        "cluster_label"=cluster_label)
+    }else{
+      newList<-umap_embedding
+    }
   }
+  
+  
+  
   if(verbose){
     cat('\n')
     print("Finished...")
@@ -596,6 +396,7 @@ savis<-function(
   }
   return(newList)
 }
+
 
 
 
@@ -641,6 +442,9 @@ RunAdaUMAP<-function(
   metric.kwds = NULL,
   angular.rp.forest = FALSE,
   verbose = FALSE){
+  if(inherits(X, "list")){
+    X<-get_matrix_from_list(X)
+  }
   if (!py_module_available(module = 'umap')) {
     stop("Cannot find UMAP, please install through pip in command line(e.g. pip install umap-learn) or through reticulate package in R (e.g. reticulate::py_install('umap') )")
   }
@@ -774,9 +578,39 @@ def adaptive_dist_general_grad(x, y):
   umap_embedding
 }
 
+### If the storage is compressed, it should be recovered 
+## to be a matrix 
+get_matrix_from_list<-function(combined_embedding_list){
+  list_len<-length(combined_embedding_list)
+  npcs<-ncol(combined_embedding_list[[list_len]])
+  cluster_index<-which(substr(colnames(combined_embedding_list[[1]]),nchar(colnames(combined_embedding_list[[1]]))-6,nchar(colnames(combined_embedding_list[[1]])))
+    == "Cluster")
+  cluster_label<-combined_embedding_list[[1]][,cluster_index]
+  ncol_cluster<-length(cluster_index)
+  start_col<-0
+  for ( i in 2:ncol_cluster){
+    if(sum(cluster_label[,i]== -1) > 0){
+      start_col<-i
+      break
+    }
+  }
+  combined_embedding<-combined_embedding_list[[1]]
+  for ( i in 2:ncol_cluster){
+    sub_PC_supp<-matrix(0,nrow = nrow(combined_embedding_list[[1]]),ncol=npcs)
+    rownames(sub_PC_supp)<-rownames(combined_embedding_list[[1]])
+    colnames(sub_PC_supp)<-paste0("Layer",(i+1),"PC",1:npcs)
+    index_i<-which(cluster_label[,i]!= -1)
+    sub_PC_supp[index_i,]<-as.matrix(combined_embedding_list[[i]])
+    combined_embedding<-cbind(combined_embedding,sub_PC_supp)
+  }
+  combined_embedding
+}
 
 ### Two step MDS
-tsMDS<-function(dist_full,main_index,dist_main=NULL){
+tsMDS<-function(
+  dist_full,
+  main_index,
+  dist_main=NULL){
   N<-nrow(dist_full)
   if(is.null(dist_main)){
     dist_main<-dist_full[main_index,main_index] 

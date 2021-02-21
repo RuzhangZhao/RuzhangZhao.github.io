@@ -10,7 +10,7 @@ ggmeta <- function(study_info, ref_dat,
   lambda.gam.first = 0,
   one_step = TRUE,
   control = list(epsilon = 1e-03, 
-    maxit = 500, maxit_lam = 1e3,
+    maxit = 100, maxit_lam = 1e3,
     lambda_tune_eps=1e-06))
 {
   call_ggmeta <- match.call()
