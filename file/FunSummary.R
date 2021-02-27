@@ -624,11 +624,6 @@ tsMDS<-function(
     dist_main<-dist_full[main_index,main_index] 
   }
   main_initial<-cmdscale(dist(dist_main),k=2)
-  remain_index<-c(1:N)[which(!c(1:N)%in%main_index)]
-  dist_remain<-dist_full[remain_index,remain_index]
-  dist_remain<<-dist_remain
-  remain_initial<-cmdscale(dist(dist_remain),k=2) 
-  remain_dist_remain<<-remain_initial
   ### First Step of two-step MDS  
   cost_fun <- function(R, D) {
     diff2 <- (R - D) ^ 2
@@ -671,50 +666,59 @@ tsMDS<-function(
   main_mds<-matrix(res_main$par, ncol = 2, byrow = TRUE)
   
   ### Second Step of two-step MDS
-  cost_fun <- function(R, D) {
-    diff2 <- (R - D) ^ 2
-    sum(diff2) * 0.5
-  }
-  cost_grad <- function(R, D, y1, y2) {
-    K <- (R - D) / (D + 1.e-10)
-    y<-rbind(y1,y2)
-    G <- matrix(nrow = nrow(y)-nrow(y1), ncol = ncol(y))
+  remain_index<-c(1:N)[which(!c(1:N)%in%main_index)]
+  if(length(remain_index) == 0){
+    tsMDS_res<-main_mds
+  }else{
+    dist_remain<-dist_full[remain_index,remain_index]
+    remain_initial<-cmdscale(dist(dist_remain),k=2) 
     
-    for (i in 1:(nrow(y)-nrow(y1))) {
-      i1<-nrow(y1)+i
-      dyij <- sweep(-y, 2, -y[i1, ])
-      G[i, ] <- apply(dyij * K[, i1], 2, sum)
+    cost_fun <- function(R, D) {
+      diff2 <- (R - D) ^ 2
+      sum(diff2) * 0.5
+    }
+    cost_grad <- function(R, D, y1, y2) {
+      K <- (R - D) / (D + 1.e-10)
+      y<-rbind(y1,y2)
+      G <- matrix(nrow = nrow(y)-nrow(y1), ncol = ncol(y))
+      
+      for (i in 1:(nrow(y)-nrow(y1))) {
+        i1<-nrow(y1)+i
+        dyij <- sweep(-y, 2, -y[i1, ])
+        G[i, ] <- apply(dyij * K[, i1], 2, sum)
+      }
+      
+      as.vector(t(G)) * -2
     }
     
-    as.vector(t(G)) * -2
+    mmds_fn <- function(par) {
+      R <- dist_full
+      y1<- main_mds
+      y2 <- matrix(par, ncol = 2, byrow = TRUE)
+      y<-rbind(y1,y2)
+      D <- Rfast::Dist(y)
+      cost_fun(R, D)
+    }
+    
+    mmds_gr <- function(par) {
+      R <- dist_full
+      y1<- main_mds
+      y2 <- matrix(par, ncol = 2, byrow = TRUE)
+      y<-rbind(y1,y2)
+      D <- Rfast::Dist(y)
+      cost_grad(R, D, y1, y2)
+    }
+    initial_val_remain<-c(t(remain_initial))
+    
+    res_remain <- mize(initial_val_remain, list(fn = mmds_fn, gr = mmds_gr), 
+      method = "L-BFGS", verbose = TRUE, 
+      grad_tol = 1e-5, check_conv_every = 10)
+    remain_mds<-matrix(res_remain$par, ncol = 2, byrow = TRUE)
+    
+    tsMDS_res<-rbind(main_mds,remain_mds)
   }
-  
-  mmds_fn <- function(par) {
-    R <- dist_full
-    y1<- main_mds
-    y2 <- matrix(par, ncol = 2, byrow = TRUE)
-    y<-rbind(y1,y2)
-    D <- Rfast::Dist(y)
-    cost_fun(R, D)
-  }
-  
-  mmds_gr <- function(par) {
-    R <- dist_full
-    y1<- main_mds
-    y2 <- matrix(par, ncol = 2, byrow = TRUE)
-    y<-rbind(y1,y2)
-    D <- Rfast::Dist(y)
-    cost_grad(R, D, y1, y2)
-  }
-  initial_val_remain<-c(t(remain_initial))
-  
-  res_remain <- mize(initial_val_remain, list(fn = mmds_fn, gr = mmds_gr), 
-    method = "L-BFGS", verbose = TRUE, 
-    grad_tol = 1e-5, check_conv_every = 10)
-  remain_mds<-matrix(res_remain$par, ncol = 2, byrow = TRUE)
-  
-  tsMDS_res<-rbind(main_mds,remain_mds)
-  
+
+  tsMDS_res
 }
 
 
