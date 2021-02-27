@@ -46,7 +46,6 @@ library(mize)
 #' @param verbose The default is TRUE.
 #' @param show_cluster The default is FALSE.
 #' @param return_cluster The default is FALSE.
-#' @param return_global_umap The default is FALSE.
 #' @param verbose_more The default is FALSE.
 #' @param seed.use The default is 42L
 #' 
@@ -75,7 +74,7 @@ savis<-function(
   cluster_method = "louvain",
   resolution = 0.5,
   resolution_sub = 0,
-  adaptive = FALSE,
+  adaptive = TRUE,
   max_stratification = 3,
   scale_factor_separation =3,
   process_min_size = NULL,
@@ -89,7 +88,7 @@ savis<-function(
   verbose = TRUE,
   show_cluster = FALSE,
   return_cluster = FALSE,
-  return_global_umap = FALSE,
+  return_combined_PC = FALSE,
   verbose_more = FALSE,
   compressed_storage = TRUE,
   seed.use = 42L
@@ -380,8 +379,17 @@ savis<-function(
         seed.use = seed.use)
     }
     if(return_cluster){
-      newList<-list("savis_embedding"=umap_embedding,
-        "cluster_label"=cluster_label)
+      if(length(combined_embedding_list)>0){
+        newList<-list("combined_embedding"=combined_embedding_list,
+          "savis_embedding"=umap_embedding,
+          "cluster_label"=cluster_label) 
+      }else{
+        newList<-list("combined_embedding"=combined_embedding,
+          "savis_embedding"=umap_embedding,
+          "cluster_label"=cluster_label)
+      }
+      #newList<-list("savis_embedding"=umap_embedding,
+       # "cluster_label"=cluster_label)
     }else{
       newList<-umap_embedding
     }
