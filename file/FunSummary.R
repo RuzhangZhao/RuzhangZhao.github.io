@@ -623,10 +623,12 @@ tsMDS<-function(
   if(is.null(dist_main)){
     dist_main<-dist_full[main_index,main_index] 
   }
-  main_initial<-cmdscale(dist(dist_main))
+  main_initial<-cmdscale(dist(dist_main),k=2)
   remain_index<-c(1:N)[which(!c(1:N)%in%main_index)]
   dist_remain<-dist_full[remain_index,remain_index]
-  remain_initial<-cmdscale(dist(dist_remain)) 
+  dist_remain<<-dist_remain
+  remain_initial<-cmdscale(dist(dist_remain),k=2) 
+  remain_dist_remain<<-remain_initial
   ### First Step of two-step MDS  
   cost_fun <- function(R, D) {
     diff2 <- (R - D) ^ 2
