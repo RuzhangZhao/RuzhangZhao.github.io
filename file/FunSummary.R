@@ -2248,7 +2248,7 @@ adaDimPlot<-function(
   gg <- gg +
     geom_text_repel(data = centers,
       mapping = aes(x = x, y = y,
-        label = label), size = 4)
+        label = label), size = 4,max.overlaps = 20)
   gg
 }
 
