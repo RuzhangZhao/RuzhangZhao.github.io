@@ -660,7 +660,7 @@ tsMDS<-function(
   
   initial_val_main<-c(t(main_initial))
   res_main <- mize(initial_val_main, list(fn = mmds_fn, gr = mmds_gr), 
-    method = "L-BFGS", verbose = TRUE, 
+    method = "L-BFGS", verbose = FALSE, 
     grad_tol = 1e-5, check_conv_every = 10)
   
   main_mds<-matrix(res_main$par, ncol = 2, byrow = TRUE)
@@ -711,7 +711,7 @@ tsMDS<-function(
     initial_val_remain<-c(t(remain_initial))
     
     res_remain <- mize(initial_val_remain, list(fn = mmds_fn, gr = mmds_gr), 
-      method = "L-BFGS", verbose = TRUE, 
+      method = "L-BFGS", verbose = FALSE, 
       grad_tol = 1e-5, check_conv_every = 10)
     remain_mds<-matrix(res_remain$par, ncol = 2, byrow = TRUE)
     
@@ -2248,7 +2248,7 @@ adaDimPlot<-function(
   gg <- gg +
     geom_text_repel(data = centers,
       mapping = aes(x = x, y = y,
-        label = label), size = 4,max.overlaps = 20)
+        label = label), size = 4,max.overlaps = 100)
   gg
 }
 
