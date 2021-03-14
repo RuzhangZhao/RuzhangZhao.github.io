@@ -985,7 +985,7 @@ adjustUMAP<-function(
   global_umap_embedding = NULL,
   adjust_method = "tsMDS",
   distance_metric = "euclidean",
-  scale_factor = 0.9,
+  scale_factor = 1,
   rotate = TRUE,
   density_adjust = TRUE,
   shrink_distance = TRUE,
