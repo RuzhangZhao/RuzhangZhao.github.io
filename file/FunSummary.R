@@ -1775,6 +1775,8 @@ get_umap_embedding_adjust<-function(
 
 
 
+
+
 adjustUMAP<-function(
   pca_embedding,
   umap_embedding,
@@ -1898,7 +1900,9 @@ adjustUMAP<-function(
     }
     index_clu1<-which(pam_res$clustering==clu1)
     index_clu2<-which(pam_res$clustering==clu2)
+    
     max_dist_allow<-max(pca_dist1[main_index,main_index])
+    remain_index<-c(1:N_label)[which(!c(1:N_label)%in%main_index)]
     for( i in intersect(index_clu1,remain_index)){
       if(max(pca_dist1[i,]) >= max_dist_allow){
         closed_dist<-min(pca_dist1[i,index_clu2])
@@ -1915,7 +1919,6 @@ adjustUMAP<-function(
     }
   }
   if(shrink_distance){
-    remain_index<-c(1:N_label)[which(!c(1:N_label)%in%main_index)]
     #prop_<-sqrt(exp(cluster_size/max(cluster_size))/
     #    max(exp(cluster_size/max(cluster_size))))
     prop_<-sqrt(exp(cluster_size/max(cluster_size))/
