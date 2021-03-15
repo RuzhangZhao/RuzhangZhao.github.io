@@ -1363,6 +1363,843 @@ adjustUMAP<-function(
 
 
 
+######################################################
+########################################################
+###########This is for cover the previous functions#####
+
+# only for the between main and remain part 
+
+tsUMAP<-function(
+  dist_full,
+  main_index,
+  dist_main=NULL,
+  distance_metric =distance_metric){
+  N<-nrow(dist_full)
+  if(is.null(dist_main)){
+    dist_main<-dist_full[main_index,main_index] 
+  }
+  main_umap <-
+    umap(
+      X = dist(dist_main),
+      n_neighbors = as.integer(x = nrow(dist_main)-1),
+      n_components = as.integer(x =2L),
+      metric = distance_metric,
+      learning_rate = 1.0,
+      min_dist = 0.3,
+      spread =  1.0,
+      set_op_mix_ratio =  1.0,
+      local_connectivity =  1.0,
+      repulsion_strength = 1,
+      negative_sample_rate = 5,
+      fast_sgd = FALSE
+    )
+  dist_main_umap<-Rfast::Dist(main_umap)
+  sf<-sum(dist_main*dist_main_umap)/sum(dist_main^2)
+  dist_full<- dist_full*sf
+  ### Second Step of two-step MDS
+  remain_index<-c(1:N)[which(!c(1:N)%in%main_index)]
+  if(length(remain_index) == 0){
+    tsumap_res<-main_umap
+  }else{
+    dist_remain<-dist_full[remain_index,remain_index]
+    remain_initial<-cmdscale(dist(dist_remain),k=2) 
+    #main_initial<-cmdscale(dist(dist_main),k=2) 
+    #main_initial<-cmdscale(dist(dist_main),k=2)
+    #sf_main_initial1<-max(main_initial[,1])-min(main_initial[,1])
+    #sf_main_initial2<-max(main_initial[,2])-min(main_initial[,2])
+    #main_umap[,1]<-main_umap[,1]/(max(main_umap[,1])-min(main_umap[,1]))*sf_main_initial1
+    #main_umap[,2]<-main_umap[,2]/(max(main_umap[,2])-min(main_umap[,2]))*sf_main_initial2
+    #dist_main_umap<-Rfast::Dist(main_umap)
+    #sf_here<-sum(dist_main*dist_main_umap)/sum(dist_main_umap^2)
+    #main_umap<-main_umap*sf_here
+    cost_fun <- function(R, D) {
+      diff2 <- (R - D) ^ 2
+      sum(diff2) * 0.5
+    }
+    cost_grad <- function(R, D, y1, y2) {
+      K <- (R - D) / (D + 1.e-10)
+      y<-rbind(y1,y2)
+      G <- matrix(nrow = nrow(y)-nrow(y1), ncol = ncol(y))
+      
+      for (i in 1:(nrow(y)-nrow(y1))) {
+        i1<-nrow(y1)+i
+        dyij <- sweep(-y, 2, -y[i1, ])
+        G[i, ] <- apply(dyij * K[, i1], 2, sum)
+      }
+      
+      as.vector(t(G)) * -2
+    }
+    cost_grad2 <- function(R, D, y) {
+      K <- (R - D) / (D + 1.e-10)
+      
+      G <- matrix(nrow = nrow(y), ncol = ncol(y))
+      
+      for (i in 1:nrow(y)) {
+        dyij <- sweep(-y, 2, -y[i, ])
+        G[i, ] <- apply(dyij * K[, i], 2, sum)
+      }
+      
+      as.vector(t(G)) * -2
+    }
+    mmds_fn <- function(par) {
+      R <- dist_full
+      y1<- main_umap
+      y2 <- matrix(par, ncol = 2, byrow = TRUE)
+      y<-rbind(y1,y2)
+      D <- Rfast::Dist(y)
+      
+      R2<-dist_remain
+      D2 <- Rfast::Dist(y2)
+      cost_fun(R, D) - cost_fun(R2, D2)
+    }
+    
+    mmds_gr <- function(par) {
+      R <- dist_full
+      y1<- main_umap
+      y2 <- matrix(par, ncol = 2, byrow = TRUE)
+      y<-rbind(y1,y2)
+      D <- Rfast::Dist(y)
+      R2<-dist_remain
+      D2 <- Rfast::Dist(y2)
+      cost_grad(R, D, y1, y2)-cost_grad2(R2,D2,y2)
+    }
+    initial_val_remain<-c(t(remain_initial))
+    
+    res_remain <- mize(initial_val_remain, list(fn = mmds_fn, gr = mmds_gr), 
+      method = "L-BFGS", verbose = F, 
+      grad_tol = 1e-5, check_conv_every = 10)
+    remain_mds<-matrix(res_remain$par, ncol = 2, byrow = TRUE)
+    
+    tsumap_res<-rbind(main_umap,remain_mds)
+  }
+  
+  tsumap_res
+}
+
+
+
+
+tsUMAP1<-function(
+  dist_full,
+  main_index,
+  dist_main=NULL,
+  distance_metric =distance_metric){
+  N<-nrow(dist_full)
+  if(is.null(dist_main)){
+    dist_main<-dist_full[main_index,main_index] 
+  }
+  main_umap <-
+    umap(
+      X = dist(dist_main),
+      n_neighbors = as.integer(x = nrow(dist_main)-1),
+      n_components = as.integer(x =2L),
+      metric = distance_metric,
+      learning_rate = 1.0,
+      min_dist = 0.3,
+      spread =  1.0,
+      set_op_mix_ratio =  1.0,
+      local_connectivity =  1.0,
+      repulsion_strength = 1,
+      negative_sample_rate = 5,
+      fast_sgd = FALSE
+    )
+  dist_main_umap<-Rfast::Dist(main_umap)
+  sf<-sum(dist_main*dist_main_umap)/sum(dist_main^2)
+  dist_full<- dist_full*sf
+  ### Second Step of two-step MDS
+  remain_index<-c(1:N)[which(!c(1:N)%in%main_index)]
+  if(length(remain_index) == 0){
+    tsumap_res<-main_umap
+  }else{
+    dist_remain<-dist_full[remain_index,remain_index]
+    remain_initial<-cmdscale(dist(dist_remain),k=2) 
+    main_initial<-cmdscale(dist(dist_main),k=2) 
+    #main_initial<-cmdscale(dist(dist_main),k=2)
+    sf_main_initial1<-max(main_initial[,1])-min(main_initial[,1])
+    sf_main_initial2<-max(main_initial[,2])-min(main_initial[,2])
+    main_umap[,1]<-main_umap[,1]/(max(main_umap[,1])-min(main_umap[,1]))*sf_main_initial1
+    main_umap[,2]<-main_umap[,2]/(max(main_umap[,2])-min(main_umap[,2]))*sf_main_initial2
+    #dist_main_umap<-Rfast::Dist(main_umap)
+    #sf_here<-sum(dist_main*dist_main_umap)/sum(dist_main_umap^2)
+    #main_umap<-main_umap*sf_here
+    cost_fun <- function(R, D) {
+      diff2 <- (R - D) ^ 2
+      sum(diff2) * 0.5
+    }
+    cost_grad <- function(R, D, y1, y2) {
+      K <- (R - D) / (D + 1.e-10)
+      y<-rbind(y1,y2)
+      G <- matrix(nrow = nrow(y)-nrow(y1), ncol = ncol(y))
+      
+      for (i in 1:(nrow(y)-nrow(y1))) {
+        i1<-nrow(y1)+i
+        dyij <- sweep(-y, 2, -y[i1, ])
+        G[i, ] <- apply(dyij * K[, i1], 2, sum)
+      }
+      
+      as.vector(t(G)) * -2
+    }
+    
+    mmds_fn <- function(par) {
+      R <- dist_full
+      y1<- main_umap
+      y2 <- matrix(par, ncol = 2, byrow = TRUE)
+      y<-rbind(y1,y2)
+      D <- Rfast::Dist(y)
+      cost_fun(R, D)
+    }
+    
+    mmds_gr <- function(par) {
+      R <- dist_full
+      y1<- main_umap
+      y2 <- matrix(par, ncol = 2, byrow = TRUE)
+      y<-rbind(y1,y2)
+      D <- Rfast::Dist(y)
+      cost_grad(R, D, y1, y2)
+    }
+    initial_val_remain<-c(t(remain_initial))
+    
+    res_remain <- mize(initial_val_remain, list(fn = mmds_fn, gr = mmds_gr), 
+      method = "L-BFGS", verbose = F, 
+      grad_tol = 1e-5, check_conv_every = 10)
+    remain_mds<-matrix(res_remain$par, ncol = 2, byrow = TRUE)
+    
+    tsumap_res<-rbind(main_umap,remain_mds)
+  }
+  
+  tsumap_res
+}
+
+get_umap_embedding_adjust<-function(
+  pca_embedding,
+  pca_center,
+  pca_anchor_index,
+  pca_dist,
+  umap_embedding,
+  N_label,
+  cluster_,
+  label_index,
+  adjust_method = "tsMDS",
+  main_index = NULL,
+  pca_dist_main=NULL,
+  distance_metric = "euclidean",
+  scale_factor =1,
+  rotate = TRUE,
+  seed.use = 42
+){
+  rotation = function(x,y){
+    u=x/sqrt(sum(x^2))
+    
+    v=y-sum(u*y)*u
+    v=v/sqrt(sum(v^2))
+    
+    cost=sum(x*y)/sqrt(sum(x^2))/sqrt(sum(y^2))
+    
+    sint=sqrt(1-cost^2);
+    
+    diag(length(x)) - u %*% t(u) - v %*% t(v) + 
+      cbind(u,v) %*% matrix(c(cost,-sint,sint,cost), 2) %*% t(cbind(u,v))
+  }
+  Rotation2to1<-function(umap_center1,umap_center2,pos){
+    N_label<-nrow(umap_center1)
+    umap_center1_tmp<-t(t(umap_center1[-pos,])-as.numeric(umap_center1[pos,]))
+    weight_1<-1/pdist(umap_center1_tmp,c(0,0))@dist
+    weight_1<-weight_1/sum(weight_1)
+    umap_center2_tmp<-t(t(umap_center2[-pos,])-as.numeric(umap_center2[pos,]))
+    #weight_2<-1/pdist(umap_center2_tmp,c(0,0))@dist
+    #weight_2<-weight_2/sum(weight_2)
+    angles<-sapply(1:(N_label-1), function(i){
+      
+      umap1<-umap_center1_tmp[i,]
+      umap2<-umap_center2_tmp[i,]
+      umap1<-umap1/sqrt(sum(umap1^2))
+      umap2<-umap2/sqrt(sum(umap2^2))
+      
+      Rumap2toumap1<-rotation(umap2,umap1)
+      Rumap2toumap1 <- pmax(Rumap2toumap1,-1)
+      Rumap2toumap1 <- pmin(Rumap2toumap1,1)
+      angle<-acos(Rumap2toumap1[1,1])
+      
+      if(Rumap2toumap1[2,1]>=0){
+        angle<-acos(Rumap2toumap1[1,1])
+      }else{
+        angle<- -acos(Rumap2toumap1[1,1])
+      }
+      angle
+    })
+    #angle2to1<-mean(angles)
+    #angle2to1<-median(angles)
+    angle2to1<-sum(angles*weight_1)
+    R2to1<-diag(cos(angle2to1),2)
+    R2to1[2,1]<-sin(angle2to1)
+    R2to1[1,2]<- -R2to1[2,1]
+    R2to1
+  }
+  if (adjust_method == "umap"){
+    set.seed(seed.use)
+    umap_center <-
+      tsUMAP(dist_full = pca_dist,
+        main_index = main_index,
+        dist_main = pca_dist_main,
+        distance_metric = distance_metric)
+    colnames(umap_center)<-c("UMAP_1","UMAP_2")
+  }else if (adjust_method == "tsMDS"){
+    set.seed(seed.use)
+    umap_center<-tsMDS(dist_full = pca_dist,
+      main_index = main_index,
+      dist_main = pca_dist_main)
+    colnames(umap_center)<-c("tsMDS_1","tsMDS_2")
+  }else if (adjust_method == "isoMDS"){
+    umap_center<-isoMDS(dist(pca_dist))$points 
+    colnames(umap_center)<-c("isoMDS_1","isoMDS_2")
+  }else{
+    stop("wrong adjust method")
+  }
+  
+  umap_center<-data.frame(umap_center)
+  sf1<-(max(umap_embedding[,1])-min(umap_embedding[,1]))/(max(umap_center[,1]) -min(umap_center[,1]))
+  sf2<-(max(umap_embedding[,2])-min(umap_embedding[,2]))/(max(umap_center[,2]) -min(umap_center[,2]))
+  umap_center[,1]<-umap_center[,1]*sf1*scale_factor
+  umap_center[,2]<-umap_center[,2]*sf2*scale_factor
+  umap_embedding_mean<-t(sapply(1:N_label, function(i){
+    index_i<-which(cluster_ == label_index[i])
+    colMeans(as.matrix(umap_embedding[index_i,]))
+  }))
+  umap_embedding_adjust<-umap_embedding
+  
+  if (rotate){
+    
+    umap_center_flip<-umap_center
+    umap_center_flip[,1]<-umap_center_flip[,1]*(-1)
+    angle_var<-c()
+    weight_sample<-c()
+    angle_no_flip<-list()
+    angle_flip<-list()
+    for (i in 1:N_label){
+      weight_sample<-c(weight_sample,sum(cluster_ == label_index[i]))
+      R2to1<-Rotation2to1(
+        umap_center1 = umap_center,
+        umap_center2 = pca_center[,c(1,2)],
+        pos = i)  
+      
+      R2to1_flip<-Rotation2to1(
+        umap_center1 = umap_center_flip,
+        umap_center2 = pca_center[,c(1,2)],
+        pos = i) 
+      
+      angle_vec<-sapply(1:length(pca_anchor_index[[i]]), function(j){
+        y<-as.numeric(pca_embedding[pca_anchor_index[[i]][j],c(1,2)]-pca_center[i,c(1,2)])%*%R2to1
+        y<-as.numeric(y)
+        y<-y/sqrt(sum(y^2))
+        x<-umap_embedding[pca_anchor_index[[i]][j],]-umap_embedding_mean[i,]
+        x<-as.numeric(x)
+        y<-y/sqrt(sum(y^2))
+        x<-x/sqrt(sum(x^2))
+        
+        Rx2y <- rotation(x,y)
+        Rx2y <- pmax(Rx2y,-1)
+        Rx2y <- pmin(Rx2y,1)
+        
+        if(Rx2y[2,1]>=0){
+          i
+          angle<-acos(Rx2y[1,1])
+        }else{
+          angle<- - acos(Rx2y[1,1])
+        }
+        angle
+      })
+      angle_vec_flip<-sapply(1:length(pca_anchor_index[[i]]), function(j){
+        y<-as.numeric(pca_embedding[pca_anchor_index[[i]][j],c(1,2)]-pca_center[i,c(1,2)])%*%R2to1_flip
+        y<-as.numeric(y)
+        y<-y/sqrt(sum(y^2))
+        x<-umap_embedding[pca_anchor_index[[i]][j],]-umap_embedding_mean[i,]
+        x<-as.numeric(x)
+        y<-y/sqrt(sum(y^2))
+        x<-x/sqrt(sum(x^2))
+        
+        Rx2y <- rotation(x,y)
+        
+        
+        if(Rx2y[2,1]>=0){
+          angle<- acos(Rx2y[1,1])
+        }else{
+          angle<- -1*acos(Rx2y[1,1])
+        }
+        angle
+      })
+      
+      angle_vec<-angle_vec[angle_vec>min(angle_vec)]
+      angle_vec<-angle_vec[angle_vec<max(angle_vec)]
+      angle_vec_flip<-angle_vec_flip[angle_vec_flip>min(angle_vec_flip)]
+      angle_vec_flip<-angle_vec_flip[angle_vec_flip<max(angle_vec_flip)]
+      angle_no_flip[[i]]<- angle_vec
+      angle_flip[[i]] <- angle_vec_flip
+      angle_var<-rbind(angle_var,(c(var(angle_vec),var(angle_vec_flip))))
+    }
+    weight_sample<-weight_sample/sum(weight_sample)
+    if (sum(angle_var[,1]*weight_sample)>=sum(angle_var[,2]*weight_sample)){
+      # use flip
+      angle_vec<-angle_flip
+    }else{
+      # use no flip
+      angle_vec<-angle_no_flip
+    }
+    
+    for ( i in 1:N_label){
+      anglex2y<-mean(angle_vec[[i]])
+      #print(anglex2y)
+      Rx2y<-diag(cos(anglex2y),2)
+      Rx2y[2,1]<-sin(anglex2y)
+      Rx2y[1,2]<- -Rx2y[2,1]
+      index_i<-which(cluster_ == label_index[i])
+      umap_embedding_adjust[index_i,]<-t(t(t(t(umap_embedding[index_i,])-as.numeric(umap_embedding_mean[i,]))%*%Rx2y)+as.numeric(umap_center[i,]))
+    }
+    
+  }else{
+    
+    for(i in 1:N_label){
+      index_i<-which(cluster_ == label_index[i])
+      umap_embedding_adjust[index_i,]<-t(t(umap_embedding[index_i,])-as.numeric(umap_embedding_mean[i,]-umap_center[i,]))
+    }
+  }
+  newList<-list("umap_center"=umap_center,
+    "umap_embedding_adjust"=umap_embedding_adjust)
+  return(newList)
+}
+
+
+
+
+
+
+
+
+
+adjustUMAP<-function(
+  pca_embedding,
+  umap_embedding,
+  global_umap_embedding = NULL,
+  adjust_method = "tsMDS",
+  distance_metric = "euclidean",
+  scale_factor = 1,
+  rotate = TRUE,
+  density_adjust = TRUE,
+  shrink_distance = TRUE,
+  shrink_factor = 0.2,
+  seed.use = 42,
+  min_size = 100,
+  maxit_push = NULL
+){
+  if(adjust_method == "all"){
+    umap_adjust<-adjustUMAP(
+      pca_embedding=pca_embedding,
+      umap_embedding=umap_embedding,
+      global_umap_embedding=global_umap_embedding,
+      adjust_method = "umap",
+      distance_metric =distance_metric,
+      scale_factor = scale_factor,
+      rotate = rotate,
+      density_adjust = density_adjust,
+      #shrink_all_distance = shrink_all_distance,
+      shrink_distance = shrink_distance,
+      seed.use = seed.use,
+      min_size = min_size,
+      maxit_push = maxit_push
+    )
+    tsMDS_adjust<-adjustUMAP(
+      pca_embedding=pca_embedding,
+      umap_embedding=umap_embedding,
+      global_umap_embedding=global_umap_embedding,
+      adjust_method = "tsMDS",
+      distance_metric =distance_metric,
+      scale_factor = scale_factor,
+      rotate = rotate,
+      density_adjust = density_adjust,
+      #shrink_all_distance = shrink_all_distance,
+      shrink_distance = shrink_distance,
+      seed.use = seed.use,
+      min_size = min_size,
+      maxit_push = maxit_push
+    )
+    newList<-list("umap" = umap_adjust,
+      "tsMDS"=tsMDS_adjust)
+    return(newList)
+  }
+  if(is.null(global_umap_embedding)){
+    global_umap_embedding<-umap_embedding
+    density_adjust<-FALSE
+  }
+  snn_<- FindNeighbors(object = umap_embedding,
+    verbose = F)$snn
+  cluster_ <- FindClusters(snn_,
+    resolution = 0,
+    verbose = F)[[1]]
+  cluster_ <- as.numeric(as.character(cluster_))
+  
+  N_label<-length(unique(cluster_))
+  label_index<-sort(unique(cluster_))
+  if(N_label <= 2){
+    return(umap_embedding)
+  }
+  cluster_size<-sapply(1:N_label, function(i){
+    sum(cluster_==label_index[i])
+  })
+  N_sample<-nrow(pca_embedding)
+  
+  main_index<-c(1:N_label)[which(cluster_size > 0.01*N_sample)]
+  if (density_adjust){
+    prop_density<-sapply(1:N_label, function(i){
+      index_i<-which(cluster_ == label_index[i])
+      set.seed(seed.use)
+      sample_index_i<-sample(index_i,min(min_size,length(index_i)) )
+      sample_global_dist<-Dist(global_umap_embedding[sample_index_i,])
+      sample_local_dist<-Dist(umap_embedding[sample_index_i,])
+      mean(c(sample_global_dist))/mean(c(sample_local_dist))
+    })
+    for(i in 1:N_label){
+      index_i<-which(cluster_ == label_index[i])
+      cur_umap<-umap_embedding[index_i,]
+      umap_embedding[index_i,]<-t((t(cur_umap)-as.numeric(colMeans(cur_umap)))*min(3,prop_density[i])+as.numeric(colMeans(cur_umap)))
+    }
+  }
+  
+  pca_center<-t(sapply(1:N_label, function(i){
+    index_i<-which(cluster_ == label_index[i])
+    colMeans(as.matrix(pca_embedding[index_i,]))
+  }))
+  
+  
+  pca_anchor_index<-lapply(1:N_label, function(i){
+    index_i<-which(cluster_ == label_index[i])
+    set.seed(seed.use)
+    sample_index_i<-sample(index_i,min(min_size,length(index_i)) )
+    sample_index_dist<-pdist(pca_embedding[sample_index_i,c(1,2)],pca_center[i,c(1,2)])@dist
+    Rfast::nth(x=sample_index_dist,
+      k = max(1,min(ceiling(min_size/5),length(index_i))),
+      num.of.nths = 2,
+      descending = T,
+      index.return = T)[,1]
+  })
+  pca_dist1<-Dist(pca_center)
+  pca_dist2<-pca_dist1
+  pca_dist_main<-pca_dist1[main_index,main_index]
+  if(shrink_distance){
+    pam_res<-pam(x = pca_dist1,k = 2)
+    
+    var_1<-sum(pca_center[which(pam_res$clustering==1),]^2)/sum(pam_res$clustering==1)
+    var_2<-sum(pca_center[which(pam_res$clustering==2),]^2)/sum(pam_res$clustering==2)
+    
+    if(var_1 >= var_2){
+      clu1<-1
+      clu2<-2
+    }else{
+      clu1<-2
+      clu2<-1
+    }
+    index_clu1<-which(pam_res$clustering==clu1)
+    index_clu2<-which(pam_res$clustering==clu2)
+    max_dist_allow<-max(pca_dist1[main_index,main_index])
+    for( i in intersect(index_clu1,remain_index)){
+      if(max(pca_dist1[i,]) >= max_dist_allow){
+        closed_dist<-min(pca_dist1[i,index_clu2])
+        pca_dist1[i,-i]<-pca_dist1[i,-i] - closed_dist*shrink_factor
+        if(sum(pca_dist1[i,-i]<0)>0){
+          index_neg<-which(pca_dist1[i,-i]<0)
+          pca_dist1[i,index_neg]<-min(pca_dist1[i,which(pca_dist1[i,]>0)])
+        }
+        if(max(pca_dist1[i,]) >= max_dist_allow){
+          pca_dist1[i,]<-pca_dist1[i,]*max_dist_allow/max(pca_dist1[i,])
+        }
+        pca_dist1[,i]<-pca_dist1[i,]
+      }
+    }
+  }
+  if(shrink_distance){
+    remain_index<-c(1:N_label)[which(!c(1:N_label)%in%main_index)]
+    #prop_<-sqrt(exp(cluster_size/max(cluster_size))/
+    #    max(exp(cluster_size/max(cluster_size))))
+    prop_<-sqrt(exp(cluster_size/max(cluster_size))/
+        mean(exp(cluster_size/max(cluster_size))[main_index]))
+    #sf<-sqrt(mean(colVars(pca_dist1[main_index,main_index])))
+    for(i in remain_index){
+      
+      pca_dist1[remain_index,i]<-pca_dist1[remain_index,i]*prop_[i]
+      pca_dist1[i,remain_index]<-pca_dist1[i,remain_index]*prop_[i]
+      #pca_dist1[main_index,i]<-(scale(pca_dist1[main_index,i],center = F))*sf*3
+      #pca_dist1[i,main_index]<-(scale(pca_dist1[i,main_index],center = F))*sf*3
+      #pca_dist1[main_index,i]<-pca_dist1[main_index,i]*prop_[i]
+      #pca_dist1[i,main_index]<-pca_dist1[i,main_index]*prop_[i]
+      #pca_dist1[,i]<-pca_dist1[,i]*prop_[i]
+      #pca_dist1[i,]<-pca_dist1[i,]*prop_[i]
+    } 
+    for(i in remain_index){
+      x<-main_index[which.min(pca_dist1[main_index,i])]
+      min_x<-min(pca_dist1[,i])*0.5
+      pca_dist1[x,i]<-min_x
+      pca_dist1[i,x]<-min_x
+    }
+  }
+  #pca_dist1[remain_index,remain_index]<-pca_dist2[remain_index,remain_index]*2
+  if(adjust_method == "tsMDS" & shrink_distance){
+    pam_res<-pam(x = pca_dist1,k = 2)
+    
+    var_1<-sum(pca_center[which(pam_res$clustering==1),]^2)/sum(pam_res$clustering==1)
+    var_2<-sum(pca_center[which(pam_res$clustering==2),]^2)/sum(pam_res$clustering==2)
+    
+    if(var_1 >= var_2){
+      clu1<-1
+      clu2<-2
+    }else{
+      clu1<-2
+      clu2<-1
+    }
+    index_clu1<-which(pam_res$clustering==clu1)
+    index_clu2<-which(pam_res$clustering==clu2)
+    for( i in index_clu1){
+      closed_dist<-min(pca_dist1[i,index_clu2])
+      pca_dist1[i,-i]<-pca_dist1[i,-i] - closed_dist*shrink_factor
+      if(sum(pca_dist1[i,-i]<0)>0){
+        index_neg<-which(pca_dist1[i,-i]<0)
+        pca_dist1[i,index_neg]<-min(pca_dist1[i,which(pca_dist1[i,]>0)])
+      }
+      pca_dist1[,i]<-pca_dist1[i,]
+    }
+  }
+  
+  step1_res<-get_umap_embedding_adjust(
+    pca_embedding=pca_embedding,
+    pca_center=pca_center,
+    pca_anchor_index=pca_anchor_index,
+    pca_dist=pca_dist1,
+    pca_dist_main = NULL,
+    adjust_method = adjust_method,
+    main_index = main_index,
+    distance_metric=distance_metric,
+    umap_embedding=umap_embedding,
+    N_label=N_label,
+    cluster_ = cluster_,
+    label_index = label_index,
+    scale_factor =scale_factor,
+    rotate = rotate,
+    seed.use = seed.use)
+  umap_center<-step1_res$umap_center
+  umap_embedding_adjust<-step1_res$umap_embedding_adjust
+  snn_1<- FindNeighbors(object = umap_embedding_adjust,
+    verbose = F)$snn
+  cluster_1 <- FindClusters(snn_1,
+    resolution = 0,
+    verbose = F)[[1]]
+  cluster_1 <- as.numeric(as.character(cluster_1))
+  
+  N_label1<-length(unique(cluster_1))
+  if (N_label1 < N_label){
+    ## First Adjustment
+    label_index1<-sort(unique(cluster_1))
+    
+    bad_index<-list()
+    list_index<-0
+    for ( i in 1:N_label1){
+      index_i1<-which(cluster_1 == label_index1[i])
+      cur_index_len<-length(unique(cluster_[index_i1]))
+      if(cur_index_len > 1){
+        list_index<-list_index+1
+        bad_index[[list_index]]<-c(unique(cluster_[index_i1]))
+      }
+    }
+    for (i in 1:length(bad_index)){
+      
+      pos<-min(bad_index[[i]])
+      other_pos<-bad_index[[i]][bad_index[[i]]>pos]
+      pos<-pos+1
+      other_pos<-other_pos+1
+      dist_vec<-pca_dist1[,pos]
+      all_pos<- dist_vec <= max(dist_vec[other_pos])
+      pca_dist1[all_pos,pos]<-min(dist_vec[dist_vec>=max(dist_vec[other_pos])])
+      pca_dist1[pos,all_pos]<-pca_dist1[all_pos,pos]
+    }
+    pca_dist<-as.dist(pca_dist1)
+    pca_dist1<-as.matrix(pca_dist)
+    step2_res<-get_umap_embedding_adjust(
+      pca_embedding=pca_embedding,
+      pca_center=pca_center,
+      pca_anchor_index=pca_anchor_index,
+      pca_dist=pca_dist1,
+      adjust_method = adjust_method,
+      main_index = main_index,
+      distance_metric=distance_metric,
+      umap_embedding=umap_embedding,
+      N_label=N_label,
+      cluster_ = cluster_,
+      label_index = label_index,
+      scale_factor =scale_factor,
+      rotate = rotate,
+      seed.use = seed.use)
+    umap_center<-step2_res$umap_center
+    umap_embedding_adjust<-step2_res$umap_embedding_adjust
+    snn_2<- FindNeighbors(object = umap_embedding_adjust,
+      verbose = F)$snn
+    cluster_2 <- FindClusters(snn_2,
+      resolution = 0,
+      verbose = F)[[1]]
+    cluster_2 <- as.numeric(as.character(cluster_2))
+    
+    N_label2<-length(unique(cluster_2))
+    if(N_label2 < N_label){
+      ## Second Adjustment Push Away
+      label_index2<-sort(unique(cluster_2))
+      
+      bad_index<-list()
+      list_index<-0
+      for ( i in 1:N_label2){
+        index_i2<-which(cluster_2 == label_index2[i])
+        cur_index_len<-length(unique(cluster_[index_i2]))
+        if(cur_index_len > 1){
+          list_index<-list_index+1
+          bad_index[[list_index]]<-c(unique(cluster_[index_i2]))
+        }
+      }
+      N_label3<-N_label - 1
+      cur_iter<-0
+      if(is.null(maxit_push)){
+        maxit_push<-N_label/3
+      }
+      while (N_label3 < N_label & cur_iter < maxit_push) {
+        cur_iter<-cur_iter+1
+        for (i in 1:length(bad_index)){
+          pos<-min(bad_index[[i]])
+          other_pos<-bad_index[[i]][bad_index[[i]]>pos]
+          pos<-pos+1
+          other_pos<-other_pos+1
+          dist_mat<-pdist(umap_center[pos,],umap_center)@dist
+          target_distance<-min(dist_mat[dist_mat>max(dist_mat[other_pos])])
+          target_distance<-(target_distance+dist_mat[other_pos])/2
+          for (k in 1:length(other_pos)){
+            cur_pos<-other_pos[k]
+            cur_center<-umap_center[pos,]
+            cur_arrow<-umap_center[cur_pos,]
+            prop<-target_distance[k]/dist_mat[cur_pos]
+            cur_arrow<-(cur_arrow-cur_center)*prop+cur_center
+            index_i<-which(cluster_ == label_index[cur_pos])
+            umap_embedding_adjust[index_i,]<-t(t(umap_embedding_adjust[index_i,])-as.numeric(umap_center[cur_pos,])+as.numeric(cur_arrow))
+          }
+        }
+        
+        snn_3<- FindNeighbors(object = umap_embedding_adjust,
+          verbose = F)$snn
+        cluster_3 <- FindClusters(snn_3,
+          resolution = 0,
+          verbose = F)[[1]]
+        cluster_3 <- as.numeric(as.character(cluster_3))
+        N_label3<-length(unique(cluster_3))
+        label_index3<-sort(unique(cluster_3))
+        
+        bad_index<-list()
+        list_index<-0
+        for ( i in 1:N_label3){
+          index_i3<-which(cluster_3 == label_index3[i])
+          cur_index_len<-length(unique(cluster_[index_i3]))
+          if(cur_index_len > 1){
+            list_index<-list_index+1
+            bad_index[[list_index]]<-c(unique(cluster_[index_i3]))
+          }
+        }
+        
+      }
+      if(N_label3 < N_label){
+        print("Use Third")
+        ## Third Adjustment Rescale
+        for (i in 1:length(bad_index)){
+          pos<-min(bad_index[[i]])
+          other_pos<-bad_index[[i]][bad_index[[i]]>pos]
+          pos<-pos+1
+          other_pos<-other_pos+1
+          dist_mat<-pdist(umap_center[pos,],umap_center)@dist
+          target_distance<-min(dist_mat[dist_mat>=max(dist_mat[other_pos])])
+          re_sf<-target_distance/max(dist_mat[other_pos])
+          
+          umap_embedding_adjust<-umap_embedding_adjust*re_sf
+        }
+      }
+      
+    }
+  }
+  return(umap_embedding_adjust)
+  snn_<- FindNeighbors(object = umap_embedding_adjust,
+    verbose = F)$snn
+  cluster_ <- FindClusters(snn_,
+    resolution = 0,
+    verbose = F)[[1]]
+  cluster_ <- as.numeric(as.character(cluster_))
+  
+  N_label<-length(unique(cluster_))
+  label_index<-sort(unique(cluster_))
+  
+  adjust_umap_center<-t(sapply(1:N_label, function(i){
+    index_i<-which(cluster_ == label_index[i])
+    colMeans(as.matrix(umap_embedding_adjust[index_i,]))
+  }))
+  
+  umap_dist1<-Dist(adjust_umap_center)
+  diag(umap_dist1)<-Inf
+  min_dist_vec<-colMins(umap_dist1,value = T)
+  update_prop<-1/2
+  umap_embedding_adjust4<-umap_embedding_adjust
+  if(max(min_dist_vec)<= max(min_dist_vec[min_dist_vec<max(min_dist_vec)])*1.5){
+    return(umap_embedding_adjust)
+  }else{
+    update_index<-which.max(min_dist_vec)[1]
+    closed_index<-which.min(umap_dist1[,update_index])
+    new_center<-umap_center[update_index,] + update_prop*(umap_center[closed_index,]-umap_center[update_index,])
+    index_i<-which(cluster_ == label_index[update_index])
+    umap_embedding_adjust4[index_i,]<-t(t(t(t(umap_embedding_adjust[index_i,])-as.numeric(adjust_umap_center[update_index,])))+as.numeric(new_center))
+    
+    
+    snn_4<- FindNeighbors(object = umap_embedding_adjust4,
+      verbose = F)$snn
+    cluster_4 <- FindClusters(snn_4,
+      resolution = 0,
+      verbose = F)[[1]]
+    cluster_4 <- as.numeric(as.character(cluster_4))
+    
+    N_label4<-length(unique(cluster_4))
+    if(N_label4 < N_label){
+      ## Fourth Adjustment
+      print("Go here once!")
+      while (N_label4 < N_label) {
+        update_prop<-update_prop*2/3
+        umap_embedding_adjust4<-umap_embedding_adjust
+        if(max(min_dist_vec)> max(min_dist_vec[min_dist_vec<max(min_dist_vec)])*1.5){
+          update_index<-which.max(min_dist_vec)[1]
+          closed_index<-which.min(umap_dist1[,update_index])
+          new_center<-umap_center[update_index,] + update_prop*(umap_center[closed_index,]-umap_center[update_index,])
+          index_i<-which(cluster_ == label_index[update_index])
+          umap_embedding_adjust4[index_i,]<-t(t(t(t(umap_embedding_adjust[index_i,])-as.numeric(adjust_umap_center[update_index,])))+as.numeric(new_center))
+        }
+        
+        snn_4<- FindNeighbors(object = umap_embedding_adjust4,
+          verbose = F)$snn
+        cluster_4 <- FindClusters(snn_4,
+          resolution = 0,
+          verbose = F)[[1]]
+        cluster_4 <- as.numeric(as.character(cluster_4))
+        N_label4<-length(unique(cluster_4))
+      }
+    }
+    adjust_umap_center<-t(sapply(1:N_label, function(i){
+      index_i<-which(cluster_ == label_index[i])
+      colMeans(as.matrix(umap_embedding_adjust4[index_i,]))
+    }))
+    return(umap_embedding_adjust4)
+  }
+}
+
+
+
+
+
+
+
+
 
 
 
