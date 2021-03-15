@@ -2167,8 +2167,9 @@ adjustUMAP<-function(
     N_label4<-length(unique(cluster_4))
     if(N_label4 < N_label){
       ## Fourth Adjustment
-      print("Go here once!")
+      print("Go here!")
       while (N_label4 < N_label) {
+        print("Go here once!")
         update_prop<-update_prop*2/3
         umap_embedding_adjust4<-umap_embedding_adjust
         if(max(min_dist_vec)> max(min_dist_vec[min_dist_vec<max(min_dist_vec)])*1.5){
@@ -3061,6 +3062,8 @@ adaDimPlot<-function(
     col_vector <- unique(col_vector)
     col_vector[4]<-"#ffd000" 
   }
+  cpnum<-length(unique(label))%/%length(col_vector)+1
+  col_vector<-rep(col_vector,cpnum)
   gg<-ggplot(umap_embedding)+
     geom_point(aes(x = UMAP_1,
       y = UMAP_2,
