@@ -180,6 +180,7 @@ savis<-function(
     pc_embedding = expr_matrix_pca,
     method = cluster_method,
     resolution = resolution)$cluster
+  global_cluster_label<-cluster_label
   # sorted unique cluster label
   label_index<-sort(as.numeric(
     unique(as.character(cluster_label))))
@@ -372,6 +373,7 @@ savis<-function(
       umap_embedding<-adjustUMAP(
         pca_embedding = expr_matrix_pca,
         umap_embedding = umap_embedding,
+        cluster_label = global_cluster_label,
         global_umap_embedding = expr_matrix_umap,
         adjust_method = adjust_method,
         shrink_distance = shrink_distance,
@@ -1206,6 +1208,7 @@ adjustUMAP_via_umap<-function(
   min_size = 100,
   maxit_push = NULL
 ){
+  print(unique(cluster_label))
   #if(!is.matrix(pca_embedding)){
   #  pca_embedding<-as.matrix(pca_embedding)
   #}
@@ -1589,7 +1592,7 @@ adjustUMAP<-function(
       "tsMDS"=tsMDS_adjust)
     return(newList)
   }else if (adjust_method == "all"){
-    umap_adjust<-adjustUMAP_via_umap<-function(
+    umap_adjust<-adjustUMAP_via_umap(
       pca_embedding = pca_embedding,
       umap_embedding = umap_embedding,
       cluster_label = cluster_label,
