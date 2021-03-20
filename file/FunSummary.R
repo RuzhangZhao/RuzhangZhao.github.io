@@ -747,41 +747,6 @@ rotation = function(x,y){
   diag(length(x)) - u %*% t(u) - v %*% t(v) + 
     cbind(u,v) %*% matrix(c(cost,-sint,sint,cost), 2) %*% t(cbind(u,v))
 }
-Rotation2to1<-function(umap_center1,umap_center2,pos1,pos2){
-  N_label_<-nrow(umap_center1)
-  umap_center1_tmp<-t(t(umap_center1[-pos1,])-as.numeric(umap_center1[pos1,]))
-  weight_1<-1/pdist(umap_center1_tmp,c(0,0))@dist
-  weight_1<-weight_1/sum(weight_1)
-  umap_center2_tmp<-t(t(umap_center2[-pos2,])-as.numeric(umap_center2[pos2,]))
-  #weight_2<-1/pdist(umap_center2_tmp,c(0,0))@dist
-  #weight_2<-weight_2/sum(weight_2)
-  angles<-sapply(1:(N_label_-1), function(i){
-    
-    umap1<-umap_center1_tmp[i,]
-    umap2<-umap_center2_tmp[i,]
-    umap1<-umap1/sqrt(sum(umap1^2))
-    umap2<-umap2/sqrt(sum(umap2^2))
-    
-    Rumap2toumap1<-rotation(umap2,umap1)
-    Rumap2toumap1 <- pmax(Rumap2toumap1,-1)
-    Rumap2toumap1 <- pmin(Rumap2toumap1,1)
-    angle<-acos(Rumap2toumap1[1,1])
-    
-    if(Rumap2toumap1[2,1]>=0){
-      angle<-acos(Rumap2toumap1[1,1])
-    }else{
-      angle<- -acos(Rumap2toumap1[1,1])
-    }
-    angle
-  })
-  #angle2to1<-mean(angles)
-  #angle2to1<-median(angles)
-  angle2to1<-sum(angles*weight_1)
-  R2to1<-diag(cos(angle2to1),2)
-  R2to1[2,1]<-sin(angle2to1)
-  R2to1[1,2]<- -R2to1[2,1]
-  R2to1
-}
 
 
 Detect_edge<-function(
@@ -837,6 +802,41 @@ get_umap_embedding_adjust_umap<-function(
   rotate = TRUE,
   seed.use = 42
 ){
+  Rotation2to1<-function(umap_center1,umap_center2,pos1,pos2){
+    N_label_<-nrow(umap_center1)
+    umap_center1_tmp<-t(t(umap_center1[-pos1,])-as.numeric(umap_center1[pos1,]))
+    weight_1<-1/pdist(umap_center1_tmp,c(0,0))@dist
+    weight_1<-weight_1/sum(weight_1)
+    umap_center2_tmp<-t(t(umap_center2[-pos2,])-as.numeric(umap_center2[pos2,]))
+    #weight_2<-1/pdist(umap_center2_tmp,c(0,0))@dist
+    #weight_2<-weight_2/sum(weight_2)
+    angles<-sapply(1:(N_label_-1), function(i){
+      
+      umap1<-umap_center1_tmp[i,]
+      umap2<-umap_center2_tmp[i,]
+      umap1<-umap1/sqrt(sum(umap1^2))
+      umap2<-umap2/sqrt(sum(umap2^2))
+      
+      Rumap2toumap1<-rotation(umap2,umap1)
+      Rumap2toumap1 <- pmax(Rumap2toumap1,-1)
+      Rumap2toumap1 <- pmin(Rumap2toumap1,1)
+      angle<-acos(Rumap2toumap1[1,1])
+      
+      if(Rumap2toumap1[2,1]>=0){
+        angle<-acos(Rumap2toumap1[1,1])
+      }else{
+        angle<- -acos(Rumap2toumap1[1,1])
+      }
+      angle
+    })
+    #angle2to1<-mean(angles)
+    #angle2to1<-median(angles)
+    angle2to1<-sum(angles*weight_1)
+    R2to1<-diag(cos(angle2to1),2)
+    R2to1[2,1]<-sin(angle2to1)
+    R2to1[1,2]<- -R2to1[2,1]
+    R2to1
+  }
   
   if(is.null(pca_dist_main)){
     pca_dist_main<-pca_dist[main_index,main_index]
@@ -1315,6 +1315,42 @@ get_umap_embedding_adjust_tsMDS<-function(
   rotate = TRUE,
   seed.use = 42
 ){
+  Rotation2to1<-function(umap_center1,umap_center2,pos){
+    N_label<-nrow(umap_center1)
+    umap_center1_tmp<-t(t(umap_center1[-pos,])-as.numeric(umap_center1[pos,]))
+    weight_1<-1/pdist(umap_center1_tmp,c(0,0))@dist
+    weight_1<-weight_1/sum(weight_1)
+    umap_center2_tmp<-t(t(umap_center2[-pos,])-as.numeric(umap_center2[pos,]))
+    #weight_2<-1/pdist(umap_center2_tmp,c(0,0))@dist
+    #weight_2<-weight_2/sum(weight_2)
+    angles<-sapply(1:(N_label-1), function(i){
+      
+      umap1<-umap_center1_tmp[i,]
+      umap2<-umap_center2_tmp[i,]
+      umap1<-umap1/sqrt(sum(umap1^2))
+      umap2<-umap2/sqrt(sum(umap2^2))
+      
+      Rumap2toumap1<-rotation(umap2,umap1)
+      Rumap2toumap1 <- pmax(Rumap2toumap1,-1)
+      Rumap2toumap1 <- pmin(Rumap2toumap1,1)
+      angle<-acos(Rumap2toumap1[1,1])
+      
+      if(Rumap2toumap1[2,1]>=0){
+        angle<-acos(Rumap2toumap1[1,1])
+      }else{
+        angle<- -acos(Rumap2toumap1[1,1])
+      }
+      angle
+    })
+    #angle2to1<-mean(angles)
+    #angle2to1<-median(angles)
+    angle2to1<-sum(angles*weight_1)
+    R2to1<-diag(cos(angle2to1),2)
+    R2to1[2,1]<-sin(angle2to1)
+    R2to1[1,2]<- -R2to1[2,1]
+    R2to1
+  }
+  
   if (adjust_method == "tsMDS"){
     set.seed(seed.use)
     umap_center<-tsMDS(dist_full = pca_dist,
