@@ -117,6 +117,11 @@ savis<-function(
   }
   if(is.null(colnames(expr_matrix)[1])){
     colnames(expr_matrix)<-c(1:ncol(expr_matrix))
+  }else if(length(unique(colnames(expr_matrix)))<
+      ncol(expr_matrix) ) {
+    print("WARN: There are duplicated cell names!\n 
+      Make cell names unique by renaming!")
+    colnames(expr_matrix)<-c(1:ncol(expr_matrix))
   }
   
   if(is_count_matrix){
@@ -1422,7 +1427,7 @@ adjustUMAP_via_umap<-function(
         other_pos<-bad_index[[i]][bad_index[[i]]>pos]
         pos<-pos+1
         other_pos<-other_pos+1
-        dist_mat<-pdist(umap_center[pos,],umap_center)@dist
+        dist_mat<-pdist(main_umap_center[pos,],main_umap_center)@dist
         target_distance<-min(dist_mat[dist_mat>=max(dist_mat[other_pos])])
         re_sf<-target_distance/max(dist_mat[other_pos])
         
@@ -1567,7 +1572,6 @@ adjustUMAP<-function(
       scale_factor = scale_factor,
       rotate = rotate,
       density_adjust = density_adjust,
-      #shrink_all_distance = shrink_all_distance,
       shrink_distance = shrink_distance,
       seed.use = seed.use,
       min_size = min_size,
