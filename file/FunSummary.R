@@ -1591,7 +1591,7 @@ adjustUMAP<-function(
     newList<-list("umap" = umap_adjust,
       "tsMDS"=tsMDS_adjust)
     return(newList)
-  }else if (adjust_method == "all"){
+  }else if (adjust_method == "umap"){
     umap_adjust<-adjustUMAP_via_umap(
       pca_embedding = pca_embedding,
       umap_embedding = umap_embedding,
