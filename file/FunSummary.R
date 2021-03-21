@@ -1857,7 +1857,7 @@ adjustUMAP<-function(
       adjust_method == "tsMDS"|
       adjust_method == "tsmds"|
       adjust_method == "TSMDS"){
-    tsmds_adjust<-adjustUMAP_via_tsMDS(
+    tsMDS_adjust<-adjustUMAP_via_tsMDS(
       pca_embedding = pca_embedding,
       umap_embedding = umap_embedding,
       global_umap_embedding = global_umap_embedding,
@@ -1871,11 +1871,11 @@ adjustUMAP<-function(
       seed.use = seed.use,
       min_size = min_size,
       maxit_push = maxit_push)
-    return(tsmds)
+    return(tsMDS_adjust)
   }else if (adjust_method == "isoMDS"|
       adjust_method == "ISOMDS"|
       adjust_method == "isomds"){
-    tsmds_adjust<-adjustUMAP_via_tsMDS(
+    tsMDS_adjust<-adjustUMAP_via_tsMDS(
       pca_embedding = pca_embedding,
       umap_embedding = umap_embedding,
       global_umap_embedding = global_umap_embedding,
@@ -1889,7 +1889,7 @@ adjustUMAP<-function(
       seed.use = seed.use,
       min_size = min_size,
       maxit_push = maxit_push)
-    return(tsmds)
+    return(tsMDS_adjust)
   }else{
     print("Wrong adjust method!")
     return(0)
