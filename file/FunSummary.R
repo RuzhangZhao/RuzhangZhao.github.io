@@ -84,6 +84,9 @@ savis<-function(
   adjust_method = "umap",
   adjust_rotate = TRUE,
   shrink_distance = TRUE,
+  density_adjust = TRUE,
+  density_adjust_via_global_umap = FALSE,
+  global_umap_embedding = NULL,
   check_differential = FALSE,
   verbose = TRUE,
   show_cluster = FALSE,
@@ -93,6 +96,10 @@ savis<-function(
   compressed_storage = TRUE,
   seed.use = 42L
 ){
+  # change the seed.use to be integer
+  if(!is.integer(seed.use)){
+    seed.use<-as.integer(seed.use)
+  }
   if(max_stratification == 1){
     stop("Please directly use umap: savis 
       supports adaptive visualization for 
@@ -369,18 +376,27 @@ savis<-function(
         print("Adjusting UMAP...")
         setTxtProgressBar(pb = pb, value = 17)
       }
-      expr_matrix_umap<-umap(
-        X = expr_matrix_pca,
-        a = 1.8956, 
-        b = 0.8006, 
-        metric = distance_metric
-      )
+      expr_matrix_umap = NULL
+      if(density_adjust_via_global_umap){
+        if(is.null(global_umap_embedding)){
+          expr_matrix_umap<-umap(
+            X = expr_matrix_pca,
+            a = 1.8956, 
+            b = 0.8006, 
+            metric = distance_metric
+          )
+        }else{
+          expr_matrix_umap<-global_umap_embedding
+        }
+      }
+      
       umap_embedding<-adjustUMAP(
         pca_embedding = expr_matrix_pca,
         umap_embedding = umap_embedding,
         cluster_label = global_cluster_label,
         global_umap_embedding = expr_matrix_umap,
         adjust_method = adjust_method,
+        density_adjust = density_adjust,
         shrink_distance = shrink_distance,
         rotate = adjust_rotate,
         seed.use = seed.use)
@@ -989,7 +1005,6 @@ adjustUMAP_via_umap<-function(
   min_size = 100,
   maxit_push = NULL
 ){
-  print(unique(cluster_label))
   #if(!is.matrix(pca_embedding)){
   #  pca_embedding<-as.matrix(pca_embedding)
   #}
@@ -1027,7 +1042,7 @@ adjustUMAP_via_umap<-function(
   cutoff_main_remain<-0.01*N_sample 
   main_index<-c(1:N_label_)[which(cluster_size_ > cutoff_main_remain)]
   remain_index<-c(1:N_label_)[which(!c(1:N_label_)%in%main_index)]  
-  
+  length_main_index<-length(main_index)
   cutoff_small_size_cluster<-mean(size_cluster)
   small_size_cluster_index<-which(size_cluster < cutoff_small_size_cluster)
   large_size_cluster_index<-which(size_cluster >= cutoff_small_size_cluster)
@@ -1059,7 +1074,7 @@ adjustUMAP_via_umap<-function(
   }
   main_index<-main_index[order(main_index)]
   
-  if (density_adjust){
+  if (density_adjust & !is.null(global_umap_embedding)){
     prop_density<-sapply(1:length(main_index), function(j){
       i<-main_index[j]
       index_i<-which(cluster_ == label_index_[i])
@@ -1074,6 +1089,27 @@ adjustUMAP_via_umap<-function(
       index_i<-which(cluster_ == label_index_[i])
       cur_umap<-umap_embedding[index_i,]
       umap_embedding[index_i,]<-t((t(cur_umap)-as.numeric(colMeans(cur_umap)))*min(3,prop_density[j])+as.numeric(colMeans(cur_umap)))
+    }
+    for(j in 1:length(remain_index)){
+      i<-remain_index[j]
+      index_i<-which(cluster_ == label_index_[i])
+      cur_umap<-umap_embedding[index_i,]
+      umap_embedding[index_i,]<-t((t(cur_umap)-as.numeric(colMeans(cur_umap)))*0.5+as.numeric(colMeans(cur_umap)))
+    }
+  }else if(density_adjust & is.null(global_umap_embedding)){
+    for(j in 1:length(main_index)){
+      i<-main_index[j]
+      index_i<-which(cluster_ == label_index_[i])
+      cur_umap<-umap_embedding[index_i,]
+      if(j <= length_main_index){
+        cur_sf_here<-1.5
+      }else{
+        cur_sf_here<-3
+      }
+      
+      umap_embedding[index_i,]<-t((t(cur_umap)-
+          as.numeric(colMeans(cur_umap)))*cur_sf_here+
+          as.numeric(colMeans(cur_umap)))
     }
     for(j in 1:length(remain_index)){
       i<-remain_index[j]
