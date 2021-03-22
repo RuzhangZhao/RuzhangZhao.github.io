@@ -1011,10 +1011,6 @@ adjustUMAP_via_umap<-function(
   #if(!is.matrix(pca_embedding)){
   #  pca_embedding<-as.matrix(pca_embedding)
   #}
-  if(is.null(global_umap_embedding)){
-    global_umap_embedding<-umap_embedding
-    density_adjust<-FALSE
-  }
   # This is for the clustering results
   label_index<-sort(as.numeric(
     unique(as.character(cluster_label))))
@@ -1532,10 +1528,6 @@ adjustUMAP_via_tsMDS<-function(
   maxit_push = NULL
 ){
   
-  if(is.null(global_umap_embedding)){
-    global_umap_embedding<-umap_embedding
-    density_adjust<-FALSE
-  }
   snn_<- FindNeighbors(object = umap_embedding,
     verbose = F)$snn
   cluster_ <- FindClusters(snn_,
