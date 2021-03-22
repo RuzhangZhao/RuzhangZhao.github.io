@@ -5,19 +5,20 @@ library(grDevices)
 library(ggplot2)
 library(dplyr)
 library(ggrepel)
-#library(sparsepca)
-library(Rfast)
-library(pdist)
-library(Spectrum)
 library(mclust)
-library(stats)
-library(utils)
-library(uwot)
 library(glue)
-library(MASS)
 library(cluster)
+library(utils)
 library(sparsepca)
+library(MASS)
+library(pdist)
+library(uwot)
 library(mize)
+
+#library(sparsepca)
+#library(Rfast)
+#library(Spectrum)
+
 #' savis
 #'
 #' savis: single-cell RNAseq adaptive visualiztaion
@@ -126,8 +127,7 @@ savis<-function(
     colnames(expr_matrix)<-c(1:ncol(expr_matrix))
   }else if(length(unique(colnames(expr_matrix)))<
       ncol(expr_matrix) ) {
-    print("WARN: There are duplicated cell names!\n 
-      Make cell names unique by renaming!")
+    print("WARN: There are duplicated cell names! Make cell names unique by renaming!")
     colnames(expr_matrix)<-c(1:ncol(expr_matrix))
   }
   
@@ -183,6 +183,7 @@ savis<-function(
     verbose = verbose_more)@cell.embeddings)
   rm(expr_matrix_process)
   expr_matrix_pca<-data.frame(expr_matrix_pca)
+  expr_matrix_pca<-as.matrix(expr_matrix_pca)
   if(verbose){
     cat('\n')
     print("Doing Clustering...")
@@ -1080,8 +1081,8 @@ adjustUMAP_via_umap<-function(
       index_i<-which(cluster_ == label_index_[i])
       set.seed(seed.use)
       sample_index_i<-sample(index_i,min(min_size,length(index_i)) )
-      sample_global_dist<-Dist(global_umap_embedding[sample_index_i,])
-      sample_local_dist<-Dist(umap_embedding[sample_index_i,])
+      sample_global_dist<-Rfast::Dist(global_umap_embedding[sample_index_i,])
+      sample_local_dist<-Rfast::Dist(umap_embedding[sample_index_i,])
       mean(c(sample_global_dist))/mean(c(sample_local_dist))
     })
     for(j in 1:length(main_index)){
@@ -1136,7 +1137,7 @@ adjustUMAP_via_umap<-function(
       index.return = T)[,1]
   })
   
-  pca_dist1<-Dist(pca_center)
+  pca_dist1<-Rfast::Dist(pca_center)
   
   step1_res<-get_umap_embedding_adjust_umap(
     pca_embedding=pca_embedding,
@@ -1559,8 +1560,8 @@ adjustUMAP_via_tsMDS<-function(
       index_i<-which(cluster_ == label_index[i])
       set.seed(seed.use)
       sample_index_i<-sample(index_i,min(min_size,length(index_i)) )
-      sample_global_dist<-Dist(global_umap_embedding[sample_index_i,])
-      sample_local_dist<-Dist(umap_embedding[sample_index_i,])
+      sample_global_dist<-Rfast::Dist(global_umap_embedding[sample_index_i,])
+      sample_local_dist<-Rfast::Dist(umap_embedding[sample_index_i,])
       mean(c(sample_global_dist))/mean(c(sample_local_dist))
     })
     for(i in 1:N_label){
@@ -1595,7 +1596,7 @@ adjustUMAP_via_tsMDS<-function(
       descending = T,
       index.return = T)[,1]
   })
-  pca_dist1<-Dist(pca_center)
+  pca_dist1<-Rfast::Dist(pca_center)
   pca_dist2<-pca_dist1
   pca_dist_main<-pca_dist1[main_index,main_index]
   
@@ -2032,7 +2033,7 @@ ScaleFactor<-function(
   }
   
   # distance matrix for cluster center
-  cluster_center_dist<-Dist(cluster_center[,1:npcs])
+  cluster_center_dist<-Rfast::Dist(cluster_center[,1:npcs])
   diag(cluster_center_dist)<-NA
   
   # pdist is used here, which is fast
@@ -2133,7 +2134,7 @@ DoCluster<-function(
     N_center<-min(1000,num_example%/%5)
     set.seed(42)
     suppressMessages(
-      spectral_eg<-Spectrum(t(
+      spectral_eg<-Spectrum::Spectrum(t(
         as.matrix(pc_embedding)),
         method = 1,showres = verbose_more,
         FASP = T,FASPk = N_center))
@@ -2147,14 +2148,14 @@ DoCluster<-function(
         index_i<-which(cluster_ == i)
         if (length(index_i) > min(100,N_center)){
           suppressMessages(
-            spectral_eg<-Spectrum(t(
+            spectral_eg<-Spectrum::Spectrum(t(
               as.matrix(pc_embedding[index_i,])),
               method = 1,FASP = T,
               FASPk = N_center,
               showres = F))
         }else{
           suppressMessages(
-            spectral_eg<-Spectrum(t(
+            spectral_eg<-Spectrum::Spectrum(t(
               as.matrix(pc_embedding[index_i,])),
               method = 1,FASP = T,
               FASPk = length(index_i)%/%3,
@@ -2540,7 +2541,7 @@ FormAdaptiveCombineList<-function(
     cur_index<-which(size_cluster <= npcs)
     pca_center<-t(sapply(1:N_label, function(i){
       index_i<-which(cluster_label == label_index[i])
-      colMeans(as.matrix(expr_matrix_pca[index_i,]))
+      colMeans(expr_matrix_pca[index_i,])
     }))
     sample_index_dist<-pdist(pca_center[-cur_index,],pca_center[cur_index,])@dist
     sample_index_dist<-matrix(sample_index_dist,nrow = sum(size_cluster <= npcs))
@@ -2928,13 +2929,13 @@ ARIEvaluate<-function(
     }
     if (is.null(fixk)){
       suppressMessages(
-        spectrual_eg<-Spectrum(t(as.matrix(
+        spectrual_eg<-Spectrum::Spectrum(t(as.matrix(
           test_data)),
           method = 1,showres = F,
           FASP = T,FASPk = N_center))
     }else{
       suppressMessages(
-        spectrual_eg<-Spectrum(t(as.matrix(
+        spectrual_eg<-Spectrum::Spectrum(t(as.matrix(
           test_data)),
           method = 3,showres = F,
           FASP = T,FASPk = N_center,fixk = fixk))
@@ -3093,6 +3094,7 @@ RunOrPCA<-function(expr_matrix,count = T,npcs=10,nfeatures=2000){
     verbose = F)@cell.embeddings)
   rm(expr_matrix)
   expr_matrix_pca<-data.frame(expr_matrix_pca)
+  expr_matrix_pca<-as.matrix(expr_matrix_pca)
   return(expr_matrix_pca)
 }
 
@@ -3130,5 +3132,6 @@ RunSeuratPCA<-function(expr_matrix,npcs=10,nfeatures=2000){
     verbose = F)@cell.embeddings)
   rm(expr_matrix)
   expr_matrix_pca<-data.frame(expr_matrix_pca)
+  expr_matrix_pca<-as.matrix(expr_matrix_pca)
   return(expr_matrix_pca)
 }
