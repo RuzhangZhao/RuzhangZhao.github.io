@@ -1042,7 +1042,7 @@ adjustUMAP_via_umap<-function(
   cutoff_main_remain<-0.01*N_sample 
   main_index<-c(1:N_label_)[which(cluster_size_ > cutoff_main_remain)]
   remain_index<-c(1:N_label_)[which(!c(1:N_label_)%in%main_index)]  
-  length_main_index<-length(main_index)
+  length_large_main_index<-length(main_index)
   cutoff_small_size_cluster<-mean(size_cluster)
   small_size_cluster_index<-which(size_cluster < cutoff_small_size_cluster)
   large_size_cluster_index<-which(size_cluster >= cutoff_small_size_cluster)
@@ -1101,7 +1101,7 @@ adjustUMAP_via_umap<-function(
       i<-main_index[j]
       index_i<-which(cluster_ == label_index_[i])
       cur_umap<-umap_embedding[index_i,]
-      if(j <= length_main_index){
+      if(j <= length_large_main_index){
         cur_sf_here<-1.5
       }else{
         cur_sf_here<-3
@@ -1554,7 +1554,7 @@ adjustUMAP_via_tsMDS<-function(
   N_sample<-nrow(pca_embedding)
   
   main_index<-c(1:N_label)[which(cluster_size > 0.015*N_sample)]
-  if (density_adjust){
+  if (density_adjust & !is.null(global_umap_embedding)){
     prop_density<-sapply(1:N_label, function(i){
       index_i<-which(cluster_ == label_index[i])
       set.seed(seed.use)
@@ -1567,6 +1567,14 @@ adjustUMAP_via_tsMDS<-function(
       index_i<-which(cluster_ == label_index[i])
       cur_umap<-umap_embedding[index_i,]
       umap_embedding[index_i,]<-t((t(cur_umap)-as.numeric(colMeans(cur_umap)))*min(3,prop_density[i])+as.numeric(colMeans(cur_umap)))
+    }
+  }else if (density_adjust & is.null(global_umap_embedding)){
+    for(j in 1:length(main_index)){
+      i<-main_index[j]
+      index_i<-which(cluster_ == label_index[i])
+      cur_umap<-umap_embedding[index_i,]
+      cur_sf_here<-1.5
+      umap_embedding[index_i,]<-t((t(cur_umap)-as.numeric(colMeans(cur_umap)))*cur_sf_here+as.numeric(colMeans(cur_umap)))
     }
   }
   
