@@ -19,6 +19,12 @@ library(mize)
 #library(Rfast)
 #library(Spectrum)
 
+savis_nth<- function(x, k) {
+  p <- length(x) - k
+  xp <- sort(x, partial=p)[p]
+  which(x > xp)
+}
+
 #' savis
 #'
 #' savis: single-cell RNAseq adaptive visualiztaion
@@ -59,7 +65,6 @@ library(mize)
 #' @return nothing useful
 #'
 #' @importFrom Seurat NormalizeData FindVariableFeatures ScaleData RunPCA
-#' @importFrom Rfast nth
 #' @importFrom utils setTxtProgressBar txtProgressBar
 #' @export
 #'
@@ -155,11 +160,8 @@ savis<-function(
   expr_matrix_hvg <- FindVariableFeatures(
     expr_matrix_process,
     verbose = verbose_more)$vst.variance.standardized
-  hvg<- Rfast::nth(x = expr_matrix_hvg,
-    k = nfeatures,
-    num.of.nths = 2,
-    descending = T,
-    index.return = T)[,1]
+  hvg<-savis_nth(x = expr_matrix_hvg,
+    k = nfeatures)
   #hvg<- which(expr_hvg %in% sort(expr_hvg,decreasing = T)[1:2000])
   expr_matrix_process<-expr_matrix_process[hvg,]
   if(verbose){
@@ -1130,11 +1132,8 @@ adjustUMAP_via_umap<-function(
     set.seed(seed.use)
     sample_index_i<-sample(index_i,min(min_size,length(index_i)) )
     sample_index_dist<-pdist(pca_embedding[sample_index_i,c(1,2)],pca_center[i,c(1,2)])@dist
-    Rfast::nth(x=sample_index_dist,
-      k = max(1,min(ceiling(min_size/5),length(index_i))),
-      num.of.nths = 2,
-      descending = T,
-      index.return = T)[,1]
+    savis_nth(x=sample_index_dist,
+      k = max(1,min(ceiling(min_size/5),length(index_i))))
   })
   
   pca_dist1<-Rfast::Dist(pca_center)
@@ -1590,11 +1589,8 @@ adjustUMAP_via_tsMDS<-function(
     set.seed(seed.use)
     sample_index_i<-sample(index_i,min(min_size,length(index_i)) )
     sample_index_dist<-pdist(pca_embedding[sample_index_i,c(1,2)],pca_center[i,c(1,2)])@dist
-    Rfast::nth(x=sample_index_dist,
-      k = max(1,min(ceiling(min_size/5),length(index_i))),
-      num.of.nths = 2,
-      descending = T,
-      index.return = T)[,1]
+    savis_nth(x=sample_index_dist,
+      k = max(1,min(ceiling(min_size/5),length(index_i))))
   })
   pca_dist1<-Rfast::Dist(pca_center)
   pca_dist2<-pca_dist1
@@ -2095,7 +2091,7 @@ DoCluster<-function(
     if (verbose){
       print("Finding Neighbors...")
     }
-    snn_<- FindNeighbors(object = pc_embedding,
+    snn_<- Seurat::FindNeighbors(object = pc_embedding,
       verbose = verbose_more)$snn
     if (verbose){
       print("Finding Clusters...")
@@ -2187,7 +2183,6 @@ DoCluster<-function(
 #' @return nothing useful
 #'
 #' @importFrom Seurat FindVariableFeatures ScaleData RunPCA
-#' @importFrom Rfast nth
 #'
 #' @export
 #'
@@ -2229,13 +2224,10 @@ SubPCEmbedding<-function(
     #  verbose = F)
     expr_tmp_hvg <- FindVariableFeatures(
       expr_tmp,verbose = F)$vst.variance.standardized
-    #tmp_hvg<- which(expr_tmp_hvg %in%
-    #    sort(expr_tmp_hvg,decreasing = T)[1:nfeatures])
-    tmp_hvg<- Rfast::nth(x = expr_tmp_hvg,
-      k = nfeatures,
-      num.of.nths = 2,
-      descending = T,
-      index.return = T)[,1]
+    
+    tmp_hvg<-savis_nth(x = expr_tmp_hvg,
+      k = nfeatures)
+    
     hvg_list[[i]]<-tmp_hvg
     hvg_name_list[[i]]<-rownames(expr_matrix)[tmp_hvg]
     expr_tmp<-expr_tmp[tmp_hvg,]
@@ -2546,11 +2538,12 @@ FormAdaptiveCombineList<-function(
     sample_index_dist<-pdist(pca_center[-cur_index,],pca_center[cur_index,])@dist
     sample_index_dist<-matrix(sample_index_dist,nrow = sum(size_cluster <= npcs))
     comb_list<-sapply( 1:length(cur_index), function(i){
-      c(cur_index[i],Rfast::nth(x=sample_index_dist[i,],
-        k = 1,
-        num.of.nths = 2,
-        descending = F,
-        index.return = T)[,1]) 
+      #c(cur_index[i],nth(x=sample_index_dist[i,],
+      #  k = 1,
+      #  num.of.nths = 2,
+      #  descending = F,
+      #  index.return = T)[,1]) 
+      c(cur_index[i],which.min(sample_index_dist[i,]))
     })
     for( i in 1:ncol(comb_list)){
       index_1<-which(cluster_label == label_index[comb_list[1,i]])
@@ -3077,12 +3070,8 @@ RunOrPCA<-function(expr_matrix,count = T,npcs=10,nfeatures=2000){
   expr_matrix_hvg <- FindVariableFeatures(
     expr_matrix,
     verbose = F)$vst.variance.standardized
-  hvg<- Rfast::nth(x = expr_matrix_hvg,
-    k = nfeatures,
-    num.of.nths = 2,
-    descending = T,
-    index.return = T)[,1]
-  
+  hvg<-savis_nth(x = expr_matrix_hvg,
+    k = nfeatures)
   expr_matrix<-expr_matrix[hvg,]
   expr_matrix <- ScaleData(
     expr_matrix,
