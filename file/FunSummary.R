@@ -14,9 +14,8 @@ library(MASS)
 library(pdist)
 library(uwot)
 library(mize)
-
-#library(sparsepca)
-#library(Rfast)
+library(sparsepca)
+library(Rfast)
 #library(Spectrum)
 
 savis_nth<- function(x, k) {
