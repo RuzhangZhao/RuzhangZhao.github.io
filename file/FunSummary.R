@@ -101,7 +101,6 @@ savis<-function(
   return_combined_PC = FALSE,
   verbose_more = FALSE,
   compressed_storage = TRUE,
-  py_envir = parent.frame(),
   seed.use = 42L
 ){
   # change the seed.use to be integer
@@ -371,12 +370,10 @@ savis<-function(
     }
     combined_embedding<<-combined_embedding
     print(metric_count)
-    #load_func(distance_metric,py_envir=py_envir)
     umap_embedding<-RunAdaUMAP(
       X = combined_embedding,
       metric = distance_metric,
       metric_count = metric_count,
-      py_envir = parent.frame(),
       seed.use = seed.use)
     if(adjust_UMAP){
       if(verbose){
@@ -438,99 +435,6 @@ savis<-function(
 
 
 
-load_func<-function(
-  metric = 'euclidean',
-  py_envir = parent.frame()){
-  py_func_names<-c("adaptive_dist_grad",
-    "adaptive_dist2_grad",
-    "adaptive_dist3_grad",
-    "adaptive_dist_general_grad")
-  
-  # source the python script into the main python module
-  py_run_string(glue(
-    "
-import numba 
-import numpy as np
-import warnings
-
-from umap import distances as dist
-py_metric='{metric}' 
-py_dist = dist.named_distances_with_gradients[py_metric]
-warnings.filterwarnings('ignore')
-@numba.njit(fastmath=True)
-def adaptive_dist_grad(x, y):
-    result = 0.0
-    npcs = int((len(x)-1)/2)
-    if x[0] != y[0]:
-        d,grad = py_dist(x[1:(npcs+1)],y[1:(npcs+1)])
-    else:
-        d,grad = py_dist(x[(npcs+1):(2*npcs+1)],y[(npcs+1):(2*npcs+1)])
-    return d, grad
-
-@numba.njit(fastmath=True)
-def adaptive_dist2_grad(x, y):
-    result = 0.0
-    npcs = int((len(x)-2)/3)
-    if x[0] != y[0]:
-        d,grad = py_dist(x[2:(npcs+2)],y[2:(npcs+2)])
-    else:
-        if x[1] != y[1] or x[1] == -1:
-            d,grad = py_dist(x[(npcs+2):(2*npcs+2)],y[(npcs+2):(2*npcs+2)])
-        else:
-            d,grad = py_dist(x[(2*npcs+2):(3*npcs+2)],y[(2*npcs+2):(3*npcs+2)])
-    return d, grad 
-
-@numba.njit(fastmath=True)
-def adaptive_dist3_grad(x, y):
-    
-    result = 0.0
-    npcs = int((len(x)-3)/4)
-    if x[0] != y[0]:
-        d,grad = py_dist(x[3:(npcs+3)],y[3:(npcs+3)])
-    else:
-        if x[1] != y[1] or x[1] == -1:
-            d,grad = py_dist(x[(npcs+3):(2*npcs+3)],y[(npcs+3):(2*npcs+3)])
-        else:
-            if x[2] != y[2] or x[2] == -1:
-                d,grad = py_dist(x[(2*npcs+3):(3*npcs+3)],y[(2*npcs+3):(3*npcs+3)])
-            else:
-                d,grad = py_dist(x[(3*npcs+3):(4*npcs+3)],y[(3*npcs+3):(4*npcs+3)])
-    return d, grad
-
-@numba.njit(fastmath=True)
-def adaptive_dist_general_grad(x, y):
-    result = 0.0
-    num_layer = x[0]
-    npcs = int((len(x)-num_layer)/num_layer)
-    processed = False
-    for layer in range(1,num_layer):
-        if x[layer] != y[layer]:
-            print(layer)
-            d,grad = py_dist(x[((layer-1)*npcs+num_layer):(layer*npcs+num_layer)],y[((layer-1)*npcs+num_layer):(layer*npcs+num_layer)])
-            processed = True
-            break
-    if not processed:
-        d,grad=py_dist(x[((num_layer-1)*npcs+num_layer):(num_layer*npcs+num_layer)],y[((num_layer-1)*npcs+num_layer):(num_layer*npcs+num_layer)])
-         
-    return d, grad
-")  
-    ,local = FALSE, convert = TRUE)
-  
-  
-  # copy objects from the main python module into the specified R environment
-  py_main <- import_main(convert = TRUE)
-  py_main_dict <- py_get_attr(py_main, "__dict__")
-  
-  Encoding(py_func_names) <- "UTF-8"
-  for (py_name in py_func_names){
-    py_value <- py_main_dict[[py_name]]
-    assign(py_name, py_value, envir = py_envir) 
-  }
-}
-
-
-
-
 
 
 #' RunAdaUMAP
@@ -554,7 +458,7 @@ RunAdaUMAP<-function(
   X,
   metric = 'euclidean',
   metric_count = 1,
-  py_envir = parent.frame(),
+  py_envir = globalenv(),
   n.neighbors = 30L,
   n.components = 2L,
   n.epochs = NULL,
