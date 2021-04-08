@@ -454,6 +454,7 @@ savis<-function(
 #' @examples
 #' a<-1
 #'
+
 RunAdaUMAP<-function(
   X,
   metric = 'euclidean',
@@ -563,10 +564,13 @@ def adaptive_dist_general_grad(x, y):
   py_main_dict <- py_get_attr(py_main, "__dict__")
   
   Encoding(py_func_names) <- "UTF-8"
-  for (py_name in py_func_names){
-    py_value <- py_main_dict[[py_name]]
-    assign(py_name, py_value, envir = py_envir) 
-  }
+  #for (py_name in py_func_names){
+  #  py_value <- py_main_dict[[py_name]]
+  #  assign(py_name, py_value, envir = py_envir) 
+  #}
+  py_name<- py_func_names[metric_count]
+  py_value <- py_main_dict[[py_name]]
+  assign(py_name, py_value, envir = py_envir) 
   if (!is.null(x = seed.use)) {
     py_set_seed(seed = seed.use)
   }
@@ -698,10 +702,13 @@ tsMDS<-function(
   remain_index<-c(1:N)[which(!c(1:N)%in%main_index)]
   if(length(remain_index) == 0){
     tsMDS_res<-main_mds
+    return(tsMDS_res)
+  }else if(length(remain_index) == 1){
+    remain_initial<-c(0,0)
   }else{
     dist_remain<-dist_full[remain_index,remain_index]
     remain_initial<-cmdscale(dist(dist_remain),k=2) 
-    
+  }
     cost_fun <- function(R, D) {
       diff2 <- (R - D) ^ 2
       sum(diff2) * 0.5
@@ -747,7 +754,7 @@ tsMDS<-function(
     remain_mds<-matrix(res_remain$par, ncol = 2, byrow = TRUE)
     
     tsMDS_res<-rbind(main_mds,remain_mds)
-  }
+  
 
   tsMDS_res
 }
@@ -821,7 +828,7 @@ get_umap_embedding_adjust_umap<-function(
   main_index = NULL,
   pca_dist_main=NULL,
   distance_metric = "euclidean",
-  scale_factor =1,
+  scale_factor = 0.9,
   rotate = TRUE,
   seed.use = 42
 ){
@@ -1005,7 +1012,7 @@ adjustUMAP_via_umap<-function(
   cluster_label,
   global_umap_embedding = NULL,
   distance_metric = "euclidean",
-  scale_factor = 1,
+  scale_factor = 0.9,
   rotate = TRUE,
   density_adjust = TRUE,
   seed.use = 42,
@@ -1360,7 +1367,7 @@ get_umap_embedding_adjust_tsMDS<-function(
   main_index = NULL,
   pca_dist_main=NULL,
   distance_metric = "euclidean",
-  scale_factor =1,
+  scale_factor = 0.9,
   rotate = TRUE,
   seed.use = 42
 ){
@@ -1530,7 +1537,7 @@ adjustUMAP_via_tsMDS<-function(
   umap_embedding,
   global_umap_embedding = NULL,
   distance_metric = "euclidean",
-  scale_factor = 1,
+  scale_factor = 0.9,
   rotate = TRUE,
   density_adjust = TRUE,
   shrink_distance = TRUE,
@@ -1857,7 +1864,7 @@ adjustUMAP<-function(
   global_umap_embedding = NULL,
   adjust_method = "umap",
   distance_metric = "euclidean",
-  scale_factor = 1,
+  scale_factor = 0.9,
   rotate = TRUE,
   density_adjust = TRUE,
   shrink_distance = TRUE,

@@ -318,6 +318,7 @@ ggmeta <- function(study_info, ref_dat,
       total_iter<- total_iter + output_iter$no_of_iter
       convergence<-output_iter$convergence
       res<-eigen(output_iter$Hessian)
+      one_step_output_iter<<-output_iter
     }
     
     if (sum(Re(res$values)[which(abs(Re(res$values)) > threshold)] < 0) > 0 ){
