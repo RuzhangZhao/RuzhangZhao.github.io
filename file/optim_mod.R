@@ -1,5 +1,51 @@
 #coef<-initial_val
 #C<-C_init
+gdoptim<-function(
+  par,
+  fn,
+  C_iter,
+  gr,
+  initial_alpha = 0.01,
+  N_EPOCH = 100,
+  verbose = FALSE){
+  grad = gr(par,C_iter)
+  clip<-function(
+    val,
+    bound = 0.1){
+    clip_one<-function(
+      val,
+      bound = 0.01){
+      if (val > bound){
+        return (bound) 
+      }else if (val < -bound){
+        return (-bound)
+      }
+      else{
+        return(val)
+      }
+    }
+    
+    clip_res<-sapply(val,function(i){
+      clip_one(i,bound)
+    })
+    clip_res
+  }
+  cur_alpha<-initial_alpha
+  .<-sapply( 1:N_EPOCH, function(epoch){
+    grad <- gr(par,C_iter)
+    par <<- par - clip(grad) * cur_alpha
+    if(verbose){
+      print(paste0("current epoch: ", epoch))
+      print(paste0("current func val:", fn(par,C_iter)))
+    }
+    if(epoch %% 10 == 0){
+      cur_alpha<<- initial_alpha * 1/(1+ epoch*10/N_EPOCH)    
+    }
+  })
+  par     
+}
+
+
 sigmoid<-function(vec){
   index_nonneg<-which(vec >= 0)
   index_neg<-which(vec < 0)

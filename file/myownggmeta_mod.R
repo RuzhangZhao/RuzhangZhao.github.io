@@ -412,4 +412,45 @@ ggmeta <- function(study_info, ref_dat,
   }
   
 }
+library(pracma)
+FindIntercept<-function(beta,n1ratio,x){
+  
+  sigmoid<-function(vec){
+    index_nonneg<-which(vec >= 0)
+    index_neg<-which(vec < 0)
+    res<-rep(NA,length(vec))
+    res[index_nonneg]<-1/(1+exp(-vec[index_nonneg]))
+    res[index_neg]<-exp(vec[index_neg])/(1+exp(vec[index_neg]))
+    res
+  }
+  f<-function(alpha,beta,n1ratio,x,n){
+    if(is.null(dim(x)[1])){
+      logitp<-x*beta+alpha 
+    }else{
+      logitp<-c(as.matrix(x)%*%c(beta))+alpha 
+    }
+    sum(sigmoid(logitp))/n - n1ratio
+  }
+  gradf<-function(alpha,beta,x,n){
+    if(is.null(dim(x)[1])){
+      logitp<-x*beta+alpha 
+    }else{
+      logitp<-c(as.matrix(x)%*%c(beta))+alpha 
+    }
+    sum(sigmoid(logitp)*(1-sigmoid(logitp)))/n
+  }
+  finalf<-function(alpha){
+    f(alpha,beta,n1ratio,x,n)
+  }
+  finalgradf<-function(alpha){
+    gradf(alpha,beta,x,n)
+  }
+  if(is.null(dim(x)[1])){
+    n<-length(x)
+  }else{
+    n<-dim(x)[1]
+  }
+  res<-newtonRaphson(fun=finalf,x0=log(n1ratio/(1-n1ratio)),dfun = finalgradf)
+  return(res$root)
+}
 
