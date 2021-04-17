@@ -16,7 +16,7 @@ library(uwot)
 library(mize)
 library(sparsepca)
 library(parallelDist)
-#library(Rfast)
+library(Rfast)
 
 #library(Spectrum)
 
@@ -677,16 +677,16 @@ tsMDS<-function(
   mmds_fn <- function(par) {
     R <- dist_main
     y <- matrix(par, ncol = 2, byrow = TRUE)
-    #D <- Rfast::Dist(y)
-    D <- as.matrix(parDist(y))
+    D <- Rfast::Dist(y)
+    #D <- as.matrix(parDist(y))
     cost_fun(R, D)
   }
   
   mmds_gr <- function(par) {
     R <- dist_main
     y <- matrix(par, ncol = 2, byrow = TRUE)
-    #D <- Rfast::Dist(y)
-    D <- as.matrix(parDist(y))
+    D <- Rfast::Dist(y)
+    #D <- as.matrix(parDist(y))
     
     cost_grad(R, D, y)
   }
@@ -732,8 +732,8 @@ tsMDS<-function(
       y1<- main_mds
       y2 <- matrix(par, ncol = 2, byrow = TRUE)
       y<-rbind(y1,y2)
-      #D <- Rfast::Dist(y)
-      D <- as.matrix(parDist(y))
+      D <- Rfast::Dist(y)
+      #D <- as.matrix(parDist(y))
       cost_fun(R, D)
     }
     
@@ -742,8 +742,8 @@ tsMDS<-function(
       y1<- main_mds
       y2 <- matrix(par, ncol = 2, byrow = TRUE)
       y<-rbind(y1,y2)
-      # <- Rfast::Dist(y)
-      D <- as.matrix(parDist(y))
+      D <- Rfast::Dist(y)
+      #D <- as.matrix(parDist(y))
       cost_grad(R, D, y1, y2)
     }
     initial_val_remain<-c(t(remain_initial))
@@ -1040,6 +1040,7 @@ adjustUMAP_via_umap<-function(
       sum(cluster_label == label_index[i]))
   }
   snn_<- FindNeighbors(object = umap_embedding,
+    nn.method = "rann",
     verbose = F)$snn
   cluster_ <- FindClusters(snn_,
     resolution = 0,
@@ -1096,10 +1097,10 @@ adjustUMAP_via_umap<-function(
       index_i<-which(cluster_ == label_index_[i])
       set.seed(seed.use)
       sample_index_i<-sample(index_i,min(min_size,length(index_i)) )
-      #sample_global_dist<-Rfast::Dist(global_umap_embedding[sample_index_i,])
-      sample_global_dist<-as.matrix(parDist(global_umap_embedding[sample_index_i,]))
-      #sample_local_dist<-Rfast::Dist(umap_embedding[sample_index_i,])
-      sample_local_dist<-as.matrix(parDist(umap_embedding[sample_index_i,]))
+      sample_global_dist<-Rfast::Dist(global_umap_embedding[sample_index_i,])
+      #sample_global_dist<-as.matrix(parDist(global_umap_embedding[sample_index_i,]))
+      sample_local_dist<-Rfast::Dist(umap_embedding[sample_index_i,])
+      #sample_local_dist<-as.matrix(parDist(umap_embedding[sample_index_i,]))
       mean(c(sample_global_dist))/mean(c(sample_local_dist))
     })
     for(j in 1:length(main_index)){
@@ -1151,8 +1152,8 @@ adjustUMAP_via_umap<-function(
       k = max(1,min(ceiling(min_size/5),length(index_i))))
   })
   
-  #pca_dist1<-Rfast::Dist(pca_center)
-  pca_dist1<-as.matrix(parDist(pca_center))
+  pca_dist1<-Rfast::Dist(pca_center)
+  #pca_dist1<-as.matrix(parDist(pca_center))
   
   step1_res<-get_umap_embedding_adjust_umap(
     pca_embedding=pca_embedding,
@@ -1178,6 +1179,7 @@ adjustUMAP_via_umap<-function(
   }
   label_index_main<-sort(unique(cluster_main))
   snn_1<- FindNeighbors(object = umap_embedding_adjust_main,
+    nn.method = "rann",
     verbose = F)$snn
   cluster_1 <- FindClusters(snn_1,
     resolution = 0,
@@ -1226,6 +1228,7 @@ adjustUMAP_via_umap<-function(
       }
       
       snn_1<- FindNeighbors(object = umap_embedding_adjust_main,
+        nn.method = "rann",
         verbose = F)$snn
       cluster_1 <- FindClusters(snn_1,
         resolution = 0,
@@ -1557,6 +1560,7 @@ adjustUMAP_via_tsMDS<-function(
     rownames(umap_embedding)<-1:nrow(umap_embedding)
   }
   snn_<- FindNeighbors(object = umap_embedding,
+    nn.method = "rann",
     verbose = F)$snn
   cluster_ <- FindClusters(snn_,
     resolution = 0,
@@ -1579,10 +1583,10 @@ adjustUMAP_via_tsMDS<-function(
       index_i<-which(cluster_ == label_index[i])
       set.seed(seed.use)
       sample_index_i<-sample(index_i,min(min_size,length(index_i)) )
-      #sample_global_dist<-Rfast::Dist(global_umap_embedding[sample_index_i,])
-      sample_global_dist<-as.matrix(parDist(global_umap_embedding[sample_index_i,]))
-      #sample_local_dist<-Rfast::Dist(umap_embedding[sample_index_i,])
-      sample_local_dist<-as.matrix(parDist(umap_embedding[sample_index_i,]))
+      sample_global_dist<-Rfast::Dist(global_umap_embedding[sample_index_i,])
+      #sample_global_dist<-as.matrix(parDist(global_umap_embedding[sample_index_i,]))
+      sample_local_dist<-Rfast::Dist(umap_embedding[sample_index_i,])
+      #sample_local_dist<-as.matrix(parDist(umap_embedding[sample_index_i,]))
       mean(c(sample_global_dist))/mean(c(sample_local_dist))
     })
     for(i in 1:N_label){
@@ -1614,8 +1618,8 @@ adjustUMAP_via_tsMDS<-function(
     savis_nth(x=sample_index_dist,
       k = max(1,min(ceiling(min_size/5),length(index_i))))
   })
-  #pca_dist1<-Rfast::Dist(pca_center)
-  pca_dist1<-as.matrix(parDist(pca_center))
+  pca_dist1<-Rfast::Dist(pca_center)
+  #pca_dist1<-as.matrix(parDist(pca_center))
   
   pca_dist2<-pca_dist1
   pca_dist_main<-pca_dist1[main_index,main_index]
@@ -1686,6 +1690,7 @@ adjustUMAP_via_tsMDS<-function(
   umap_center<-step1_res$umap_center
   umap_embedding_adjust<-step1_res$umap_embedding_adjust
   snn_1<- FindNeighbors(object = umap_embedding_adjust,
+    nn.method = "rann",
     verbose = F)$snn
   cluster_1 <- FindClusters(snn_1,
     resolution = 0,
@@ -1738,6 +1743,7 @@ adjustUMAP_via_tsMDS<-function(
     umap_center<-step2_res$umap_center
     umap_embedding_adjust<-step2_res$umap_embedding_adjust
     snn_2<- FindNeighbors(object = umap_embedding_adjust,
+      nn.method = "rann",
       verbose = F)$snn
     cluster_2 <- FindClusters(snn_2,
       resolution = 0,
@@ -1786,6 +1792,7 @@ adjustUMAP_via_tsMDS<-function(
         }
         
         snn_3<- FindNeighbors(object = umap_embedding_adjust,
+          nn.method = "rann",
           verbose = F)$snn
         cluster_3 <- FindClusters(snn_3,
           resolution = 0,
@@ -2052,8 +2059,8 @@ ScaleFactor<-function(
   }
   
   # distance matrix for cluster center
-  #cluster_center_dist<-Rfast::Dist(cluster_center[,1:npcs])
-  cluster_center_dist<-as.matrix(parDist(cluster_center[,1:npcs]))
+  cluster_center_dist<-Rfast::Dist(cluster_center[,1:npcs])
+  #cluster_center_dist<-as.matrix(parDist(cluster_center[,1:npcs]))
   diag(cluster_center_dist)<-NA
   
   # pdist is used here, which is fast
@@ -2116,6 +2123,7 @@ DoCluster<-function(
       print("Finding Neighbors...")
     }
     snn_<- Seurat::FindNeighbors(object = pc_embedding,
+      nn.method = "rann",
       verbose = verbose_more)$snn
     if (verbose){
       print("Finding Clusters...")
@@ -2137,6 +2145,7 @@ DoCluster<-function(
           print("Finding Neighbors...")
         }
         snn_<- FindNeighbors(object = pc_embedding[index_i,],
+          nn.method = "rann",
           verbose = verbose_more)$snn
         if (verbose_more){
           print("Finding Clusters...")
@@ -2930,6 +2939,7 @@ ARIEvaluate<-function(
 ){
   if (method == "louvain"){
     snn_<- FindNeighbors(object = test_data,
+      nn.method = "rann",
       verbose = F)$snn
     cluster_label <- FindClusters(snn_,
       resolution = resolution,
