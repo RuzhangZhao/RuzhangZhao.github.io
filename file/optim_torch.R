@@ -62,7 +62,7 @@ def torchoptim(ref_dat,no_of_studies,col_inds,study_info1,C_,initial_val,lam,D=N
 
     loss_collect = [100]
     count_early = 0
-    eps_early = 10**(-4)
+    eps_early = 10**(-3)
     for i in range(EPOCH):
         outputs = net(ref_dat,no_of_studies,col_inds,study_info1,C_)
         loss = loss_metric(outputs)  

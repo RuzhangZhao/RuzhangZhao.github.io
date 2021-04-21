@@ -206,7 +206,7 @@ ggmeta <- function(
         model = model, 
         missing_covariance_study_indices = missing_covariance_study_indices,
         learning_rate = learning_rate,
-        EPOCH = EPOCH,
+        EPOCH = 200,
         lam = 0,
         D = D,
         penalty = penalty,
@@ -230,7 +230,7 @@ ggmeta <- function(
         }
       }else{
         print("go here")
-        logistic_result <- mclapply(lambda, function(lam){
+        logistic_result <- lapply(lambda, function(lam){
           coef_iter_lam<-coef_iter
           output_lam <- fastoptim(
             study_info = study_info, 
@@ -241,7 +241,7 @@ ggmeta <- function(
             model = model, 
             missing_covariance_study_indices = missing_covariance_study_indices,
             learning_rate = learning_rate,
-            EPOCH = EPOCH,
+            EPOCH = 200,
             lam = lam,
             D = D,
             penalty = penalty,
@@ -295,7 +295,7 @@ ggmeta <- function(
         model = model, 
         missing_covariance_study_indices = missing_covariance_study_indices,
         learning_rate = learning_rate,
-        EPOCH = EPOCH,
+        EPOCH = 200,
         lam = lam,
         D = D,
         penalty = penalty,
