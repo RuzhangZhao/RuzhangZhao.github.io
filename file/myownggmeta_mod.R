@@ -1,5 +1,5 @@
 library(parallel)
-ggmeta <- function(study_info, ref_dat, 
+ggmeta_mod <- function(study_info, ref_dat, 
   model, 
   estimated_intercept = NULL,
   variable_intercepts=FALSE,
@@ -9,7 +9,7 @@ ggmeta <- function(study_info, ref_dat,
   D=NULL,
   lambda.gam.first = 0,
   one_step = TRUE,
-  control = list(epsilon = 1e-03, 
+  control = list(epsilon = 1e-04, 
     maxit = 500, maxit_lam = 1e3,
     lambda_tune_eps=1e-06))
 {
