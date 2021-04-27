@@ -10,8 +10,12 @@ ggmeta <- function(
   return_asy_var=TRUE,
   initial_run_res = NULL,
   learning_rate = 0.01,
-  EPOCH = 1000,
-  penalty = 'L2')
+  lr_step_size = 100,
+  EPOCH_inital = 1000,
+  EPOCH = 200,
+  penalty = 'L2',
+  verbose=TRUE,
+  verbose_step = 1)
 {
   call_ggmeta <- match.call()
 
@@ -184,12 +188,15 @@ ggmeta <- function(
       model = model, 
       missing_covariance_study_indices = missing_covariance_study_indices,
       learning_rate = learning_rate,
-      EPOCH = EPOCH,
+      lr_step_size = lr_step_size,
+      EPOCH = EPOCH_inital,
       lam = 0,
       D = D,
       penalty = penalty,
       return_C = TRUE,
-      return_asy_var = FALSE)
+      return_asy_var = FALSE,
+      verbose=verbose,
+      verbose_step =verbose_step)
     coef_iter <- output_initial$estimated_coef
     # the variance will be considered later
     #asy_var_beta_converged_initial <- output_initial$Asy_var_optim
@@ -206,12 +213,15 @@ ggmeta <- function(
         model = model, 
         missing_covariance_study_indices = missing_covariance_study_indices,
         learning_rate = learning_rate,
-        EPOCH = 200,
+        lr_step_size = lr_step_size,
+        EPOCH = EPOCH,
         lam = 0,
         D = D,
         penalty = penalty,
         return_C = FALSE,
-        return_asy_var = return_asy_var)
+        return_asy_var = return_asy_var,
+        verbose=verbose,
+        verbose_step =verbose_step)
     coef_iter <- output_iter$estimated_coef
     total_iter<- total_iter + output_iter$no_of_iter
     if(!is.null(lambda)){
@@ -241,12 +251,15 @@ ggmeta <- function(
             model = model, 
             missing_covariance_study_indices = missing_covariance_study_indices,
             learning_rate = learning_rate,
-            EPOCH = 200,
+            lr_step_size = lr_step_size,
+            EPOCH = EPOCH,
             lam = lam,
             D = D,
             penalty = penalty,
             return_C = FALSE,
-            return_asy_var = return_asy_var)
+            return_asy_var = return_asy_var,
+            verbose=verbose,
+            verbose_step =verbose_step)
           coef_iter_lam<-output_lam$estimated_coef
           total_iter_lam<-total_iter+output_lam$no_of_iter
           GCV<-nrow(ref_dat)*(output_lam$cost_val)/
@@ -295,12 +308,15 @@ ggmeta <- function(
         model = model, 
         missing_covariance_study_indices = missing_covariance_study_indices,
         learning_rate = learning_rate,
-        EPOCH = 200,
+        lr_step_size = lr_step_size,
+        EPOCH = EPOCH,
         lam = lam,
         D = D,
         penalty = penalty,
         return_C = FALSE,
-        return_asy_var = return_asy_var)
+        return_asy_var = return_asy_var,
+        verbose=verbose,
+        verbose_step =verbose_step)
       coef_iter_lam<-output_lam$estimated_coef
       total_iter_lam<-total_iter+output_lam$no_of_iter
       GCV<-nrow(ref_dat)*(output_lam$cost_val)/
@@ -311,8 +327,12 @@ ggmeta <- function(
       newList<-list("estimated_coef" = coef_iter_lam,
         "GCV"=GCV, 
         "no_of_iter"=total_iter_lam) 
+      print(return_asy_var)
       if(return_asy_var){
+        print("Yes")
         newList$asy_var<-output_lam$asy_var
+        print(length(output_lam))
+        print(output_lam$asy_var)
       }
       newList
     })

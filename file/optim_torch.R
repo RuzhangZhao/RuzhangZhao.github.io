@@ -40,7 +40,7 @@ class GMMNet(nn.Module):
         hatQ = torch.matmul(Un,torch.matmul(C_,Un))
         return hatQ*ref_size
 
-def torchoptim(ref_dat,no_of_studies,col_inds,study_info1,C_,initial_val,lam,D=None,penalty='L2',lr=0.01,EPOCH=1000,verbose=True):
+def torchoptim(ref_dat,no_of_studies,col_inds,study_info1,C_,initial_val,lam,D=None,penalty='L2',lr=0.01,lr_step_size=100,EPOCH=1000,eps_early_stop = 10**(-4),verbose=True,verbose_step=10):
     ref_dat = torch.FloatTensor(np.array(ref_dat))
     net = GMMNet(ref_dat.shape[1])
     initial_val_tensor = torch.tensor(np.array(initial_val),dtype=torch.float)
@@ -58,11 +58,10 @@ def torchoptim(ref_dat,no_of_studies,col_inds,study_info1,C_,initial_val,lam,D=N
     ## Initialize Optimizer and Learning Rate Scheduler
     learning_rate = lr
     optimizer = torch.optim.Adam(net.parameters(),lr=learning_rate)
-    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=100, gamma=0.1)
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=lr_step_size, gamma=0.1)
 
     loss_collect = [100]
     count_early = 0
-    eps_early = 10**(-3)
     for i in range(EPOCH):
         outputs = net(ref_dat,no_of_studies,col_inds,study_info1,C_)
         loss = loss_metric(outputs)  
@@ -72,23 +71,23 @@ def torchoptim(ref_dat,no_of_studies,col_inds,study_info1,C_,initial_val,lam,D=N
             if penalty == 'L2':
                 penalty_val += (torch.norm(net.fc.weight[0,pen_loc]))**2*lam
             elif penalty == 'L1':
-                penalty_val += torch.norm(net.fc.weight[0,pen_loc],1)*lam
+                penalty_val += torch.norm(net.fc.weight[0,pen_loc],1)*lam*2
             else:
                 D = torch.FloatTensor(np.array(D))
                 penalty_val += lam*(torch.matmul(torch.matmul(net.fc.weight,D),net.fc.weight.T).squeeze())
         loss += penalty_val
         if i == 0:
-            print('Initial Loss: '+str(loss.item()))
+            print('Initial Loss: '+str(loss.item()), flush = True)
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
         scheduler.step()       
         if verbose:
-            if (i+1)%20 == 0:
+            if (i+1)%verbose_step == 0 and i > 0:
                 print('Epoch '+str(i+1)+' Loss: '+str(loss.item()), flush = True)
         loss_collect.append(loss.item())
         ## early stopping criteria
-        if np.abs(loss_collect[-1] - loss_collect[-2]) < eps_early:
+        if np.abs(loss_collect[-1] - loss_collect[-2]) < eps_early_stop:
             count_early += 1
         if count_early >= 5:
             break
@@ -109,11 +108,11 @@ def torchoptim(ref_dat,no_of_studies,col_inds,study_info1,C_,initial_val,lam,D=N
         if penalty == 'L2':
             penalty_val += (torch.norm(net.fc.weight[0,pen_loc]))**2*lam
         elif penalty == 'L1':
-            penalty_val += torch.norm(net.fc.weight[0,pen_loc],1)*lam
+            penalty_val += torch.norm(net.fc.weight[0,pen_loc],1)*lam*2
         else:
             D = torch.FloatTensor(np.array(D))
             penalty_val += lam*(torch.matmul(torch.matmul(net.fc.weight,D),net.fc.weight.T).squeeze())
-    print('Final Loss: '+str((outputs+penalty_val).item()))
+    print('Final Loss: '+str((outputs+penalty_val).item()), flush = True)
                  
     return net_fc_weight,np.array(loss_collect[1:len(loss_collect)]),outputs.item()
 ")  
@@ -138,13 +137,15 @@ fastoptim<-function(study_info,
   model,
   missing_covariance_study_indices, 
   learning_rate = 0.01,
+  lr_step_size = 100,
   EPOCH = 10000,
   lam = 0,
   D = NULL,
   penalty='L2',
   verbose = TRUE,
+  verbose_step = 10,
   return_C = FALSE,
-  return_asy_var = FALSE)
+  return_asy_var = TRUE)
 {
   EPOCH<-as.integer(EPOCH)
   no_of_studies<-length(study_info)
@@ -315,8 +316,10 @@ fastoptim<-function(study_info,
     D = D,
     penalty=penalty,
     lr = learning_rate,
+    lr_step_size = lr_step_size,
     EPOCH=EPOCH,
-    verbose=verbose)
+    verbose=verbose,
+    verbose_step =verbose_step)
   estimated_coef<-res[[1]]
   names(estimated_coef)<-colnames(ref_dat)
   print(paste0("func value before:",res[[2]][1]))
@@ -329,6 +332,7 @@ fastoptim<-function(study_info,
     newList$C <- C_new
   }
   if(return_asy_var){
+    print("Yes")
     asy_var<-asy_var_opt(estimated_coef,C_iter)
     newList$asy_var<-asy_var
   }
