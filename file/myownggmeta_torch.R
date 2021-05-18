@@ -329,7 +329,6 @@ ggmeta <- function(
         "no_of_iter"=total_iter_lam) 
       print(return_asy_var)
       if(return_asy_var){
-        print("Yes")
         newList$asy_var<-output_lam$asy_var
         print(length(output_lam))
         print(output_lam$asy_var)
