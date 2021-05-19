@@ -14,7 +14,6 @@ library(MASS)
 library(pdist)
 library(uwot)
 library(mize)
-library(sparsepca)
 library(parallelDist)
 library(Rfast)
 
