@@ -61,8 +61,8 @@ CreateGeneActivityMatrix3 <- function (
   BiocGenerics::start(peaks.gr[BiocGenerics::start(peaks.gr) == 0, ]) <- 1
   
   gtf <- annotation.file#rtracklayer::import(con = paste0(dir_data_annotation,"Mus_musculus.GRCm38.75.gtf"))
-  gtf <- GenomeInfoDb::keepSeqlevels(x = gtf, value = seq.levels, 
-    pruning.mode = "coarse")
+  #gtf <- GenomeInfoDb::keepSeqlevels(x = gtf, value = seq.levels, 
+  #  pruning.mode = "coarse")
   #if (!any(GenomeInfoDb::seqlevelsStyle(x = gtf) == GenomeInfoDb::seqlevelsStyle(x = peaks.gr))) {
   #GenomeInfoDb::seqlevelsStyle(gtf) <- GenomeInfoDb::seqlevelsStyle(peaks.gr)
   #}
