@@ -88,12 +88,12 @@ CreateGeneActivityMatrix3 <- function (
     peak.matrix <- as(object = peak.matrix, Class = "matrix")
   }
   
-  if (nbrOfWorkers() > 1) {
-    mysapply <- future_sapply
-  }
-  else {
+  #if (nbrOfWorkers() > 1) {
+  #  mysapply <- future_sapply
+  #}
+  #else {
     mysapply <- ifelse(test = verbose, yes = pbsapply, no = sapply)
-  }
+  #}
   all.features<-all.features[all.features%in%annotations$new_feature]
   newmat.list <- mysapply(X = 1:length(x = all.features), FUN = function(x) {
     features.use <- annotations[annotations$new_feature == 
