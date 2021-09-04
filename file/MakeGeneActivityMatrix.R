@@ -184,6 +184,7 @@ CreatePeakActivityMatrix <- function (
   newmat.list <- mysapply(X = 1:length(x = all.features), FUN = function(x) {
     features.use <- annotations[annotations$new_feature == 
         all.features[x], ]$feature
+    #print(dim(peak.matrix[features.use, ]))
     submat <- peak.matrix[features.use, ]
     if (keep.sparse) {
       return(as(object = as.matrix(x = submat), Class = "dgCMatrix"))
@@ -191,8 +192,13 @@ CreatePeakActivityMatrix <- function (
       return(as.matrix(x = submat))
     }
   }, simplify = FALSE)
-  newmat = do.call(what = cbind, args = newmat.list)
-  newmat <- t(x = newmat)
+  for ( i in 1:length(newmat.list)){
+    if(dim(newmat.list[[i]])[2]==1){
+      newmat.list[[i]]<-t(newmat.list[[i]])
+    }
+  }
+  newmat = do.call(what = rbind, args = newmat.list)
+  #newmat <- t(x = newmat)
   rownames(x = newmat) <- all.features
   return(as(object = newmat, Class = "dgCMatrix"))
 }
