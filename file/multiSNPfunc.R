@@ -1,3 +1,15 @@
+
+library(inline)
+library(data.table)
+library(dplyr)
+library(speedglm)
+library(Rfast)
+library(feather)
+library(locfit)
+library(bigmemory)
+library(stringr)
+library(glmnet)
+
 U_func<-function(
   UKBB_pop,
   beta,
@@ -142,7 +154,7 @@ final_var_U_beta_theta_hat_func<-function(
     UKBB_pop=UKBB_pop,
     theta_UKBB_GPC = theta_UKBB_GPC)
   cov_U<-cov_U_with_theta_hat_func(UKBB_pop = UKBB_pop,beta = beta,theta_UKBB_GPC = theta_UKBB_GPC,study_info = study_info)
-  cov_3rd_between_1st_2nd<-0#cov_U%*%mat_outside%*%t(U_theta_gradient[,1:(1+len_GPC)])
+  cov_3rd_between_1st_2nd<-cov_U%*%mat_outside%*%t(U_theta_gradient[,1:(1+len_GPC)])
   
   (var_1st_U_beta_theta+var_2nd_grad_times_theta_hat+cov_3rd_between_1st_2nd+t(cov_3rd_between_1st_2nd))
 }
@@ -277,9 +289,9 @@ tilde_final_var_func<-function(
     theta_UKBB_GPC = theta_UKBB_GPC)
   tilde_cov_3rd_between_1st_2nd<-crossprod(tilde_U_beta_gradient,C)%*%cov_U%*%mat_outside%*%t(U_theta_gradient[,1:(1+len_GPC)])%*%C%*%tilde_U_beta_gradient
   
-  print(max(tilde_var_1st_U_beta_theta))
-  print(max(tilde_var_2nd))
-  print(max(tilde_cov_3rd_between_1st_2nd))
+  #print(max(tilde_var_1st_U_beta_theta))
+  #print(max(tilde_var_2nd))
+  #print(max(tilde_cov_3rd_between_1st_2nd))
   tilde_var_1st_U_beta_theta+tilde_var_2nd+tilde_cov_3rd_between_1st_2nd+t(tilde_cov_3rd_between_1st_2nd)
 }
 
