@@ -408,6 +408,7 @@ assign(py_name, py_value, envir = py_envir)
 
 
 
+
 library(reticulate)
 library(glue)
 
@@ -468,7 +469,9 @@ def torchoptimLBFGS(UKBB_pop,theta_UKBB_GPC,study_info,colname_UKBB,var_SNP,var_
     loss_collect = [100]
     count_early = 0
     eps_early = 10**(-10)
-    for i in range(EPOCH):
+
+
+    def closure():
         outputs = net(UKBB_pop,theta_UKBB_GPC,study_info,colname_UKBB,var_SNP,var_GPC,C_)
         penalty_val = torch.tensor(0.)
         if lam != 0:
@@ -477,14 +480,13 @@ def torchoptimLBFGS(UKBB_pop,theta_UKBB_GPC,study_info,colname_UKBB,var_SNP,var_
             penalty_val += (torch.norm(net.fc.weight[0,pen_loc]))**2*lam
         if i == 0:
             print('Initial Loss: '+str(loss.item()), flush = True)
-
-        def closure():
-            optimizer.zero_grad() 
-            loss = loss_metric(outputs)       
-            loss += penalty_val
-            loss.backward()
-            return loss
-        optimizer.step(closure)
+        optimizer.zero_grad() 
+        loss = loss_metric(outputs)       
+        loss += penalty_val
+        loss.backward()
+        return loss
+    for i in range(EPOCH):
+        loss = optimizer.step(closure)
     #for i in range(N_LBFGS_STEPS_VALIDATION):
         
         #optimizer.zero_grad()
@@ -523,11 +525,6 @@ Encoding(py_name) <- "UTF-8"
 py_value <- py_main_dict[[py_name]]
 py_envir<-globalenv()
 assign(py_name, py_value, envir = py_envir) 
-
-
-
-
-
 
 
 
