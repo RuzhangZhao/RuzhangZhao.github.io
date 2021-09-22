@@ -444,7 +444,7 @@ class GMMNet(nn.Module):
 
 
 
-def torchoptimLBFGS(UKBB_pop,theta_UKBB_GPC,study_info,colname_UKBB,var_SNP,var_GPC,C_,initial_val,D,lam=1,lr=0.01,EPOCH=1000):
+def torchoptimLBFGS(UKBB_pop,theta_UKBB_GPC,study_info,colname_UKBB,var_SNP,var_GPC,C_,initial_val,D,lam=1,lr=1,EPOCH=10):
     UKBB_pop = torch.FloatTensor(UKBB_pop)
     net = GMMNet(UKBB_pop.shape[1]-1)
     initial_val_tensor = torch.tensor(np.array(initial_val),dtype=torch.float)
@@ -462,7 +462,7 @@ def torchoptimLBFGS(UKBB_pop,theta_UKBB_GPC,study_info,colname_UKBB,var_SNP,var_
     loss_metric = null_loss
     ## Initialize Optimizer and Learning Rate Scheduler
     learning_rate = lr
-    optimizer = torch.optim.LBFGS(net.parameters())
+    optimizer = torch.optim.LBFGS(net.parameters())    
     ## scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=100, gamma=0.1)
 
     loss_collect = [100]
@@ -470,18 +470,26 @@ def torchoptimLBFGS(UKBB_pop,theta_UKBB_GPC,study_info,colname_UKBB,var_SNP,var_
     eps_early = 10**(-10)
     for i in range(EPOCH):
         outputs = net(UKBB_pop,theta_UKBB_GPC,study_info,colname_UKBB,var_SNP,var_GPC,C_)
-        loss = loss_metric(outputs)       
         penalty_val = torch.tensor(0.)
         if lam != 0:
             pen_loc = np.where(np.diag(D)==1)[0]
             
             penalty_val += (torch.norm(net.fc.weight[0,pen_loc]))**2*lam
-        loss += penalty_val
         if i == 0:
             print('Initial Loss: '+str(loss.item()), flush = True)
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+
+        def closure():
+            optimizer.zero_grad() 
+            loss = loss_metric(outputs)       
+            loss += penalty_val
+            loss.backward()
+            return loss
+        optimizer.step(closure)
+    #for i in range(N_LBFGS_STEPS_VALIDATION):
+        
+        #optimizer.zero_grad()
+        #loss.backward()
+        #optimizer.step()
         #scheduler.step()
         if (i+1)%100 == 0 or i == 0:
             print('Epoch '+str(i+1)+' Loss: '+str(loss.item()))
@@ -515,6 +523,12 @@ Encoding(py_name) <- "UTF-8"
 py_value <- py_main_dict[[py_name]]
 py_envir<-globalenv()
 assign(py_name, py_value, envir = py_envir) 
+
+
+
+
+
+
 
 
 
