@@ -478,31 +478,31 @@ def torchoptimLBFGS(UKBB_pop,theta_UKBB_GPC,study_info,colname_UKBB,var_SNP,var_
             pen_loc = np.where(np.diag(D)==1)[0]
             
             penalty_val += (torch.norm(net.fc.weight[0,pen_loc]))**2*lam
-        if i == 0:
-            print('Initial Loss: '+str(loss.item()), flush = True)
         optimizer.zero_grad() 
         loss = loss_metric(outputs)       
         loss += penalty_val
         loss.backward()
         return loss
-    for i in range(EPOCH):
-        loss = optimizer.step(closure)
+    #for i in range(EPOCH):
+    #    print('here')
+    losses = optimizer.step(closure)
+        
     #for i in range(N_LBFGS_STEPS_VALIDATION):
         
         #optimizer.zero_grad()
         #loss.backward()
         #optimizer.step()
         #scheduler.step()
-        if (i+1)%100 == 0 or i == 0:
-            print('Epoch '+str(i+1)+' Loss: '+str(loss.item()))
-        print('Epoch '+str(i+1)+' Loss: '+str(loss.item()))
-        loss_collect.append(loss.item())
-        ## early stopping criteria
+    if (i+1)%100 == 0 or i == 0:
+        print('Epoch '+str(i+1)+' Loss: '+str(losses.item()))
+    print('Epoch '+str(i+1)+' Loss: '+str(losses.item()))
+    loss_collect.append(losses.item())
+    ## early stopping criteria
 
-        if np.abs(loss_collect[-1] - loss_collect[-2]) < eps_early:
-            count_early += 1
-        if count_early >= 100:
-            break
+    if np.abs(loss_collect[-1] - loss_collect[-2]) < eps_early:
+        count_early += 1
+    if count_early >= 100:
+        break
     outputs = net(UKBB_pop,theta_UKBB_GPC,study_info,colname_UKBB,var_SNP,var_GPC,C_)
     penalty_val = torch.tensor(0.)
     if lam != 0:
@@ -525,6 +525,11 @@ Encoding(py_name) <- "UTF-8"
 py_value <- py_main_dict[[py_name]]
 py_envir<-globalenv()
 assign(py_name, py_value, envir = py_envir) 
+
+
+
+
+
 
 
 
