@@ -486,9 +486,9 @@ def torchoptimLBFGS(UKBB_pop,theta_UKBB_GPC,study_info,colname_UKBB,var_SNP,var_
     #for i in range(EPOCH):
     #    print('here')
     losses = optimizer.step(closure)
-        
+    i=0  
     #for i in range(N_LBFGS_STEPS_VALIDATION):
-        
+          
         #optimizer.zero_grad()
         #loss.backward()
         #optimizer.step()
@@ -525,6 +525,8 @@ Encoding(py_name) <- "UTF-8"
 py_value <- py_main_dict[[py_name]]
 py_envir<-globalenv()
 assign(py_name, py_value, envir = py_envir) 
+
+
 
 
 
