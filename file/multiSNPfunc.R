@@ -499,10 +499,10 @@ def torchoptimLBFGS(UKBB_pop,theta_UKBB_GPC,study_info,colname_UKBB,var_SNP,var_
     loss_collect.append(losses.item())
     ## early stopping criteria
 
-    if np.abs(loss_collect[-1] - loss_collect[-2]) < eps_early:
-        count_early += 1
-    if count_early >= 100:
-        break
+    #if np.abs(loss_collect[-1] - loss_collect[-2]) < eps_early:
+    #    count_early += 1
+    #if count_early >= 100:
+    #    break
     outputs = net(UKBB_pop,theta_UKBB_GPC,study_info,colname_UKBB,var_SNP,var_GPC,C_)
     penalty_val = torch.tensor(0.)
     if lam != 0:
