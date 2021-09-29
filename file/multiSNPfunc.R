@@ -441,7 +441,7 @@ class GMMNet(nn.Module):
         Un = torch.cat([u1,u2_part1-u2_part2],dim=0)
         Un = Un.squeeze()
         hatQ = torch.matmul(Un,torch.matmul(C_,Un))
-        return hatQ/UKBB_pop.shape[0]
+        return hatQ/UKBB_pop.shape[0]^2
 
 
 
