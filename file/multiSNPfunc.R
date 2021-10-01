@@ -329,7 +329,7 @@ class GMMNet(nn.Module):
         Un = torch.cat([u1,u2_part1-u2_part2],dim=0)
         Un = Un.squeeze()
         hatQ = torch.matmul(Un,torch.matmul(C_,Un))
-        return hatQ/UKBB_pop.shape[0]
+        return hatQ/UKBB_pop.shape[0]**2
 
 
 
@@ -356,7 +356,7 @@ def torchoptim(UKBB_pop,theta_UKBB_GPC,study_info,colname_UKBB,var_SNP,var_GPC,C
 
     loss_collect = [100]
     count_early = 0
-    eps_early = 10**(-10)
+    
     for i in range(EPOCH):
         outputs = net(UKBB_pop,theta_UKBB_GPC,study_info,colname_UKBB,var_SNP,var_GPC,C_)
         loss = loss_metric(outputs)       
@@ -368,6 +368,8 @@ def torchoptim(UKBB_pop,theta_UKBB_GPC,study_info,colname_UKBB,var_SNP,var_GPC,C
         loss += penalty_val
         if i == 0:
             print('Initial Loss: '+str(loss.item()), flush = True)
+            initial_loss = loss.item()
+            eps_early = initial_loss*10**(-5)
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
@@ -380,7 +382,7 @@ def torchoptim(UKBB_pop,theta_UKBB_GPC,study_info,colname_UKBB,var_SNP,var_GPC,C
 
         if np.abs(loss_collect[-1] - loss_collect[-2]) < eps_early:
             count_early += 1
-        if count_early >= 100:
+        if count_early >= 10:
             break
     outputs = net(UKBB_pop,theta_UKBB_GPC,study_info,colname_UKBB,var_SNP,var_GPC,C_)
     penalty_val = torch.tensor(0.)
