@@ -217,8 +217,7 @@ savis<-function(
   if(verbose){
     if(show_cluster){
       cat('\n')
-      print("Size of Cluster:")
-      print(size_cluster)
+      print(paste0("Size of Cluster: ",size_cluster))
     }
   }
   
@@ -368,7 +367,7 @@ savis<-function(
       setTxtProgressBar(pb = pb, value = 12)
     }
     combined_embedding<<-combined_embedding
-    print(metric_count)
+    #print(metric_count)
     umap_embedding<-RunAdaUMAP(
       X = combined_embedding,
       metric = distance_metric,
