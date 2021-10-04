@@ -151,24 +151,24 @@ savis<-function(
       pb <- txtProgressBar(min = 0, max = 20, style = 3, file = stderr())
     }
   }
-  expr_matrix_process<-expr_matrix
   if(verbose){
     cat('\n')
     print("Finding Variable Features...")
     setTxtProgressBar(pb = pb, value = 1)
   }
   expr_matrix_hvg <- FindVariableFeatures(
-    expr_matrix_process,
+    expr_matrix,
     verbose = verbose_more)$vst.variance.standardized
   hvg<-savis_nth(x = expr_matrix_hvg,
     k = nfeatures)
   #hvg<- which(expr_hvg %in% sort(expr_hvg,decreasing = T)[1:2000])
-  expr_matrix_process<-expr_matrix_process[hvg,]
+  expr_matrix_process<-expr_matrix[hvg,]
   if(verbose){
     cat('\n')
     print("Scaling Expression Matrix...")
     setTxtProgressBar(pb = pb, value = 2)
   }
+  
   expr_matrix_process <- ScaleData(
     expr_matrix_process,
     verbose = verbose_more)
@@ -492,7 +492,7 @@ RunAdaUMAP<-function(
 import numba 
 import numpy as np
 import warnings
-
+numba.set_num_threads(16)
 from umap import distances as dist
 py_metric='{metric}' 
 py_dist = dist.named_distances_with_gradients[py_metric]
