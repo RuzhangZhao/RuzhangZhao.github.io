@@ -36,9 +36,10 @@ savis_nth<- function(x, k) {
 #' @param npcs The number of principle components will be computed. Default is 10.
 #' @param nfeatures The number of highly variable genes will be selected. Default is 2000.
 #' @param distance_metric The default is "euclidean".
-#' @param cluster_method The default is "louvain".
+#' @param cluster_method The default is "louvain". User can choose from c("louvain","spectral")
 #' @param resolution The default is 0.5.
 #' @param resolution_sub The default is 0.
+#' @param memory_save The default is FALSE. This function will take some storage to temporarily save the data from memory. Don't worry. SAVIS will soon delete it!!! Also, SAVIS uses unique name for the temporary data to keep everything safe!!!
 #' @param adaptive The default is FALSE.
 #' @param max_stratification The default is 3.
 #' @param scale_factor_separation The default is3.
@@ -46,7 +47,7 @@ savis_nth<- function(x, k) {
 #' @param process_min_count The default is NULL.
 #' @param run_adaUMAP The default is TRUE.
 #' @param adjust_UMAP The default is TRUE.
-#' @param adjust_method The default is "all".
+#' @param adjust_method The default is "all". Select from c("umap","mds").
 #' @param adjust_rotate The default is TRUE.
 #' @param shrink_distance The default is TRUE.
 #' @param check_differential The default is FALSE.
@@ -66,6 +67,7 @@ savis_nth<- function(x, k) {
 #'
 #' @importFrom Seurat NormalizeData FindVariableFeatures ScaleData RunPCA
 #' @importFrom utils setTxtProgressBar txtProgressBar
+#' @importFrom fst write_fst read_fst
 #' @export
 #'
 #' @examples
@@ -74,12 +76,13 @@ savis_nth<- function(x, k) {
 savis<-function(
   expr_matrix,
   is_count_matrix=TRUE,
-  npcs = 10,
+  npcs = 20,
   nfeatures = 2000,
   distance_metric = "euclidean",
   cluster_method = "louvain",
   resolution = 0.5,
   resolution_sub = 0,
+  memory_save = FALSE,
   adaptive = TRUE,
   max_stratification = 3,
   scale_factor_separation =3,
@@ -87,7 +90,7 @@ savis<-function(
   process_min_count = NULL,
   run_adaUMAP = TRUE,
   adjust_UMAP = TRUE,
-  adjust_method = "umap",
+  adjust_method = "all",
   adjust_rotate = TRUE,
   shrink_distance = TRUE,
   density_adjust = TRUE,
@@ -112,9 +115,6 @@ savis<-function(
       max_stratification larger than 1.")
   }
   
-  if(is.null(resolution_sub)){
-    resolution_sub<-resolution
-  }
   if (nrow(expr_matrix) < nfeatures){
     stop("nfeatures should be smaller than
       the number of features in expression
@@ -133,7 +133,11 @@ savis<-function(
   }else if(length(unique(colnames(expr_matrix)))<
       ncol(expr_matrix) ) {
     print("WARN: There are duplicated cell names! Make cell names unique by renaming!")
-    colnames(expr_matrix)<-c(1:ncol(expr_matrix))
+    colnames(expr_matrix)<-make.unique(colnames(expr_matrix))
+  }else if(length(unique(rownames(expr_matrix)))<
+      nrow(expr_matrix) ) {
+    print("WARN: There are duplicated gene names! Make gene names unique by renaming!")
+    rownames(expr_matrix)<-make.unique(rownames(expr_matrix))
   }
   
   if(is_count_matrix){
@@ -163,6 +167,11 @@ savis<-function(
     k = nfeatures)
   #hvg<- which(expr_hvg %in% sort(expr_hvg,decreasing = T)[1:2000])
   expr_matrix_process<-expr_matrix[hvg,]
+  if(memory_save){
+    cur_time<-Sys.time()
+    write_fst(expr_matrix, path = paste0("SAVIS_tmpfile_",cur_time,"_This_file_will_be_deleted",".fst"))
+    rm(expr_matrix)
+  }
   if(verbose){
     cat('\n')
     print("Scaling Expression Matrix...")
@@ -225,6 +234,10 @@ savis<-function(
     cat('\n')
     print("Calculating Local PCA...")
     setTxtProgressBar(pb = pb, value = 8)
+  }
+  if(memory_save){
+    expr_matrix<-read_fst(path = paste0("SAVIS_tmpfile_",cur_time,"_This_file_will_be_deleted",".fst"))
+    file.remove(paste0("SAVIS_tmpfile_",cur_time,"_This_file_will_be_deleted",".fst"))
   }
   if(max_stratification == 2 | adaptive == FALSE){
     
