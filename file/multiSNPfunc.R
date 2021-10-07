@@ -9,7 +9,7 @@ library(locfit)
 library(bigmemory)
 library(stringr)
 library(glmnet)
-
+library(PRROC)
 U_func<-function(
   UKBB_pop,
   beta,
@@ -24,7 +24,7 @@ U_func<-function(
     c(c(u2_id)%*%UKBB_pop[,paste0("SNP",snp_id)])
   })
   u2<-u2_part1 - u2_part2
-  u<-c(u1,u2)
+  u<-c(u1,u2)*(1/N_Pop)
 }
 dexpit<-function(x){
   expit(x)*(1-expit(x))
@@ -161,7 +161,7 @@ final_var_U_beta_theta_hat_func<-function(
 
 
 utcu_C<-function(u,C){
-  c(u%*%C%*%u)/N_Pop
+  c(u%*%C%*%u)
 }
 utcu<-function(beta,C,lambda,A_penalty){
   u<-U_func(UKBB_pop,beta,theta_UKBB_GPC,study_info)
@@ -255,7 +255,7 @@ tilde_final_var_func<-function(
     theta_UKBB_GPC =theta_UKBB_GPC,
     study_info = study_info)
   
-  tilde_left<-crossprod(tilde_U_beta_gradient,C)%*%tilde_U_beta_theta/N_Pop
+  tilde_left<-crossprod(tilde_U_beta_gradient,C)%*%tilde_U_beta_theta
   tilde_U_beta_square2<-tilde_left%*%t(tilde_left)
   
   
