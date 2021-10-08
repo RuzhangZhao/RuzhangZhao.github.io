@@ -12,13 +12,15 @@ library(glmnet)
 library(PRROC)
 
 # compute the variance of ridge regression
-sd_rigde<-function(
+var_ridge<-function(
   UKBB_pop,
   beta,
-  A_penalty){
+  A_penalty,
+  lambda){
+  A_penalty_with_lambda<-A_penalty*lambda
   dexpit_beta<-dexpit(UKBB_pop[,-1]%*%beta)
   Hessian_<-crossprod(UKBB_pop[,-1]*c(dexpit_beta),UKBB_pop[,-1])
-  sqrt(diag(solve(Hessian_+A_penalty)))
+  diag(solve(Hessian_+A_penalty_with_lambda))
 }
 
 U_func<-function(
