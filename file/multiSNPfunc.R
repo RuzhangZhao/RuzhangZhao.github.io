@@ -10,6 +10,17 @@ library(bigmemory)
 library(stringr)
 library(glmnet)
 library(PRROC)
+
+# compute the variance of ridge regression
+sd_rigde<-function(
+  UKBB_pop,
+  beta,
+  A_penalty){
+  dexpit_beta<-dexpit(UKBB_pop[,-1]%*%beta)
+  Hessian_<-crossprod(UKBB_pop[,-1]*c(dexpit_beta),UKBB_pop[,-1])
+  sqrt(diag(solve(Hessian_+A_penalty)))
+}
+
 U_func<-function(
   UKBB_pop,
   beta,
