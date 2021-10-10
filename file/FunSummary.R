@@ -77,6 +77,7 @@ savis_nth<- function(x, k) {
 savis<-function(
   expr_matrix,
   is_count_matrix=TRUE,
+  assay_for_var_features = "normalized",
   npcs = 20,
   nfeatures = 2000,
   distance_metric = "euclidean",
@@ -170,7 +171,7 @@ savis<-function(
   expr_matrix_process<-expr_matrix[hvg,]
   if(memory_save){
     cur_time<-Sys.time()
-    write_fst(expr_matrix, path = paste0("SAVIS_tmpfile_",cur_time,"_This_file_will_be_deleted",".fst"))
+    fwrite_fst(expr_matrix, path = paste0("SAVIS_tmpfile_",cur_time,"_This_file_will_be_deleted",".fst"))
     rm(expr_matrix)
   }
   if(verbose){
@@ -380,7 +381,6 @@ savis<-function(
       print("Running Adaptive UMAP...")
       setTxtProgressBar(pb = pb, value = 12)
     }
-    combined_embedding<<-combined_embedding
     #print(metric_count)
     umap_embedding<-RunAdaUMAP(
       X = combined_embedding,
@@ -2238,7 +2238,8 @@ DoCluster<-function(
 SubPCEmbedding<-function(
   expr_matrix,
   cluster_label,
-  npcs=10,
+  assay_for_var_features = "normalized",
+  npcs=20,
   nfeatures =2000,
   return_hvg=FALSE,
   verbose = FALSE
@@ -2265,14 +2266,14 @@ SubPCEmbedding<-function(
     }
     # expr_matrix is initial expression matrix (gene*cell)
     expr_tmp<-expr_matrix[,index_i]
-    #expr_tmp<- NormalizeData(expr_tmp,
-    #  verbose = F)
+    
     expr_tmp_hvg <- FindVariableFeatures(
       expr_tmp,verbose = F)$vst.variance.standardized
-    
     tmp_hvg<-savis_nth(x = expr_tmp_hvg,
       k = nfeatures)
-    
+    if(assay_for_var_features == "count"){
+      expr_tmp<- NormalizeData(expr_tmp,verbose = F)
+    }
     hvg_list[[i]]<-tmp_hvg
     hvg_name_list[[i]]<-rownames(expr_matrix)[tmp_hvg]
     expr_tmp<-expr_tmp[tmp_hvg,]
@@ -2317,6 +2318,7 @@ SubPCEmbedding<-function(
     return(expr_cluster_pc)
   }
 }
+
 
 #' CombinePC
 #'
@@ -2402,7 +2404,7 @@ AdaptiveCombine<-function(expr_matrix,
   combined_embedding,
   cluster_label,
   cluster_label_i,
-  npcs=10,
+  npcs=20,
   nfeatures=2000,
   scale_factor_separation = 3,
   process_min_size=0
@@ -2482,7 +2484,8 @@ FormCombinedEmbedding<-function(
   expr_matrix,
   expr_matrix_pca,
   cluster_label,
-  npcs=10,
+  assay_for_var_features = "normalized",
+  npcs=20,
   nfeatures =2000,
   center_method = "mean",
   scale_factor_separation=3
@@ -2491,7 +2494,8 @@ FormCombinedEmbedding<-function(
     expr_matrix = expr_matrix,
     cluster_label = cluster_label,
     npcs = npcs,
-    nfeatures = nfeatures)
+    nfeatures = nfeatures,
+    assay_for_var_features = assay_for_var_features)
   combined_embedding<-CombinePC(
     PC_embedding = expr_matrix_pca,
     cluster_label = cluster_label,
@@ -2525,6 +2529,7 @@ FormCombinedEmbedding<-function(
 #'
 #'
 #'
+
 FormAdaptiveCombineList<-function(
   expr_matrix,
   expr_matrix_pca,
@@ -2536,6 +2541,7 @@ FormAdaptiveCombineList<-function(
   npcs,
   nfeatures,
   process_min_size,
+  assay_for_var_features = "normalized",
   differentail_gene_cutoff = 20,
   do_cluster = TRUE,
   cluster_label = NULL,
@@ -2681,6 +2687,7 @@ FormAdaptiveCombineList<-function(
     expr_matrix=expr_matrix,
     expr_matrix_pca=expr_matrix_pca,
     cluster_label=cluster_label,
+    assay_for_var_features = assay_for_var_features,
     npcs=npcs,
     nfeatures=nfeatures,
     scale_factor_separation=scale_factor_separation
@@ -2702,6 +2709,7 @@ FormAdaptiveCombineList<-function(
     tmp<-FormAdaptiveCombineList(
       expr_matrix = expr_matrix[,index_i],
       expr_matrix_pca = combined_embedding[index_i,(npcs+1):(2*npcs)],
+      assay_for_var_features = assay_for_var_features,
       max_stratification = max_stratification,
       stratification_count = stratification_count + 1,
       scale_factor_separation = scale_factor_separation,
@@ -2793,6 +2801,7 @@ FormAdaptiveCombineList<-function(
     return(newList)
   }
 }
+
 
 
 
@@ -3107,7 +3116,7 @@ newUmapPlot<-function(expr_pca_combined,
   }
 }
 
-RunOrPCA<-function(expr_matrix,count = T,npcs=10,nfeatures=2000){
+RunOrPCA<-function(expr_matrix,count = T,npcs=20,nfeatures=2000){
   if(count){
     expr_matrix<-NormalizeData(
       expr_matrix,
@@ -3150,7 +3159,7 @@ RunSparsePCA<-function(expr_matrix,count = T,npcs=2){
 }
 
 
-RunSeuratPCA<-function(expr_matrix,npcs=10,nfeatures=2000){
+RunSeuratPCA<-function(expr_matrix,npcs=20,nfeatures=2000){
   expr_matrix <- CreateSeuratObject(counts = expr_matrix)
   
   expr_matrix<-NormalizeData(
