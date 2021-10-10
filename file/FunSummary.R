@@ -43,7 +43,7 @@ savis_nth<- function(x, k) {
 #' @param memory_save The default is FALSE. This function will take some storage to temporarily save the data from memory. Don't worry. SAVIS will soon delete it!!! Also, SAVIS uses unique name for the temporary data to keep everything safe!!!
 #' @param adaptive The default is FALSE.
 #' @param max_stratification The default is 3.
-#' @param scale_factor_separation The default is3.
+#' @param scale_factor_separation The default is 3.
 #' @param process_min_size The default is NULL.
 #' @param process_min_count The default is NULL.
 #' @param run_adaUMAP The default is TRUE.
@@ -141,8 +141,14 @@ savis<-function(
     print("WARN: There are duplicated gene names! Make gene names unique by renaming!")
     rownames(expr_matrix)<-make.unique(rownames(expr_matrix))
   }
-  
-  if(is_count_matrix){
+  if (!(assay_for_var_features %in% c("count","normalized"))){
+    stop("Please select assay_for_var_features from c('count','normalized')")
+  }
+  if(!is_count_matrix & assay_for_var_features == "count"){
+    cat("assay_for_var_features is set to be 'count'. \n Please use count matrix as input. \n Also, please set is_count_matrix to be TRUE. \n")
+    stop()
+  }
+  if(is_count_matrix & assay_for_var_features == "normalized"){
     if(verbose){
       cat('\n')
       print("Normalizing Expression Matrix...")
@@ -150,6 +156,16 @@ savis<-function(
     }
     
     expr_matrix<-NormalizeData(
+      expr_matrix,
+      verbose = verbose_more)
+  }else if (is_count_matrix & assay_for_var_features == "count"){
+    if(verbose){
+      cat('\n')
+      print("Normalizing Expression Matrix...")
+      pb <- txtProgressBar(min = 0, max = 20, style = 3, file = stderr())
+    }
+    
+    expr_matrix_process<-NormalizeData(
       expr_matrix,
       verbose = verbose_more)
   }else{
@@ -167,8 +183,11 @@ savis<-function(
     verbose = verbose_more)$vst.variance.standardized
   hvg<-savis_nth(x = expr_matrix_hvg,
     k = nfeatures)
-  #hvg<- which(expr_hvg %in% sort(expr_hvg,decreasing = T)[1:2000])
-  expr_matrix_process<-expr_matrix[hvg,]
+  if(assay_for_var_features == "count"){
+    expr_matrix_process<-expr_matrix_process[hvg,]
+  }else{
+    expr_matrix_process<-expr_matrix[hvg,]
+  }
   if(memory_save){
     cur_time<-Sys.time()
     fwrite_fst(expr_matrix, path = paste0("SAVIS_tmpfile_",cur_time,"_This_file_will_be_deleted",".fst"))
@@ -249,6 +268,7 @@ savis<-function(
       cluster_label=cluster_label,
       npcs=npcs,
       nfeatures =nfeatures,
+      assay_for_var_features = assay_for_var_features,
       #center_method = center_method,
       scale_factor_separation=scale_factor_separation)
     rm(expr_matrix)
@@ -280,6 +300,7 @@ savis<-function(
       expr_matrix_pca=expr_matrix_pca,
       max_stratification=max_stratification,
       stratification_count=1,
+      assay_for_var_features = assay_for_var_features,
       scale_factor_separation = scale_factor_separation,
       resolution=resolution_sub,
       cluster_method=cluster_method,
@@ -446,6 +467,313 @@ savis<-function(
 }
 
 
+
+
+
+
+RunPreSAVIS<-function(
+  object,
+  assay_for_var_features = "count",
+  distance_metric = "euclidean",
+  cluster_method = "louvain",
+  resolution = 0.5,
+  resolution_sub = 0,
+  adaptive = TRUE,
+  max_stratification = 3,
+  scale_factor_separation =3,
+  process_min_size = NULL,
+  process_min_count = NULL,
+  check_differential = FALSE,
+  verbose = TRUE,
+  show_cluster = FALSE,
+  return_cluster = FALSE,
+  verbose_more = FALSE
+){
+  default_assay<-DefaultAssay(object)
+  print(paste0("PreSAVIS is based on the default assay: ",default_assay))
+  if(verbose){
+    pb <- txtProgressBar(min = 0, max = 10, style = 3, file = stderr())
+  }
+  nfeatures<-length(VariableFeatures(object))
+  npcs<-ncol(object@reductions$pca@cell.embeddings)
+  # change the seed.use to be integer
+  if(!is.integer(seed.use)){
+    seed.use<-as.integer(seed.use)
+  }
+  if(max_stratification == 1){
+    stop("Please directly use umap: savis 
+      supports adaptive visualization for 
+      max_stratification larger than 1.")
+  }
+  
+  if(verbose){
+    cat('\n')
+    print("Global PCs are captured from SeuratObject...")
+    setTxtProgressBar(pb = pb, value = 1)
+  }
+  expr_matrix_pca <- object@reductions$pca@cell.embeddings
+  expr_matrix_pca<-as.matrix(expr_matrix_pca)
+  if(verbose){
+    cat('\n')
+    print("Doing Clustering...")
+    setTxtProgressBar(pb = pb, value = 2)
+  }
+  cluster_label<-DoCluster(
+    pc_embedding = expr_matrix_pca,
+    method = cluster_method,
+    resolution = resolution)$cluster
+  global_cluster_label<-cluster_label
+  # sorted unique cluster label
+  label_index<-sort(as.numeric(
+    unique(as.character(cluster_label))))
+  # number of cluster label
+  N_label<-length(label_index)
+  
+  size_cluster<-c()
+  for ( i in 1:N_label){
+    size_cluster<-c(size_cluster,
+      sum(cluster_label == label_index[i]))
+  }
+  if(verbose){
+    cat('\n')
+    print(paste0("Clustering Results:",
+      length(unique(cluster_label)),
+      " clusters."))
+    setTxtProgressBar(pb = pb, value = 3)
+  }
+  if(verbose){
+    if(show_cluster){
+      cat('\n')
+      print(paste0("Size of Cluster: ",size_cluster))
+    }
+  }
+  
+  if(verbose){
+    cat('\n')
+    print("Calculating Local PCA...")
+    setTxtProgressBar(pb = pb, value = 4)
+  }
+  if(max_stratification == 2 | adaptive == FALSE){
+    
+    if(assay_for_var_features == "count"){
+      combined_embedding<-FormCombinedEmbedding(
+        expr_matrix=object@assays[[default_assay]]@counts,
+        expr_matrix_pca=expr_matrix_pca,
+        cluster_label=cluster_label,
+        npcs=npcs,
+        nfeatures =nfeatures,
+        assay_for_var_features = "count",
+        #center_method = center_method,
+        scale_factor_separation=scale_factor_separation)
+    }else if(assay_for_var_features == "normalized"){
+      combined_embedding<-FormCombinedEmbedding(
+        expr_matrix=object@assays[[default_assay]]@data,
+        expr_matrix_pca=expr_matrix_pca,
+        cluster_label=cluster_label,
+        npcs=npcs,
+        nfeatures =nfeatures,
+        assay_for_var_features = "normalized",
+        #center_method = center_method,
+        scale_factor_separation=scale_factor_separation)
+    }else{
+      stop("Please select assay_for_var_features from c('count','normalized')")
+    }
+    
+    adaptive<-FALSE
+  }
+  if(adaptive){
+    if (!is.null(process_min_count)){
+      process_min_size<-sort(size_cluster,decreasing = T)[process_min_count]
+    }else{
+      if (is.null(process_min_size)){
+        process_min_size<-mean(size_cluster)
+      }
+    }
+    if(verbose){
+      cat('\n')
+      print(paste0("Process_min_size: ",process_min_size))
+      setTxtProgressBar(pb = pb, value = 5)
+    }
+    
+    
+    if(verbose){
+      cat('\n')
+      print("Exploring if clusters can be separated further...")
+      setTxtProgressBar(pb = pb, value = 7)
+    }
+    
+    if(assay_for_var_features == "count"){
+      umap_res<-FormAdaptiveCombineList(
+        expr_matrix=object@assays[[default_assay]]@counts,
+        expr_matrix_pca=expr_matrix_pca,
+        max_stratification=max_stratification,
+        stratification_count=1,
+        scale_factor_separation = scale_factor_separation,
+        resolution=resolution_sub,
+        cluster_method=cluster_method,
+        npcs=npcs,
+        nfeatures=nfeatures,
+        process_min_size=process_min_size,
+        assay_for_var_features = "count",
+        do_cluster = FALSE,
+        cluster_label = cluster_label,
+        check_differential = check_differential,
+        verbose = verbose_more)
+    }else if(assay_for_var_features == "normalized"){
+      umap_res<-FormAdaptiveCombineList(
+        expr_matrix=object@assays[[default_assay]]@data,
+        expr_matrix_pca=expr_matrix_pca,
+        max_stratification=max_stratification,
+        stratification_count=1,
+        scale_factor_separation = scale_factor_separation,
+        resolution=resolution_sub,
+        cluster_method=cluster_method,
+        npcs=npcs,
+        nfeatures=nfeatures,
+        process_min_size=process_min_size,
+        assay_for_var_features = "normalized",
+        do_cluster = FALSE,
+        cluster_label = cluster_label,
+        check_differential = check_differential,
+        verbose = verbose_more)
+    }else{
+      stop("Please select assay_for_var_features from c('count','normalized')")
+    }
+    cluster_label<-umap_res$cluster_label
+    if(is.null(dim(cluster_label)[1])){
+      combined_embedding<-data.frame(
+        "Layer2Cluster"=cluster_label,
+        umap_res$combined_embedding)
+      if(ncol(umap_res$combined_embedding)!=(2*npcs)){
+        stop("label and combined embedding size do not match")
+      }
+      metric_count<-1
+    }else if (ncol(cluster_label) == 2) {
+      colnames(cluster_label)<-paste0("Layer",
+        2:(ncol(cluster_label)+1),"Cluster")
+      combined_embedding<-data.frame(
+        cluster_label,
+        umap_res$combined_embedding)
+      if(ncol(umap_res$combined_embedding)!=(3*npcs)){
+        stop("label and combined embedding size do not match")
+      }
+      metric_count<-2
+    }else if (ncol(cluster_label) == 3){
+      colnames(cluster_label)<-paste0("Layer",
+        2:(ncol(cluster_label)+1),"Cluster")
+      combined_embedding<-data.frame(
+        cluster_label,
+        umap_res$combined_embedding)
+      if(ncol(umap_res$combined_embedding)!=(4*npcs)){
+        stop("label and combined embedding size do not match")
+      }
+      metric_count<-3
+    }else{
+      colnames(cluster_label)<-paste0("Layer",
+        2:(ncol(cluster_label)+1),"Cluster")
+      combined_embedding<-data.frame("Num_Layer"=(ncol(cluster_label)+1),
+        cluster_label,
+        umap_res$combined_embedding)
+      metric_count<-4
+    }
+    rm(umap_res)
+  }else{
+    combined_embedding<-data.frame(
+      "cluster_label"=cluster_label,
+      combined_embedding)
+    metric_count <- 1
+  }
+  
+  setClass("savis_class", representation(
+    combined_embedding = "matrix", 
+    cluster_label = "numeric",
+    global_cluster_label = "numeric",
+    savis_embedding = "matrix",
+    distance_metric = "character",
+    metric_count = "numeric"))
+  savis_pre <- new("savis_class", 
+    combined_embedding = as.matrix(combined_embedding), 
+    cluster_label = cluster_label,
+    global_cluster_label = global_cluster_label,
+    distance_metric = distance_metric,
+    metric_count = metric_count)
+  
+  object@reductions$savis<-savis_pre
+  
+  if(verbose){
+    cat('\n')
+    print("Finished...")
+    setTxtProgressBar(pb = pb, value = 10)
+  }
+  return(object)
+}
+
+
+
+
+RunSAVIS<-function(
+  object,
+  adjust_UMAP = TRUE,
+  adjust_method = "all",
+  adjust_rotate = TRUE,
+  shrink_distance = TRUE,
+  density_adjust = TRUE,
+  verbose = TRUE,
+  seed.use = 42L
+){
+  default_assay<-DefaultAssay(object)
+  if(is.null(object@reductions$savis)){
+    stop("Please apply RunPreSAVIS before RunSAVIS")
+  }
+  if(verbose){
+    pb <- txtProgressBar(min = 0, max = 10, style = 3, file = stderr())
+  }
+  if(!is.null(object@reductions$umap)){
+    density_adjust_via_global_umap<-TRUE
+  }else{
+    density_adjust_via_global_umap<-FALSE
+  }
+  if(verbose){
+    cat('\n')
+    print("Running SAVIS with Adaptive Settings...")
+    setTxtProgressBar(pb = pb, value = 1)
+  }
+  #print(metric_count)
+  savis_embedding<-RunAdaUMAP(
+    X = object@reductions$savis@combined_embedding,
+    metric = object@reductions$savis@distance_metric,
+    metric_count = object@reductions$savis@metric_count,
+    seed.use = seed.use)
+  if(adjust_UMAP){
+    if(verbose){
+      cat('\n')
+      print("Adjusting SAVIS...")
+      setTxtProgressBar(pb = pb, value = 8)
+    }
+    expr_matrix_umap = NULL
+    if(density_adjust_via_global_umap){
+      expr_matrix_umap<-object@reductions$umap@cell.embeddings
+    }
+    expr_matrix_pca<-object@reductions$pca@cell.embeddings
+    savis_embedding<-adjustUMAP(
+      pca_embedding = expr_matrix_pca,
+      umap_embedding = savis_embedding,
+      cluster_label = object@reductions$savis@global_cluster_label,
+      global_umap_embedding = expr_matrix_umap,
+      adjust_method = adjust_method,
+      density_adjust = density_adjust,
+      shrink_distance = shrink_distance,
+      rotate = adjust_rotate,
+      seed.use = seed.use)
+  }
+  object@reductions$savis@savis_embedding<-savis_embedding
+  if(verbose){
+    cat('\n')
+    print("Finished...")
+    setTxtProgressBar(pb = pb, value = 10)
+  }
+  return(object)
+}
 
 
 
