@@ -492,7 +492,7 @@ savis<-function(
 #'
 #' @importFrom Seurat NormalizeData FindVariableFeatures VariableFeatures ScaleData RunPCA DefaultAssay
 #' @importFrom utils setTxtProgressBar txtProgressBar
-#' @import methods new representation setClass
+#' @importFrom methods new representation setClass
 #' @export
 #'
 #' @examples
