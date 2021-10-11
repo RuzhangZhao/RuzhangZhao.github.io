@@ -10,7 +10,6 @@ library(mclust)
 library(glue)
 library(cluster)
 library(utils)
-#library(sparsepca)
 library(MASS)
 library(pdist)
 library(uwot)
@@ -34,11 +33,11 @@ savis_nth<- function(x, k) {
 #'
 #' @param expr_matrix The expression matrix: gene(feature) as row; cell(sample) as column.
 #' @param is_count_matrix Whether expr_matrix is count matrix or normalized version. If the expression matrix is count matrix, normalization will be performed. Default is TRUE.
-#' @param npcs The number of principle components will be computed. Default is 10.
+#' @param npcs The number of principle components will be computed. Default is 20.
 #' @param nfeatures The number of highly variable genes will be selected. Default is 2000.
-#' @param distance_metric The default is "euclidean".
-#' @param cluster_method The default is "louvain". User can choose from c("louvain","spectral")
-#' @param resolution The default is 0.5.
+#' @param distance_metric The default is "euclidean". 
+#' @param cluster_method The default is "louvain". User can choose from c("louvain","spectral"). But "louvain" performs much better.
+#' @param resolution The resolution for The default is 0.5.
 #' @param resolution_sub The default is 0.
 #' @param memory_save The default is FALSE. This function will take some storage to temporarily save the data from memory. Don't worry. SAVIS will soon delete it!!! Also, SAVIS uses unique name for the temporary data to keep everything safe!!!
 #' @param adaptive The default is FALSE.
@@ -77,7 +76,7 @@ savis_nth<- function(x, k) {
 savis<-function(
   expr_matrix,
   is_count_matrix=TRUE,
-  assay_for_var_features = "normalized",
+  assay_for_var_features = "rawcount",
   npcs = 20,
   nfeatures = 2000,
   distance_metric = "euclidean",
@@ -141,14 +140,14 @@ savis<-function(
     print("WARN: There are duplicated gene names! Make gene names unique by renaming!")
     rownames(expr_matrix)<-make.unique(rownames(expr_matrix))
   }
-  if (!(assay_for_var_features %in% c("count","normalized"))){
-    stop("Please select assay_for_var_features from c('count','normalized')")
+  if (!(assay_for_var_features %in% c("rawcount","normalizedcount"))){
+    stop("Please select assay_for_var_features from c('rawcount','normalizedcount')")
   }
-  if(!is_count_matrix & assay_for_var_features == "count"){
-    cat("assay_for_var_features is set to be 'count'. \n Please use count matrix as input. \n Also, please set is_count_matrix to be TRUE. \n")
+  if(!is_count_matrix & assay_for_var_features == "rawcount"){
+    cat("assay_for_var_features is set to be 'rawcount'. \n Please use count matrix as input. \n Also, please set is_count_matrix to be TRUE. \n")
     stop()
   }
-  if(is_count_matrix & assay_for_var_features == "normalized"){
+  if(is_count_matrix & assay_for_var_features == "normalizedcount"){
     if(verbose){
       cat('\n')
       print("Normalizing Expression Matrix...")
@@ -158,13 +157,28 @@ savis<-function(
     expr_matrix<-NormalizeData(
       expr_matrix,
       verbose = verbose_more)
-  }else if (is_count_matrix & assay_for_var_features == "count"){
+    if(verbose){
+      cat('\n')
+      print("Finding Variable Features...")
+      setTxtProgressBar(pb = pb, value = 1)
+    }
+    expr_matrix_hvg <- FindVariableFeatures(
+      (exp(expr_matrix)-1),
+      verbose = verbose_more)$vst.variance.standardized
+  }else if (is_count_matrix & assay_for_var_features == "rawcount"){
     if(verbose){
       cat('\n')
       print("Normalizing Expression Matrix...")
       pb <- txtProgressBar(min = 0, max = 20, style = 3, file = stderr())
     }
-    
+    if(verbose){
+      cat('\n')
+      print("Finding Variable Features...")
+      setTxtProgressBar(pb = pb, value = 1)
+    }
+    expr_matrix_hvg <- FindVariableFeatures(
+      expr_matrix,
+      verbose = verbose_more)$vst.variance.standardized
     expr_matrix_process<-NormalizeData(
       expr_matrix,
       verbose = verbose_more)
@@ -172,18 +186,19 @@ savis<-function(
     if(verbose){
       pb <- txtProgressBar(min = 0, max = 20, style = 3, file = stderr())
     }
+    if(verbose){
+      cat('\n')
+      print("Finding Variable Features...")
+      setTxtProgressBar(pb = pb, value = 1)
+    }
+    expr_matrix_hvg <- FindVariableFeatures(
+      (exp(expr_matrix)-1),
+      verbose = verbose_more)$vst.variance.standardized
   }
-  if(verbose){
-    cat('\n')
-    print("Finding Variable Features...")
-    setTxtProgressBar(pb = pb, value = 1)
-  }
-  expr_matrix_hvg <- FindVariableFeatures(
-    expr_matrix,
-    verbose = verbose_more)$vst.variance.standardized
+  
   hvg<-savis_nth(x = expr_matrix_hvg,
     k = nfeatures)
-  if(assay_for_var_features == "count"){
+  if(assay_for_var_features == "rawcount"){
     expr_matrix_process<-expr_matrix_process[hvg,]
   }else{
     expr_matrix_process<-expr_matrix[hvg,]
@@ -469,7 +484,7 @@ savis<-function(
 
 RunPreSAVIS<-function(
   object,
-  assay_for_var_features = "count",
+  assay_for_var_features = "rawcount",
   distance_metric = "euclidean",
   cluster_method = "louvain",
   resolution = 0.5,
@@ -548,28 +563,28 @@ RunPreSAVIS<-function(
   }
   if(max_stratification == 2 | adaptive == FALSE){
     
-    if(assay_for_var_features == "count"){
+    if(assay_for_var_features == "rawcount"){
       combined_embedding<-FormCombinedEmbedding(
         expr_matrix=object@assays[[default_assay]]@counts,
         expr_matrix_pca=expr_matrix_pca,
         cluster_label=cluster_label,
         npcs=npcs,
         nfeatures =nfeatures,
-        assay_for_var_features = "count",
+        assay_for_var_features = "rawcount",
         #center_method = center_method,
         scale_factor_separation=scale_factor_separation)
-    }else if(assay_for_var_features == "normalized"){
+    }else if(assay_for_var_features == "normalizedcount"){
       combined_embedding<-FormCombinedEmbedding(
         expr_matrix=object@assays[[default_assay]]@data,
         expr_matrix_pca=expr_matrix_pca,
         cluster_label=cluster_label,
         npcs=npcs,
         nfeatures =nfeatures,
-        assay_for_var_features = "normalized",
+        assay_for_var_features = "normalizedcount",
         #center_method = center_method,
         scale_factor_separation=scale_factor_separation)
     }else{
-      stop("Please select assay_for_var_features from c('count','normalized')")
+      stop("Please select assay_for_var_features from c('rawcount','normalizedcount')")
     }
     
     adaptive<-FALSE
@@ -595,7 +610,7 @@ RunPreSAVIS<-function(
       setTxtProgressBar(pb = pb, value = 7)
     }
     
-    if(assay_for_var_features == "count"){
+    if(assay_for_var_features == "rawcount"){
       umap_res<-FormAdaptiveCombineList(
         expr_matrix=object@assays[[default_assay]]@counts,
         expr_matrix_pca=expr_matrix_pca,
@@ -607,12 +622,12 @@ RunPreSAVIS<-function(
         npcs=npcs,
         nfeatures=nfeatures,
         process_min_size=process_min_size,
-        assay_for_var_features = "count",
+        assay_for_var_features = "rawcount",
         do_cluster = FALSE,
         cluster_label = cluster_label,
         check_differential = check_differential,
         verbose = verbose_more)
-    }else if(assay_for_var_features == "normalized"){
+    }else if(assay_for_var_features == "normalizedcount"){
       umap_res<-FormAdaptiveCombineList(
         expr_matrix=object@assays[[default_assay]]@data,
         expr_matrix_pca=expr_matrix_pca,
@@ -624,13 +639,13 @@ RunPreSAVIS<-function(
         npcs=npcs,
         nfeatures=nfeatures,
         process_min_size=process_min_size,
-        assay_for_var_features = "normalized",
+        assay_for_var_features = "normalizedcount",
         do_cluster = FALSE,
         cluster_label = cluster_label,
         check_differential = check_differential,
         verbose = verbose_more)
     }else{
-      stop("Please select assay_for_var_features from c('count','normalized')")
+      stop("Please select assay_for_var_features from c('rawcount','normalizedcount')")
     }
     cluster_label<-umap_res$cluster_label
     if(is.null(dim(cluster_label)[1])){
@@ -790,7 +805,6 @@ RunSAVIS<-function(
 #' @examples
 #' a<-1
 #'
-
 RunAdaUMAP<-function(
   X,
   metric = 'euclidean',
@@ -1094,8 +1108,6 @@ tsMDS<-function(
 
   tsMDS_res
 }
-
-
 
 
 ########## newly added part for UMAP adjust
@@ -2320,8 +2332,6 @@ adjustUMAP<-function(
 
 
 
-
-
 #' ScaleFactor
 #'
 #' Combined PC embedding with scale factor for subPC
@@ -2562,7 +2572,7 @@ DoCluster<-function(
 SubPCEmbedding<-function(
   expr_matrix,
   cluster_label,
-  assay_for_var_features = "normalized",
+  assay_for_var_features = "normalizedcount",
   npcs=20,
   nfeatures =2000,
   return_hvg=FALSE,
@@ -2590,12 +2600,18 @@ SubPCEmbedding<-function(
     }
     # expr_matrix is initial expression matrix (gene*cell)
     expr_tmp<-expr_matrix[,index_i]
-    
-    expr_tmp_hvg <- FindVariableFeatures(
-      expr_tmp,verbose = F)$vst.variance.standardized
+    if(assay_for_var_features == "rawcount"){
+      expr_tmp_hvg <- FindVariableFeatures(
+        expr_tmp,verbose = F)$vst.variance.standardized
+    }else if(assay_for_var_features == "normalizedcount"){
+      expr_tmp_hvg <- FindVariableFeatures(
+        (exp(expr_tmp)-1),verbose = F)$vst.variance.standardized
+    }else{
+      stop("Please select assay_for_var_features from c('rawcount','normalizedcount')")
+    }
     tmp_hvg<-savis_nth(x = expr_tmp_hvg,
       k = nfeatures)
-    if(assay_for_var_features == "count"){
+    if(assay_for_var_features == "rawcount"){
       expr_tmp<- NormalizeData(expr_tmp,verbose = F)
     }
     hvg_list[[i]]<-tmp_hvg
@@ -2808,7 +2824,7 @@ FormCombinedEmbedding<-function(
   expr_matrix,
   expr_matrix_pca,
   cluster_label,
-  assay_for_var_features = "normalized",
+  assay_for_var_features = "normalizedcount",
   npcs=20,
   nfeatures =2000,
   center_method = "mean",
@@ -2865,7 +2881,7 @@ FormAdaptiveCombineList<-function(
   npcs,
   nfeatures,
   process_min_size,
-  assay_for_var_features = "normalized",
+  assay_for_var_features = "normalizedcount",
   differentail_gene_cutoff = 20,
   do_cluster = TRUE,
   cluster_label = NULL,
@@ -3327,130 +3343,27 @@ ARIEvaluate<-function(
 }
 
 
-
-#################################################################################
-######## This is some extra functions
-newUmapPlot<-function(expr_pca_combined,
-  cell_label= NULL,
-  cluster_ = FALSE,
-  cluster_label=NULL,
-  label_legend =TRUE,
-  min.dist = 0.01,
-  pt.size=0){
-  set.seed(42)
-  combinedPC_umap <-
-    uwot::umap(
-      X = expr_pca_combined,
-      a = 1.8956, 
-      b = 0.8006, 
-      metric = "cosine",
-      min_dist = min.dist,
-      approx_pow = TRUE, 
-    )
-  
-  combinedPC_umap<-
-    data.frame(combinedPC_umap)
-  
-  colnames(combinedPC_umap) <- 
-    c("UMAP_1","UMAP_2")
-  
-  if(is.null(cell_label)){
-    return(combinedPC_umap)
-  }
-  combinedPC_umap$label<-factor(cell_label)
-  qual_col_pals <- RColorBrewer::brewer.pal.info[RColorBrewer::brewer.pal.info$category 
-    == 'qual',]
-  col_vector <- unlist(mapply(RColorBrewer::brewer.pal, 
-    qual_col_pals$maxcolors,rownames(qual_col_pals)))
-  
-  
-  gg<-ggplot(combinedPC_umap)+
-    geom_point(aes(x = UMAP_1, 
-      y = UMAP_2,
-      color = label),
-      size = pt.size)+
-    theme(legend.title = element_blank())+
-    theme(panel.grid.major = element_blank(),
-      panel.grid.minor = element_blank(), 
-      panel.background = element_blank(), 
-      axis.line = element_line(colour = "black"), 
-      legend.key=element_blank())+
-    guides(color = guide_legend(override.aes =
-        list(size=3)))+
-    scale_colour_manual(values = 
-        col_vector[c(1:length(unique(cell_label)))])
-  #+theme(legend.position="none")
-  if(!label_legend){
-    gg<-gg+theme(legend.position="none")
-  }else{
-    centers<-dplyr::group_by(combinedPC_umap,label) 
-    centers<-dplyr::summarize(centers,x = median(x = UMAP_1),
-      y = median(x = UMAP_2),.groups = 'drop')
-    
-    gg <- gg +
-      ggrepel::geom_text_repel(data = centers, 
-        mapping = aes(x = x, y = y, 
-          label = label), size = 4)
-  }
-  #combinedPC_umap[,c(1,2,which(colnames(
-  #  combinedPC_umap) == "label"))] %>%
-  #  dplyr::group_by(label) %>%
-  #  summarize(x = median(x = UMAP_1),
-  #    y = median(x = UMAP_2)) -> centers
-  
-  
-  if (cluster_){
-    combinedPC_umap$cluster_label<-
-      factor(cluster_label)
-    gg1<-ggplot(combinedPC_umap)+
-      geom_point(aes(x = UMAP_1, 
-        y = UMAP_2,color = cluster_label),
-        size = pt.size)+theme(legend.title =
-            element_blank())+
-      theme(panel.grid.major = 
-          element_blank(), 
-        panel.grid.minor = element_blank(),
-        panel.background = element_blank(), 
-        axis.line = element_line(colour = 
-            "black"), 
-        legend.key=element_blank())+
-      guides(color = guide_legend(override.aes = 
-          list(size=3)))+
-      theme(legend.position="none")
-    
-    combinedPC_umap[,c(1,2,which(colnames(
-      combinedPC_umap) == "cluster_label"))] %>%
-      dplyr::group_by(cluster_label) %>%
-      summarize(x = mean(x = UMAP_1), 
-        y = mean(x = UMAP_2),.groups = 'drop') -> centers
-    
-    gg1 <- gg1 +
-      geom_text(data = centers, 
-        mapping = aes(x = x, y = y, 
-          label = cluster_label), 
-        size = 4)
-    newList<-list("umap"=gg,
-      "cluster"=gg1,
-      "data"=combinedPC_umap[,c(1,2)])
-    return(newList)
-  }else{
-    newList<-list("umap"=gg,
-      "data"=combinedPC_umap[,c(1,2)])
-    return(newList)
-  }
-}
-
-RunOrPCA<-function(expr_matrix,count = T,npcs=20,nfeatures=2000){
-  if(count){
+SeuratLPCA<-function(expr_matrix,assay_for_var_features = "rawcount",npcs=20,nfeatures=2000){
+  if ( assay_for_var_features == "rawcount" ){
+    expr_matrix_hvg <- FindVariableFeatures(
+      expr_matrix,
+      verbose = F)$vst.variance.standardized
     expr_matrix<-NormalizeData(
       expr_matrix,
       verbose = F)
+  }else if ( assay_for_var_features == "normalizedcount" ){
+    expr_matrix<-NormalizeData(
+      expr_matrix,
+      verbose = F)
+    expr_matrix_hvg <- FindVariableFeatures(
+      (expr(expr_matrix)-1),
+      verbose = F)$vst.variance.standardized
+  }else{
+    stop("Please select assay_for_var_features from c('rawcount','normalizedcount')")
   }
-  expr_matrix_hvg <- FindVariableFeatures(
-    expr_matrix,
-    verbose = F)$vst.variance.standardized
   hvg<-savis_nth(x = expr_matrix_hvg,
     k = nfeatures)
+  
   expr_matrix<-expr_matrix[hvg,]
   expr_matrix <- ScaleData(
     expr_matrix,
@@ -3458,44 +3371,6 @@ RunOrPCA<-function(expr_matrix,count = T,npcs=20,nfeatures=2000){
   suppressWarnings(expr_matrix_pca <- RunPCA(
     object = expr_matrix,
     features = rownames(expr_matrix),
-    npcs = npcs,
-    verbose = F)@cell.embeddings)
-  rm(expr_matrix)
-  expr_matrix_pca<-data.frame(expr_matrix_pca)
-  expr_matrix_pca<-as.matrix(expr_matrix_pca)
-  return(expr_matrix_pca)
-}
-
-RunSparsePCA<-function(expr_matrix,count = T,npcs=2){
-  if(count){
-    expr_matrix<-NormalizeData(
-      expr_matrix,
-      verbose = F)
-  }
-  expr_matrix <- ScaleData(
-    expr_matrix,
-    verbose = F)
-  expr_matrix<-t(expr_matrix)
-  expr_matrix_spca <- rspca(expr_matrix,k=2,verbose = F)$scores
-  rm(expr_matrix)
-  expr_matrix_spca<-data.frame(expr_matrix_spca)
-  return(expr_matrix_spca)
-}
-
-
-RunSeuratPCA<-function(expr_matrix,npcs=20,nfeatures=2000){
-  expr_matrix <- CreateSeuratObject(counts = expr_matrix)
-  
-  expr_matrix<-NormalizeData(
-    expr_matrix,
-    verbose = F)
-  expr_matrix <- FindVariableFeatures(expr_matrix,
-    nfeatures = nfeatures)
-  expr_matrix <- ScaleData(expr_matrix, features = rownames(expr_matrix))
-  pbmc <- RunPCA(pbmc, features = VariableFeatures(object = pbmc))
-  suppressWarnings(expr_matrix_pca <- RunPCA(
-    object = expr_matrix,
-    features = VariableFeatures(object = expr_matrix),
     npcs = npcs,
     verbose = F)@cell.embeddings)
   rm(expr_matrix)
