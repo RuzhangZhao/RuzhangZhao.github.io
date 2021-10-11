@@ -48,6 +48,7 @@ savis_nth<- function(x, k) {
 #' @importFrom Seurat NormalizeData FindVariableFeatures ScaleData RunPCA DefaultAssay
 #' @importFrom utils setTxtProgressBar txtProgressBar
 #' @importFrom uwot umap
+#' @importFrom MASS isoMDS
 #' @import ggplot2
 #' @import RColorBrewer
 #' @import dplyr
@@ -187,11 +188,7 @@ savis<-function(
   }else{
     expr_matrix_process<-expr_matrix[hvg,]
   }
-  if(memory_save){
-    cur_time<-Sys.time()
-    fwrite_fst(expr_matrix, path = paste0("SAVIS_tmpfile_",cur_time,"_This_file_will_be_deleted",".fst"))
-    rm(expr_matrix)
-  }
+ 
   if(verbose){
     cat('\n')
     print("Scaling Expression Matrix...")
@@ -255,10 +252,7 @@ savis<-function(
     print("Calculating Local PCA...")
     setTxtProgressBar(pb = pb, value = 8)
   }
-  if(memory_save){
-    expr_matrix<-read_fst(path = paste0("SAVIS_tmpfile_",cur_time,"_This_file_will_be_deleted",".fst"))
-    file.remove(paste0("SAVIS_tmpfile_",cur_time,"_This_file_will_be_deleted",".fst"))
-  }
+
   if(max_stratification == 2 | adaptive == FALSE){
     
     combined_embedding<-FormCombinedEmbedding(
@@ -496,8 +490,9 @@ savis<-function(
 #'
 #' @return nothing useful
 #'
-#' @importFrom Seurat NormalizeData FindVariableFeatures ScaleData RunPCA
+#' @importFrom Seurat NormalizeData FindVariableFeatures VariableFeatures ScaleData RunPCA DefaultAssay
 #' @importFrom utils setTxtProgressBar txtProgressBar
+#' @import methods new representation setClass
 #' @export
 #'
 #' @examples
@@ -1074,7 +1069,7 @@ get_matrix_from_list<-function(
 #' 
 #' @importFrom stats cmdscale dist
 #' @importFrom Rfast Dist
-#' @importFrom mize mize
+#' @import mize
 #' @import glue
 #' @export
 #'
@@ -1148,7 +1143,7 @@ tsMDS<-function(
       diff2 <- (R - D) ^ 2
       sum(diff2) * 0.5
     }
-    cost_grad <- function(R, D, y1, y2) {
+    cost_grad1 <- function(R, D, y1, y2) {
       K <- (R - D) / (D + 1.e-10)
       y<-rbind(y1,y2)
       G <- matrix(nrow = nrow(y)-nrow(y1), ncol = ncol(y))
@@ -1179,7 +1174,7 @@ tsMDS<-function(
       y<-rbind(y1,y2)
       D <- Dist(y)
       #D <- as.matrix(parDist(y))
-      cost_grad(R, D, y1, y2)
+      cost_grad1(R, D, y1, y2)
     }
     initial_val_remain<-c(t(remain_initial))
     
@@ -2001,6 +1996,9 @@ get_umap_embedding_adjust_tsMDS<-function(
 }
 
 
+
+
+#' @importFrom cluster pam
 adjustUMAP_via_tsMDS<-function(
   pca_embedding,
   umap_embedding,
@@ -2324,7 +2322,6 @@ adjustUMAP_via_tsMDS<-function(
 #' @importFrom uwot umap
 #' @importFrom MASS isoMDS
 #' @importFrom stats cmdscale var as.dist dist
-#' @export
 #'
 #' @examples
 #' a<-1
@@ -2562,7 +2559,6 @@ ScaleFactor<-function(
 #' @importFrom Seurat FindNeighbors FindClusters
 #' @importFrom Spectrum Spectrum
 #'
-#' @export
 #'
 #' @examples
 #' a<-1
@@ -2680,7 +2676,6 @@ DoCluster<-function(
 #'
 #' @importFrom Seurat FindVariableFeatures ScaleData RunPCA
 #'
-#' @export
 #'
 #' @examples
 #' a<-1
@@ -2787,7 +2782,6 @@ SubPCEmbedding<-function(
 #' @return nothing useful
 #'
 #'
-#' @export
 #'
 #' @examples
 #' a<-1
@@ -2850,7 +2844,6 @@ CombinePC<-function(PC_embedding,
 #' @return nothing useful
 #'
 #'
-#' @export
 #'
 #' @examples
 #' a<-1
@@ -2930,7 +2923,6 @@ AdaptiveCombine<-function(expr_matrix,
 #' @return nothing useful
 #'
 #'
-#' @export
 #'
 #' @examples
 #' a<-1
@@ -2977,8 +2969,7 @@ FormCombinedEmbedding<-function(
 #'
 #' @return nothing useful
 #'
-#'
-#' @export
+#' @importFrom stats t.test
 #'
 #' @examples
 #' a<-1
@@ -2986,7 +2977,6 @@ FormCombinedEmbedding<-function(
 #'
 #'
 #'
-
 FormAdaptiveCombineList<-function(
   expr_matrix,
   expr_matrix_pca,
@@ -3399,7 +3389,6 @@ adaDimPlot2<-function(
 #' @importFrom stats kmeans
 #' @importFrom mclust adjustedRandIndex
 #'
-#' @export
 #'
 #' @examples
 #' a<-1
