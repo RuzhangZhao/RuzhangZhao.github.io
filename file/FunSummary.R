@@ -467,10 +467,6 @@ savis<-function(
 }
 
 
-
-
-
-
 RunPreSAVIS<-function(
   object,
   assay_for_var_features = "count",
@@ -496,10 +492,7 @@ RunPreSAVIS<-function(
   }
   nfeatures<-length(VariableFeatures(object))
   npcs<-ncol(object@reductions$pca@cell.embeddings)
-  # change the seed.use to be integer
-  if(!is.integer(seed.use)){
-    seed.use<-as.integer(seed.use)
-  }
+  
   if(max_stratification == 1){
     stop("Please directly use umap: savis 
       supports adaptive visualization for 
@@ -721,6 +714,10 @@ RunSAVIS<-function(
   verbose = TRUE,
   seed.use = 42L
 ){
+  # change the seed.use to be integer
+  if(!is.integer(seed.use)){
+    seed.use<-as.integer(seed.use)
+  }
   default_assay<-DefaultAssay(object)
   if(is.null(object@reductions$savis)){
     stop("Please apply RunPreSAVIS before RunSAVIS")
@@ -774,6 +771,10 @@ RunSAVIS<-function(
   }
   return(object)
 }
+
+object<-RunPreSAVIS(object)
+object<-RunSAVIS(object)
+
 
 
 
