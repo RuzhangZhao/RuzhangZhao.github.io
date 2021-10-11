@@ -466,8 +466,8 @@ savis<-function(
 #'
 #' @details This function argument to the function
 #'
-#' @param object
-#' @param assay_for_var_features
+#' @param object sdsd
+#' @param assay_for_var_features sds
 #' @param distance_metric The default is "euclidean". 
 #' @param cluster_method The default is "louvain". User can choose from c("louvain","spectral"). But "louvain" performs much better.
 #' @param resolution The resolution for The default is 0.5.
@@ -743,7 +743,7 @@ RunPreSAVIS<-function(
 #'
 #' @details This function argument to the function
 #'
-#' @param object
+#' @param object sds
 #' @param adjust_UMAP = TRUE,
 #' @param adjust_method = "all",
 #' @param adjust_rotate = TRUE,
@@ -842,7 +842,7 @@ RunSAVIS<-function(
 #'
 #' @details This function argument to the function
 #'
-#' @param X
+#' @param X sds
 #' @param metric = 'euclidean',
 #' @param metric_count = 1,
 #' @param py_envir = globalenv(),
