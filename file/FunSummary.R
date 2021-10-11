@@ -772,11 +772,6 @@ RunSAVIS<-function(
   return(object)
 }
 
-object<-RunPreSAVIS(object)
-object<-RunSAVIS(object)
-
-
-
 
 #' RunAdaUMAP
 #'
