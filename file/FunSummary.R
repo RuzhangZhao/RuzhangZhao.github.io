@@ -1,24 +1,3 @@
-library(Seurat)
-library(reticulate)
-library(fst)
-library(RColorBrewer)
-library(grDevices)
-library(ggplot2)
-library(dplyr)
-library(ggrepel)
-library(mclust)
-library(glue)
-library(cluster)
-library(utils)
-library(MASS)
-library(pdist)
-library(uwot)
-library(mize)
-library(parallelDist)
-library(Rfast)
-
-#library(Spectrum)
-
 savis_nth<- function(x, k) {
   p <- length(x) - k
   xp <- sort(x, partial=p)[p]
