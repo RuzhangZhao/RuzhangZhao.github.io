@@ -11,6 +11,7 @@ savis_nth<- function(x, k) {
 #' @details This function argument to the function
 #'
 #' @param expr_matrix The expression matrix: gene(feature) as row; cell(sample) as column.
+#' @param assay_for_var_features 
 #' @param is_count_matrix Whether expr_matrix is count matrix or normalized version. If the expression matrix is count matrix, normalization will be performed. Default is TRUE.
 #' @param npcs The number of principle components will be computed. Default is 20.
 #' @param nfeatures The number of highly variable genes will be selected. Default is 2000.
@@ -44,9 +45,13 @@ savis_nth<- function(x, k) {
 #'
 #' @return nothing useful
 #'
-#' @importFrom Seurat NormalizeData FindVariableFeatures ScaleData RunPCA
+#' @importFrom Seurat NormalizeData FindVariableFeatures ScaleData RunPCA DefaultAssay
 #' @importFrom utils setTxtProgressBar txtProgressBar
-#' @importFrom fst write_fst read_fst
+#' @importFrom uwot umap
+#' @import ggplot2
+#' @import RColorBrewer
+#' @import dplyr
+#' 
 #' @export
 #'
 #' @examples
@@ -461,6 +466,43 @@ savis<-function(
 }
 
 
+#' RunPreSAVIS
+#'
+#' savis: single-cell RNAseq adaptive visualiztaion
+#'
+#' @details This function argument to the function
+#'
+#' @param object
+#' @param assay_for_var_features
+#' @param distance_metric The default is "euclidean". 
+#' @param cluster_method The default is "louvain". User can choose from c("louvain","spectral"). But "louvain" performs much better.
+#' @param resolution The resolution for The default is 0.5.
+#' @param resolution_sub The default is 0.
+#' @param max_stratification The default is 3.
+#' @param scale_factor_separation The default is 3.
+#' @param process_min_size The default is NULL.
+#' @param process_min_count The default is NULL.
+#' @param check_differential The default is FALSE.
+#' @param verbose The default is TRUE.
+#' @param show_cluster The default is FALSE.
+#' @param return_cluster The default is FALSE.
+#' @param verbose_more The default is FALSE.
+#' 
+#' 
+#' 
+#' 
+#' 
+#' 
+#'
+#' @return nothing useful
+#'
+#' @importFrom Seurat NormalizeData FindVariableFeatures ScaleData RunPCA
+#' @importFrom utils setTxtProgressBar txtProgressBar
+#' @export
+#'
+#' @examples
+#' a<-1
+#'
 RunPreSAVIS<-function(
   object,
   assay_for_var_features = "rawcount",
@@ -698,6 +740,37 @@ RunPreSAVIS<-function(
 
 
 
+
+
+#' RunSAVIS
+#'
+#' RunSAVIS
+#'
+#' @details This function argument to the function
+#'
+#' @param object
+#' @param adjust_UMAP = TRUE,
+#' @param adjust_method = "all",
+#' @param adjust_rotate = TRUE,
+#' @param shrink_distance = TRUE,
+#' @param density_adjust = TRUE,
+#' @param verbose = TRUE,
+#' @param seed.use = 42L
+#' 
+#' 
+#' 
+#' 
+#' 
+#'
+#' @return nothing useful
+#'
+#' @importFrom Seurat NormalizeData FindVariableFeatures ScaleData RunPCA DefaultAssay
+#' @importFrom utils setTxtProgressBar txtProgressBar
+#' @export
+#' 
+#' @examples
+#' a<-1
+#' 
 RunSAVIS<-function(
   object,
   adjust_UMAP = TRUE,
@@ -767,19 +840,39 @@ RunSAVIS<-function(
 }
 
 
+
 #' RunAdaUMAP
 #'
 #' Use Adaptive Distance Metric to Run UMAP
 #'
 #' @details This function argument to the function
 #'
-#' @param expr_matrix character
+#' @param X
+#' @param metric = 'euclidean',
+#' @param metric_count = 1,
+#' @param py_envir = globalenv(),
+#' @param n.neighbors = 30L,
+#' @param n.components = 2L,
+#' @param n.epochs = NULL,
+#' @param learning.rate = 1.0,
+#' @param min.dist = 0.3,
+#' @param spread = 1.0,
+#' @param set.op.mix.ratio = 1.0,
+#' @param local.connectivity = 1L,
+#' @param repulsion.strength = 1,
+#' @param negative.sample.rate = 5,
+#' @param a = 1.8956, 
+#' @param b = 0.8006,
+#' @param uwot.sgd = FALSE,
+#' @param seed.use = 42L,
+#' @param metric.kwds = NULL,
+#' @param angular.rp.forest = FALSE,
+#' @param verbose = FALSE
 #'
 #' @return nothing useful
 #'
 #' @importFrom reticulate py_run_string import import_main py_get_attr py_module_available py_set_seed
 #' @import glue
-#' @export
 #'
 #' @examples
 #' a<-1
@@ -974,7 +1067,20 @@ get_matrix_from_list<-function(
   combined_embedding
 }
 
-### Two step MDS
+
+#' tsMDS
+#'
+#' two step MDS
+#' 
+#' @importFrom stats cmdscale dist
+#' @importFrom Rfast Dist
+#' @importFrom mize mize
+#' @import glue
+#' @export
+#'
+#' @examples
+#' a<-1
+#'
 tsMDS<-function(
   dist_full,
   main_index,
@@ -1006,7 +1112,7 @@ tsMDS<-function(
   mmds_fn <- function(par) {
     R <- dist_main
     y <- matrix(par, ncol = 2, byrow = TRUE)
-    D <- Rfast::Dist(y)
+    D <- Dist(y)
     #D <- as.matrix(parDist(y))
     cost_fun(R, D)
   }
@@ -1014,7 +1120,7 @@ tsMDS<-function(
   mmds_gr <- function(par) {
     R <- dist_main
     y <- matrix(par, ncol = 2, byrow = TRUE)
-    D <- Rfast::Dist(y)
+    D <- Dist(y)
     #D <- as.matrix(parDist(y))
     
     cost_grad(R, D, y)
@@ -1061,7 +1167,7 @@ tsMDS<-function(
       y1<- main_mds
       y2 <- matrix(par, ncol = 2, byrow = TRUE)
       y<-rbind(y1,y2)
-      D <- Rfast::Dist(y)
+      D <- Dist(y)
       #D <- as.matrix(parDist(y))
       cost_fun(R, D)
     }
@@ -1071,7 +1177,7 @@ tsMDS<-function(
       y1<- main_mds
       y2 <- matrix(par, ncol = 2, byrow = TRUE)
       y<-rbind(y1,y2)
-      D <- Rfast::Dist(y)
+      D <- Dist(y)
       #D <- as.matrix(parDist(y))
       cost_grad(R, D, y1, y2)
     }
@@ -1135,14 +1241,35 @@ Detect_edge<-function(
   new_edge_index
 }
 
+#' tsMDS
+#'
+#' two step MDS
+#' 
+#' @importFrom pdist pdist
+#'
+#' @examples
+#' a<-1
+#'
 Detect_farthest<-function(
   whole,
   whole_mean){
-  a<-pdist::pdist(whole_mean,whole)
+  a<-pdist(whole_mean,whole)
   which.max(a@dist)
 }
 
-
+#' ScaleFactor
+#'
+#' Combined PC embedding with scale factor for subPC
+#'
+#' @importFrom pdist pdist
+#' @importFrom stats dist as.dist
+#' @importFrom uwot umap
+#'
+#'
+#' @examples
+#' a<-1
+#'
+#'
 get_umap_embedding_adjust_umap<-function(
   pca_embedding,
   pca_center,
@@ -1332,7 +1459,19 @@ get_umap_embedding_adjust_umap<-function(
 
 
 
-
+#' ScaleFactor
+#'
+#' Combined PC embedding with scale factor for subPC
+#'
+#' @importFrom pdist pdist
+#' @importFrom stats dist as.dist
+#' @importFrom uwot umap
+#'
+#'
+#' @examples
+#' a<-1
+#'
+#'
 adjustUMAP_via_umap<-function(
   pca_embedding,
   umap_embedding,
@@ -2324,7 +2463,6 @@ adjustUMAP<-function(
 #' @importFrom pdist pdist
 #' @importFrom stats dist as.dist
 #'
-#' @export
 #'
 #' @examples
 #' a<-1
