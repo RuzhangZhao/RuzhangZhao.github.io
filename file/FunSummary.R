@@ -867,7 +867,7 @@ RunSAVIS<-function(
 #' @return nothing useful
 #'
 #' @importFrom reticulate py_run_string import import_main py_get_attr py_module_available py_set_seed
-#' @import glue
+#' @importFrom glue glue
 #'
 #' @examples
 #' a<-1
@@ -1069,8 +1069,8 @@ get_matrix_from_list<-function(
 #' 
 #' @importFrom stats cmdscale dist
 #' @importFrom Rfast Dist
-#' @import mize
-#' @import glue
+#' @importFrom mize mize
+#' @importFrom glue glue
 #' @export
 #'
 #' @examples
