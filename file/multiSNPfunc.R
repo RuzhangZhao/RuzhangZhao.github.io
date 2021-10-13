@@ -433,6 +433,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 torch.set_default_tensor_type('torch.FloatTensor')
+torch.autograd.set_detect_anomaly(True)
 class GMMNet(nn.Module):
     def __init__(self,n_feature):
         super(GMMNet, self).__init__()
