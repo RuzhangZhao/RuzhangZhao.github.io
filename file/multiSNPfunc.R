@@ -460,7 +460,7 @@ class GMMNet(nn.Module):
 
 
 
-def torchoptimLBFGS(UKBB_pop,theta_UKBB_GPC,study_info,colname_UKBB,var_SNP,var_GPC,C_,initial_val,D,lam=1,lr=1,EPOCH=10):
+def torchoptimLBFGS(UKBB_pop,theta_UKBB_GPC,study_info,colname_UKBB,var_SNP,var_GPC,C_,initial_val,D,lam=1,lr=1,EPOCH=10,verbose=False):
     UKBB_pop = torch.FloatTensor(UKBB_pop)
     net = GMMNet(UKBB_pop.shape[1]-1)
     initial_val_tensor = torch.tensor(np.array(initial_val),dtype=torch.float)
@@ -509,8 +509,10 @@ def torchoptimLBFGS(UKBB_pop,theta_UKBB_GPC,study_info,colname_UKBB,var_SNP,var_
         #optimizer.step()
         #scheduler.step()
     if (i+1)%100 == 0 or i == 0:
+        if verbose:
+            print('Epoch '+str(i+1)+' Loss: '+str(losses.item()))
+    if verbose:
         print('Epoch '+str(i+1)+' Loss: '+str(losses.item()))
-    print('Epoch '+str(i+1)+' Loss: '+str(losses.item()))
     loss_collect.append(losses.item())
     ## early stopping criteria
 
@@ -518,12 +520,14 @@ def torchoptimLBFGS(UKBB_pop,theta_UKBB_GPC,study_info,colname_UKBB,var_SNP,var_
     #    count_early += 1
     #if count_early >= 100:
     #    break
-    outputs = net(UKBB_pop,theta_UKBB_GPC,study_info,colname_UKBB,var_SNP,var_GPC,C_)
-    penalty_val = torch.tensor(0.)
-    if lam != 0:
-        pen_loc = np.where(np.diag(D)==1)[0]
-        penalty_val += (torch.norm(net.fc.weight[0,pen_loc]))**2*lam
-    print('Final Loss: '+str((outputs+penalty_val).item()), flush = True)
+    
+    if verbose:
+        outputs = net(UKBB_pop,theta_UKBB_GPC,study_info,colname_UKBB,var_SNP,var_GPC,C_)
+        penalty_val = torch.tensor(0.)
+        if lam != 0:
+            pen_loc = np.where(np.diag(D)==1)[0]
+            penalty_val += (torch.norm(net.fc.weight[0,pen_loc]))**2*lam
+        print('Final Loss: '+str((outputs+penalty_val).item()), flush = True)
                
     return [i.item() for i in net.fc.weight.squeeze()],np.array(loss_collect[1:len(loss_collect)])
 ")  
