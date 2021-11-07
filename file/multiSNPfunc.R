@@ -454,7 +454,7 @@ class GMMNet(nn.Module):
         u1 = torch.matmul((UKBB_pop[:,0] - e1),UKBB_pop[:,1:UKBB_pop.shape[1]])
         index_varSNP = [colname_UKBB.index(var_SNP[i]) for i in range(len(var_SNP))]
         u2_part1 = torch.matmul(e1,UKBB_pop[:,index_varSNP])
-        if len(var_GPC) == 0:
+        if var_GPC is None:
           index_varGPC = []
         else:
           index_varGPC = [colname_UKBB.index(var_GPC[i]) for i in range(len(var_GPC))]
