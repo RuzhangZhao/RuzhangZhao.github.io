@@ -294,8 +294,7 @@ tilde_final_var_func<-function(
   var_theta2_vec<-var_theta2_hat_vec_func(study_info = study_info)
   U_theta_gradient<-rbind(grad_U1_wrt_theta_func(len_U1 = len_U1,len_theta = len_theta),
     grad_U2_wrt_theta_func(UKBB_pop,theta_UKBB_GPC,study_info))
-  
-  var_grad_times_theta_hat_fromPC<-U_theta_gradient[,1:(1+len_GPC)]%*%var_theta1%*%t(U_theta_gradient[,1:(1+len_GPC)])
+
   var_grad_times_theta_hat_fromSNP<-U_theta_gradient[,-(1:(1+len_GPC))]%*%(var_theta2_vec*t(U_theta_gradient[,-(1:(1+len_GPC))]))*N_Pop
   if(len(theta_UKBB_GPC) == 1){
     
