@@ -10,7 +10,7 @@ library(bigmemory)
 library(stringr)
 library(glmnet)
 library(PRROC)
-
+library(ROCR)
 # compute the variance of ridge regression
 var_ridge<-function(
   UKBB_pop,
