@@ -62,7 +62,7 @@ U3_func<-function(UKBB_pop,theta_UKBB_GPC){
 inv_grad_U3_wrt_theta1_func<-function(
   UKBB_pop,
   theta_UKBB_GPC){
-  dexpit_PC<-dexpit(UKBB_pop[,c("V",var_GPC)]%*%theta_UKBB_GPC)
+  dexpit_PC<-dexpit(as.matrix(UKBB_pop[,c("V",var_GPC)])%*%theta_UKBB_GPC)
   mat<--(1/N_Pop)*crossprod(UKBB_pop[,c("V",var_GPC)]*c(dexpit_PC),UKBB_pop[,c("V",var_GPC)])
   #-solve(mat,tol=1e-60)
   -ginv(mat)
@@ -110,7 +110,7 @@ var_theta1_hat_func<-function(
   UKBB_pop,
   theta_UKBB_GPC,
   study_info){
-  expit_PC<-expit(UKBB_pop[,c("V",var_GPC)]%*%theta_UKBB_GPC)
+  expit_PC<-expit(as.matrix(UKBB_pop[,c("V",var_GPC)])%*%theta_UKBB_GPC)
   mat_inside<-(1/N_Pop)*crossprod(c(UKBB_pop[,"Y"]-expit_PC)*UKBB_pop[,c("V",var_GPC)],c(UKBB_pop[,"Y"]-expit_PC)*UKBB_pop[,c("V",var_GPC)])
   mat_outside<-inv_grad_U3_wrt_theta1_func(
     UKBB_pop=UKBB_pop,
@@ -129,7 +129,7 @@ cov_U_with_theta_hat_func<-function(
   theta_UKBB_GPC,
   study_info){
   expit_beta<-expit(UKBB_pop[,-1]%*%beta)
-  expit_PC<-expit(UKBB_pop[,c("V",var_GPC)]%*%theta_UKBB_GPC)
+  expit_PC<-expit(as.matrix(UKBB_pop[,c("V",var_GPC)])%*%theta_UKBB_GPC)
   cov_U1_theta_hat<-(1/N_Pop)*crossprod(UKBB_pop[,-1]*c(UKBB_pop[,1]-expit_beta),UKBB_pop[,c("V",var_GPC)]*c(UKBB_pop[,1]-expit_PC))
   u2_theta_coef<-sapply(1:N_SNP, function(snp_id){
     expit_id<-c(expit(UKBB_pop[,c("V",var_GPC,paste0("SNP",snp_id))]%*%c(theta_UKBB_GPC,study_info[[snp_id]]$Coeff)))
@@ -156,11 +156,6 @@ final_var_U_beta_theta_hat_func<-function(
   var_theta2_vec<-var_theta2_hat_vec_func(study_info = study_info)
   U_theta_gradient<-rbind(grad_U1_wrt_theta_func(len_U1 = len_U1,len_theta = len_theta),
     grad_U2_wrt_theta_func(UKBB_pop,theta_UKBB_GPC,study_info))
-  if(length(theta_UKBB_GPC)==1){
-    var_grad_times_theta_hat_fromSNP<-U_theta_gradient[,-(1:(1+len_GPC))]%*%(var_theta2_vec*t(U_theta_gradient[,-(1:(1+len_GPC))]))*N_Pop
-    var_2nd_grad_times_theta_hat<-var_grad_times_theta_hat_fromSNP## There 
-    res<-(var_1st_U_beta_theta+var_2nd_grad_times_theta_hat)
-  }else{
     var_theta1<-var_theta1_hat_func(
       UKBB_pop = UKBB_pop,
       theta_UKBB_GPC = theta_UKBB_GPC,
@@ -175,8 +170,7 @@ final_var_U_beta_theta_hat_func<-function(
     cov_3rd_between_1st_2nd<-cov_U%*%mat_outside%*%t(U_theta_gradient[,1:(1+len_GPC)])
     
     res<-(var_1st_U_beta_theta+var_2nd_grad_times_theta_hat+cov_3rd_between_1st_2nd+t(cov_3rd_between_1st_2nd))
-    
-  }
+  
   res
 }
 
@@ -296,21 +290,7 @@ tilde_final_var_func<-function(
     grad_U2_wrt_theta_func(UKBB_pop,theta_UKBB_GPC,study_info))
 
   var_grad_times_theta_hat_fromSNP<-U_theta_gradient[,-(1:(1+len_GPC))]%*%(var_theta2_vec*t(U_theta_gradient[,-(1:(1+len_GPC))]))*N_Pop
-  if(length(theta_UKBB_GPC) == 1){
-    
-    var_theta2_vec<-var_theta2_hat_vec_func(study_info = study_info)
-    U_theta_gradient<-rbind(grad_U1_wrt_theta_func(len_U1 = len_U1,len_theta = len_theta),
-      grad_U2_wrt_theta_func(UKBB_pop,theta_UKBB_GPC,study_info))
-    
 
-    var_grad_times_theta_hat_fromSNP<-U_theta_gradient[,-(1:(1+len_GPC))]%*%(var_theta2_vec*t(U_theta_gradient[,-(1:(1+len_GPC))]))*N_Pop
-    
-    var_2nd_grad_times_theta_hat<-var_grad_times_theta_hat_fromSNP
-    
-    tilde_var_2nd<-crossprod(tilde_U_beta_gradient,C)%*%var_2nd_grad_times_theta_hat%*%C%*%tilde_U_beta_gradient
-    
-    res<-tilde_var_1st_U_beta_theta+tilde_var_2nd
-  }else{
     var_theta1<-var_theta1_hat_func(
       UKBB_pop = UKBB_pop,
       theta_UKBB_GPC = theta_UKBB_GPC,
@@ -337,7 +317,7 @@ tilde_final_var_func<-function(
     #print(max(tilde_var_2nd))
     #print(max(tilde_cov_3rd_between_1st_2nd))
     res<-tilde_var_1st_U_beta_theta+tilde_var_2nd+tilde_cov_3rd_between_1st_2nd+t(tilde_cov_3rd_between_1st_2nd)
-  }
+  
   
   res
 }
