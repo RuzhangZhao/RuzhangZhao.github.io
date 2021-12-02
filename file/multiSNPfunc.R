@@ -574,6 +574,8 @@ assign(py_name, py_value, envir = py_envir)
 
 
 
+
+
 library(reticulate)
 library(glue)
 
@@ -644,7 +646,7 @@ def torchoptimLBFGSv2(UKBB_pop,theta_UKBB_GPC,study_info,colname_UKBB,var_SNP,va
         outputs = net(UKBB_pop,theta_UKBB_GPC,study_info,colname_UKBB,var_SNP,var_GPC,C_)
         penalty_val = torch.tensor(0.)
         if lam != 0:
-            penalty_val += (torch.matmul(torch.matmul(net.fc.weight,D),net.fc.weight.T)[0][0])**2*lam
+            penalty_val += (torch.matmul(torch.matmul(net.fc.weight,torch.FloatTensor(D)),net.fc.weight.T)[0][0])**2*lam
         optimizer.zero_grad() 
         loss = loss_metric(outputs)       
         loss += penalty_val
@@ -670,4 +672,5 @@ Encoding(py_name) <- "UTF-8"
 py_value <- py_main_dict[[py_name]]
 py_envir<-globalenv()
 assign(py_name, py_value, envir = py_envir) 
+
 
