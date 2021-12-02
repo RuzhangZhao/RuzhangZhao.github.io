@@ -18,7 +18,7 @@ var_ridge<-function(
   A_penalty,
   lambda){
   A_penalty_with_lambda<-A_penalty*lambda
-  dexpit_beta<-dexpit(UKBB_pop[,-1]%*%beta)
+  dexpit_beta<-dexpit(UKBB_pop[,-1]%*%as.vector(beta))
   Hessian_<-crossprod(UKBB_pop[,-1]*c(dexpit_beta),UKBB_pop[,-1])
   diag(solve(Hessian_+A_penalty_with_lambda))
 }
@@ -569,4 +569,105 @@ assign(py_name, py_value, envir = py_envir)
 
 
 
+
+
+
+
+
+library(reticulate)
+library(glue)
+
+py_run_string(glue(
+  "
+import torch
+import torch.nn as nn
+import numpy as np
+torch.set_default_tensor_type('torch.FloatTensor')
+class GMMNet(nn.Module):
+    def __init__(self,n_feature):
+        super(GMMNet, self).__init__()
+        self.fc = nn.Linear(n_feature,1)
+        self.sig = nn.Sigmoid()
+    def forward(self,UKBB_pop,theta_UKBB_GPC,study_info,colname_UKBB,var_SNP,var_GPC,C_):
+        #UKBB_pop = torch.FloatTensor(UKBB_pop)
+        #beta = torch.FloatTensor(beta)
+        e1 = self.sig(self.fc(UKBB_pop[:,1:UKBB_pop.shape[1]]))
+        e1 = e1.squeeze()
+        u1 = torch.matmul((UKBB_pop[:,0] - e1),UKBB_pop[:,1:UKBB_pop.shape[1]])
+        index_varSNP = [colname_UKBB.index(var_SNP[i]) for i in range(len(var_SNP))]
+        u2_part1 = torch.matmul(e1,UKBB_pop[:,index_varSNP])
+        if var_GPC is None:
+          index_varGPC = []
+        else:
+          index_varGPC = [colname_UKBB.index(var_GPC[i]) for i in range(len(var_GPC))]
+        
+        u2_part2 = torch.empty(len(var_SNP))
+        for snp_id in range(1,len(var_SNP)):#range(100,101):#
+
+          index_snp_id = [0]+index_varGPC+[colname_UKBB.index('SNP'+str(snp_id))]
+          u2_id = torch.matmul(UKBB_pop[:,index_snp_id],torch.FloatTensor(np.append(theta_UKBB_GPC,study_info[snp_id-1]['Coeff'])))
+          u2_part2[snp_id-1] =torch.dot(u2_id,UKBB_pop[:,colname_UKBB.index('SNP'+str(snp_id))])
+        Un = torch.cat([u1,u2_part1-u2_part2],dim=0)
+        Un = Un.squeeze()
+        hatQ = torch.matmul(Un,torch.matmul(C_,Un))
+        return hatQ/UKBB_pop.shape[0]**2
+
+
+
+def torchoptimLBFGSv2(UKBB_pop,theta_UKBB_GPC,study_info,colname_UKBB,var_SNP,var_GPC,C_,initial_val,D,lam=1,lr=1,EPOCH=10,verbose=False):
+    UKBB_pop = torch.FloatTensor(UKBB_pop)
+    net = GMMNet(UKBB_pop.shape[1]-1)
+    initial_val_tensor = torch.tensor(np.array(initial_val),dtype=torch.float)
+    initial_val_tensor = torch.nn.Parameter(initial_val_tensor.reshape(1,(UKBB_pop.shape[1]-1) ))
+    net.fc.weight = initial_val_tensor
+    net.fc.bias = torch.nn.Parameter(torch.tensor([0.]))
+    net.fc.bias.requires_grad_(False)
+    #for k in range(1,no_of_studies+1):
+    #    study_info1[str(k)] = torch.FloatTensor(np.array(study_info1[str(k)]))
+    C_ = torch.FloatTensor(np.array(C_))
+    
+    def null_loss(x):
+        return x
+
+    loss_metric = null_loss
+    ## Initialize Optimizer and Learning Rate Scheduler
+    learning_rate = lr
+    optimizer = torch.optim.LBFGS(net.parameters())    
+    ## scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=100, gamma=0.1)
+
+    loss_collect = [100]
+    count_early = 0
+    eps_early = 10**(-10)
+
+
+    def closure():
+        outputs = net(UKBB_pop,theta_UKBB_GPC,study_info,colname_UKBB,var_SNP,var_GPC,C_)
+        penalty_val = torch.tensor(0.)
+        if lam != 0:
+            penalty_val += (torch.matmul(torch.matmul(net.fc.weight,D),net.fc.weight.T)[0][0])**2*lam
+        optimizer.zero_grad() 
+        loss = loss_metric(outputs)       
+        loss += penalty_val
+        loss.backward()
+        return loss
+
+    losses = optimizer.step(closure)
+    
+    loss_collect.append(losses.item())
+               
+    return [i.item() for i in net.fc.weight.squeeze()],np.array(loss_collect[1:len(loss_collect)])
+")  
+  ,local = FALSE, convert = TRUE)
+
+
+
+# copy objects from the main python module into the specified R environment
+py_main <- import_main(convert = TRUE)
+py_main_dict <- py_get_attr(py_main, "__dict__")
+py_name<- "torchoptimLBFGSv2"
+Encoding(py_name) <- "UTF-8"
+
+py_value <- py_main_dict[[py_name]]
+py_envir<-globalenv()
+assign(py_name, py_value, envir = py_envir) 
 
