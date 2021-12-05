@@ -604,7 +604,7 @@ class GMMNet(nn.Module):
           index_varGPC = [colname_UKBB.index(var_GPC[i]) for i in range(len(var_GPC))]
         
         u2_part2 = torch.empty(len(var_SNP))
-        for snp_id in range(1,len(var_SNP)):#range(100,101):#
+        for snp_id in range(1,(len(var_SNP)+1) ):#range(100,101):#
 
           index_snp_id = [0]+index_varGPC+[colname_UKBB.index('SNP'+str(snp_id))]
           u2_id = torch.matmul(UKBB_pop[:,index_snp_id],torch.FloatTensor(np.append(theta_UKBB_GPC,study_info[snp_id-1]['Coeff'])))
