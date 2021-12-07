@@ -499,7 +499,7 @@ def torchoptimLBFGS(UKBB_pop,theta_UKBB_GPC,study_info,colname_UKBB,var_SNP,var_
     loss_metric = null_loss
     ## Initialize Optimizer and Learning Rate Scheduler
     learning_rate = lr
-    optimizer = torch.optim.LBFGS(net.parameters())    
+    optimizer = torch.optim.LBFGS(net.parameters(),max_iter=30)    
     ## scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=100, gamma=0.1)
 
     loss_collect = [100]
