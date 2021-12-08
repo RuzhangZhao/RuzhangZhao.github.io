@@ -28,6 +28,7 @@ U_func<-function(
   beta,
   theta_UKBB_GPC,
   study_info){
+  N_Pop<-nrow(UKBB_pop)
   expit_beta<-expit(UKBB_pop[,-1]%*%beta)
   u1<-crossprod((UKBB_pop[,1] -expit_beta),UKBB_pop[,-1])
   u2<-c()
@@ -46,6 +47,7 @@ dexpit<-function(x){
 grad_U_wrt_beta_func<-function(
   UKBB_pop,
   beta){
+  N_Pop<-nrow(UKBB_pop)
   dexpit_beta<-dexpit(UKBB_pop[,-1]%*%beta)
   U1_beta_gradient<-crossprod(UKBB_pop[,-1]*c(dexpit_beta),UKBB_pop[,-1])*(-1)
   U2_beta_gradient<-crossprod(UKBB_pop[,var_SNP]*c(dexpit_beta),UKBB_pop[,-1])
@@ -62,6 +64,7 @@ U3_func<-function(UKBB_pop,theta_UKBB_GPC){
 inv_grad_U3_wrt_theta1_func<-function(
   UKBB_pop,
   theta_UKBB_GPC){
+  N_Pop<-nrow(UKBB_pop)
   dexpit_PC<-dexpit(as.matrix(UKBB_pop[,c("V",var_GPC)])%*%theta_UKBB_GPC)
   mat<--(1/N_Pop)*crossprod(UKBB_pop[,c("V",var_GPC)]*c(dexpit_PC),UKBB_pop[,c("V",var_GPC)])
   #-solve(mat,tol=1e-60)
@@ -78,6 +81,7 @@ grad_U2_wrt_theta_func<-function(
   UKBB_pop,
   theta_UKBB_GPC,
   study_info){
+  N_Pop<-nrow(UKBB_pop)
   u2_theta<-sapply(1:N_SNP, function(snp_id){
     dexpit_id<-c(UKBB_pop[,paste0("SNP",snp_id)])*c(dexpit(UKBB_pop[,c("V",var_GPC,paste0("SNP",snp_id))]%*%c(theta_UKBB_GPC,study_info[[snp_id]]$Coeff)))
     u2id_theta1_gradient<-dexpit_id%*%UKBB_pop[,c("V",var_GPC)]
@@ -95,6 +99,7 @@ var_U_beta_theta_func<-function(
   beta,
   theta_UKBB_GPC,
   study_info){
+  N_Pop<-nrow(UKBB_pop)
   expit_beta<-expit(UKBB_pop[,-1]%*%beta)
   var_11<-crossprod(UKBB_pop[,-1]*c(UKBB_pop[,1]-expit_beta),UKBB_pop[,-1]*c(UKBB_pop[,1]-expit_beta))
   u2_theta_coef<-sapply(1:N_SNP, function(snp_id){
@@ -110,6 +115,7 @@ var_theta1_hat_func<-function(
   UKBB_pop,
   theta_UKBB_GPC,
   study_info){
+  N_Pop<-nrow(UKBB_pop)
   expit_PC<-expit(as.matrix(UKBB_pop[,c("V",var_GPC)])%*%theta_UKBB_GPC)
   mat_inside<-(1/N_Pop)*crossprod(c(UKBB_pop[,"Y"]-expit_PC)*UKBB_pop[,c("V",var_GPC)],c(UKBB_pop[,"Y"]-expit_PC)*UKBB_pop[,c("V",var_GPC)])
   mat_outside<-inv_grad_U3_wrt_theta1_func(
@@ -128,6 +134,7 @@ cov_U_with_theta_hat_func<-function(
   beta,
   theta_UKBB_GPC,
   study_info){
+  N_Pop<-nrow(UKBB_pop)
   expit_beta<-expit(UKBB_pop[,-1]%*%beta)
   expit_PC<-expit(as.matrix(UKBB_pop[,c("V",var_GPC)])%*%theta_UKBB_GPC)
   cov_U1_theta_hat<-(1/N_Pop)*crossprod(UKBB_pop[,-1]*c(UKBB_pop[,1]-expit_beta),UKBB_pop[,c("V",var_GPC)]*c(UKBB_pop[,1]-expit_PC))
@@ -146,7 +153,7 @@ final_var_U_beta_theta_hat_func<-function(
   study_info,
   len_U1,
   len_theta){
-  
+  N_Pop<-nrow(UKBB_pop)
   var_1st_U_beta_theta<-var_U_beta_theta_func(
     UKBB_pop=UKBB_pop,
     theta_UKBB_GPC = theta_UKBB_GPC,
@@ -187,6 +194,7 @@ utcu<-function(beta,C,lambda,A_penalty){
 }
 
 gradient_utcu<-function(beta,C_current){
+  N_Pop<-nrow(UKBB_pop)
   u<-U_func(UKBB_pop,beta,theta_UKBB_GPC,study_info)
   R_mat<-as.matrix(UKBB_pop[,-1])
   # R = [1,Z,X] includes "V" as intercept,
@@ -209,6 +217,7 @@ gradient_utcu<-function(beta,C_current){
 }
 
 Hessian_utcu<-function(beta,C_current){
+  N_Pop<-nrow(UKBB_pop)
   u<-U_func(UKBB_pop,beta,theta_UKBB_GPC,study_info)
   R_mat<-as.matrix(UKBB_pop[,-1])
   # R = [1,Z,X] includes "V" as intercept,
@@ -254,6 +263,7 @@ tilde_final_var_func<-function(
   len_theta,
   A_penalty,
   lambda){
+  N_Pop<-nrow(UKBB_pop)
   A_penalty_with_lambda<-A_penalty*lambda
   tilde_U_beta_gradient<-grad_U_wrt_beta_func(UKBB_pop = UKBB_pop,beta = c(beta))
   
