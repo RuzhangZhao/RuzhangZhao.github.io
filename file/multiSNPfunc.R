@@ -34,7 +34,7 @@ U_func<-function(
   u2<-c()
   u2_part1<-c(expit_beta)%*%UKBB_pop[,var_SNP]
   u2_part2<-sapply(1:N_SNP, function(snp_id){
-    u2_id<-UKBB_pop[,c("V",var_GPC,paste0("SNP",snp_id))]%*%c(theta_UKBB_GPC,study_info[[snp_id]]$Coeff)
+    u2_id<-expit(UKBB_pop[,c("V",var_GPC,paste0("SNP",snp_id))]%*%c(theta_UKBB_GPC,study_info[[snp_id]]$Coeff))
     c(c(u2_id)%*%UKBB_pop[,paste0("SNP",snp_id)])
   })
   u2<-u2_part1 - u2_part2
