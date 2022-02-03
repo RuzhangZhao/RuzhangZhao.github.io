@@ -483,6 +483,7 @@ class GMMNet(nn.Module):
 
           index_snp_id = [0]+index_varGPC+[colname_UKBB.index('SNP'+str(snp_id))]
           u2_id = torch.matmul(UKBB_pop[:,index_snp_id],torch.FloatTensor(np.append(theta_UKBB_GPC,study_info[snp_id-1]['Coeff'])))
+          u2_id = self.sig(u2_id)
           u2_part2[snp_id-1] =torch.dot(u2_id,UKBB_pop[:,colname_UKBB.index('SNP'+str(snp_id))])
         Un = torch.cat([u1,u2_part1-u2_part2],dim=0)
         Un = Un.squeeze()
