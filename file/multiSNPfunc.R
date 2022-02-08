@@ -254,6 +254,7 @@ Hessian_utcu<-function(beta,C_current){
   # where N is sample size
   H
 }
+
 tilde_final_var_func<-function(
   UKBB_pop,
   beta,
