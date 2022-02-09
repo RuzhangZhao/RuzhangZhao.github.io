@@ -11,6 +11,72 @@ library(stringr)
 library(glmnet)
 library(PRROC)
 library(ROCR)
+##################### simulation functions 
+
+autocorr.mat <- function(p = 10, rho = 0.8) {
+  mat <- diag(p)
+  return(rho^abs(row(mat)-col(mat)))
+}
+changequantile<-function(a,p_list){
+  b<-a
+  N<-dim(a)[2]
+  for( i in 1:N){
+    p<-p_list[i]
+    b[a[,i]<quantile(a[,i], p^2),i]<-0
+    b[a[,i]>=quantile(a[,i], p^2)&a[,i]<quantile(a[,i], p^2+2*p*(1-p)),i]<-1
+    b[a[,i]>=quantile(a[,i],p^2+2*p*(1-p)),i]<-2
+  }
+  b
+}
+
+generate_phenotype<-function(N_SNP,N_Pop,p_list,coef_SNP,seed.use){
+  set.seed(seed.use)
+  # The varaince covariance structure is with block. 
+  # Each 10 SNPs form a block.
+  block_size = 10
+  Sigma_small<-autocorr.mat(block_size,rho)
+  
+  N_block<-N_SNP/block_size
+  Sigma_list<-list()
+  for(i in 1:N_block){
+    Sigma_list[[i]]<-Sigma_small
+  }
+  Sigma<-Reduce(magic::adiag,Sigma_list)
+  
+  a<-mvtnorm::rmvnorm(N_Pop,sigma = Sigma)
+  ## Change the continous values generated from 
+  # normal distribution to 0,1,2
+  
+  SNP_Pop_matrix<-changequantile(a,p_list)
+  SNP_Pop_matrix_or<-SNP_Pop_matrix
+  SNP_Pop_matrix<-t(t(SNP_Pop_matrix)-colMeans(SNP_Pop_matrix)) # this one is scaled with mean 0
+  #SNP_Pop_matrix1<-scale(SNP_Pop_matrix)
+  colnames(SNP_Pop_matrix)<-paste0("SNP",1:ncol(SNP_Pop_matrix))
+  #rm(pheno_list)
+  genetic_var<-c(coef_SNP^2%*%Rfast::colVars(SNP_Pop_matrix))
+  print(paste0("genetic variance: ",round(genetic_var,5) ))
+  
+  
+  Phenotype_logitp<-SNP_Pop_matrix%*%coef_SNP + intercept
+  Phenotype_p<-1/(1+exp(-Phenotype_logitp ))
+  print(max(Phenotype_logitp))
+  print(min(Phenotype_logitp))
+  #set.seed(seed.use)
+  Phenotype<-rbinom(N_Pop, size=1, Phenotype_p) 
+  sum(Phenotype_p)
+  newList<-list("SNP_Pop_matrix_original" = SNP_Pop_matrix_or,
+    "SNP_Pop_matrix" = SNP_Pop_matrix,
+    "Phenotype_logitp" = Phenotype_logitp,
+    "Phenotype_p" = Phenotype_p,
+    "Phenotype" = Phenotype)
+  return(newList)
+}
+
+
+
+
+
+
 # compute the variance of ridge regression
 var_ridge<-function(
   UKBB_pop,
