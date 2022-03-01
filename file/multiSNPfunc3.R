@@ -111,7 +111,7 @@ def torchoptimLBFGS(UKBB_pop,theta_UKBB_GPC,study_info,colname_UKBB,var_SNP,var_
         penalty_val = torch.tensor(0.)
         if lam != 0:
             pen_loc = np.where(np.diag(D)[1:D.shape[0]]==1)[0]
-            penalty_val += (torch.norm(net.fc.weight[0,pen_loc]),p=1)*lam
+            penalty_val += (torch.norm(net.fc.weight[0,pen_loc],p=1))*lam
         print('Final Loss: '+str((outputs+penalty_val).item()), flush = True)
     if isinstance(theta_UKBB_GPC,float):
       e10 =  [theta_UKBB_GPC]
