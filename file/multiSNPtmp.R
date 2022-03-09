@@ -248,4 +248,21 @@ cur_iter<-1
   print(paste0("COJOJMA: len:",length(cojo_pos),", true select:",sum(cojo_pos%in%Nonnull_index_filter_less)))
   
   
+  library(expm)
+  var_SNP<-paste0("SNP",1:(N_SNP))
+  len_SNP<-length(var_SNP)
+  var_GPC<-NULL
+  len_GPC<-length(var_GPC)
+  var_nonSNP<-c(var_GPC)
+  len_nonSNP<-length(var_nonSNP)
+  var_names_full_fit <- c(var_SNP,var_nonSNP)
+  colname_UKBB<-colnames(UKBB_pop_all)
+  len_U1 = len_SNP+len_nonSNP
+  len_U2 = len_SNP
+  len_beta = len_U1
+  len_theta = len_SNP+len_GPC
+  len_U = len_U1 + len_U2
+  N_Pop<-nrow(UKBB_pop_all)
+  
+  
   
