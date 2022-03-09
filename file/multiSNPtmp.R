@@ -1,3 +1,4 @@
+
 print(paste0('last update time:',Sys.time()))
 
 #Nonnull_index<-c(2,130,173)
@@ -36,7 +37,7 @@ library(locfit)
 library(bigmemory)
 library(stringr)
 
-
+if(1){
 library(MultiPhen)
 region_name<-"T2D_FTO2"
 # load whole SNP data
@@ -137,12 +138,12 @@ filter_SNP_vec<-sort(filter_SNP_vec)
 ######## Whether Shrinkage########
 
 ref<-ref[,filter_SNP_vec]
-
+}
 N_SNP<-ncol(ref)
 filter_SNP_vec<-1:N_SNP
 Nonnull_index_filter_less<-Nonnull_index
 
-coef_nonnull<-log(1.25)
+coef_nonnull<-log(1.05)
 coef_SNP<-rep(0,ncol(ref))
 coef_SNP[Nonnull_index]<-coef_nonnull
 coef_SNP[Nonnull_index]<-coef_SNP[Nonnull_index]*c(1,1,1)
