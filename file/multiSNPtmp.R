@@ -1,5 +1,5 @@
 
-print("day")
+print("day2")
 
 #Nonnull_index<-c(2,130,173)
 Nonnull_index<-c(2,130,192)
@@ -152,9 +152,8 @@ intercept<- -2
 EAF<-colsums(ref)/nrow(ref)/2
 EAF[Nonnull_index]
 cur_iter<-1
-  set.seed(cur_iter)
   cur_iter<-plus_number+cur_iter
-  
+  set.seed(cur_iter)
   SNP_Pop_matrix<-ref
   SNP_Pop_matrix<-t(t(SNP_Pop_matrix)-colMeans(SNP_Pop_matrix)) 
   genetic_var<-c(coef_SNP^2%*%Rfast::colVars(SNP_Pop_matrix))
