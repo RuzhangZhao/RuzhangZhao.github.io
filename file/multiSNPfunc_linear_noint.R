@@ -119,5 +119,3 @@ final_var_U_beta_theta_hat_func<-function(
   res<-(var_1st_U_beta_theta+var_2nd_grad_times_theta_hat)
   res
 }
-
-
