@@ -143,7 +143,7 @@ N_SNP<-ncol(ref)
 filter_SNP_vec<-1:N_SNP
 Nonnull_index_filter_less<-Nonnull_index
 
-coef_nonnull<-log(1.05)
+coef_nonnull<-log(1.25)
 coef_SNP<-rep(0,ncol(ref))
 coef_SNP[Nonnull_index]<-coef_nonnull
 coef_SNP[Nonnull_index]<-coef_SNP[Nonnull_index]*c(1,1,1)
