@@ -1,5 +1,5 @@
 
-print("coco cola")
+print("day")
 
 #Nonnull_index<-c(2,130,173)
 Nonnull_index<-c(2,130,192)
@@ -63,7 +63,7 @@ cor_ref<-readRDS(paste0(foldpath,"cor_ref_FTO.rds"))
 #library(ComplexHeatmap)
 #Heatmap(cor_ref)
 cor_ref_cutoff<-cor_ref
-cor_ref_cutoff[which(cor_ref_cutoff<0.95)]<-0
+cor_ref_cutoff[which(cor_ref_cutoff<0.99)]<-0
 
 library(ggplot2)
 
