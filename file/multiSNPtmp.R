@@ -1,5 +1,12 @@
 print(paste0('last update time:',Sys.time()))
 
+#Nonnull_index<-c(2,130,173)
+Nonnull_index<-c(2,130,192)
+#Nonnull_index<-c(139,151,211)
+#Nonnull_index<-c(25,83,196)
+#Nonnull_index<-c(151,139,103)
+Nonnull_index<-c(151)
+
 library(inline)
 library(data.table)
 library(dplyr)
@@ -130,14 +137,6 @@ filter_SNP_vec<-sort(filter_SNP_vec)
 ######## Whether Shrinkage########
 
 ref<-ref[,filter_SNP_vec]
-#Nonnull_index<-c(2,130,173)
-Nonnull_index<-c(2,130,192)
-#Nonnull_index<-c(139,151,211)
-#Nonnull_index<-c(25,83,196)
-Nonnull_index<-sample(1:254,3)
-
-
-#Nonnull_index<-sample(1:ncol(ref),3)
 
 N_SNP<-ncol(ref)
 filter_SNP_vec<-1:N_SNP
@@ -229,7 +228,7 @@ cur_iter<-1
     bim =  bim_sample))
   
   readr::write_tsv(ma_file,paste0(foldpath,"ukbb_pop_",cur_iter,".ma"))
-  aaa<-system(paste0("gcta64  --bfile ",foldpath,"ukbb_pop_",cur_iter," --cojo-file ",foldpath,"ukbb_pop_", cur_iter,".ma --cojo-slct --cojo-p 1e-4 --out ",foldpath,"test_",cur_iter),intern = TRUE)
+  aaa<-system(paste0("gcta64  --bfile ",foldpath,"ukbb_pop_",cur_iter," --cojo-file ",foldpath,"ukbb_pop_", cur_iter,".ma --cojo-slct --cojo-p 1e-5 --out ",foldpath,"test_",cur_iter),intern = TRUE)
   
   cojo_jma<-read.table(paste0(foldpath,"test_",cur_iter,".jma.cojo"),header = T)    
   
@@ -248,14 +247,14 @@ cur_iter<-1
   print(paste0("COJOJMA: len:",length(cojo_pos),", true select:",sum(cojo_pos%in%Nonnull_index_filter_less)))
   
 
-  .<-capture.output(file.remove(paste0("tmp/test_",cur_iter,".cma.cojo")))
-  .<-capture.output(file.remove(paste0("tmp/test_",cur_iter,".jma.cojo")))
-  .<-capture.output(file.remove(paste0("tmp/test_",cur_iter,".ldr.cojo")))
-  .<-capture.output(file.remove(paste0("tmp/test_",cur_iter,".log")))
-  .<-capture.output(file.remove(paste0("tmp/ukbb_pop_",cur_iter,".ma")))
-  .<-capture.output(file.remove(paste0("tmp/ukbb_pop_",cur_iter,".bim")))
-  .<-capture.output(file.remove(paste0("tmp/ukbb_pop_",cur_iter,".bed")))
-  .<-capture.output(file.remove(paste0("tmp/ukbb_pop_",cur_iter,".fam")))
+  .<-capture.output(file.remove(paste0(foldpath,"test_",cur_iter,".cma.cojo")))
+  .<-capture.output(file.remove(paste0(foldpath,"test_",cur_iter,".jma.cojo")))
+  .<-capture.output(file.remove(paste0(foldpath,"test_",cur_iter,".ldr.cojo")))
+  .<-capture.output(file.remove(paste0(foldpath,"test_",cur_iter,".log")))
+  .<-capture.output(file.remove(paste0(foldpath,"ukbb_pop_",cur_iter,".ma")))
+  .<-capture.output(file.remove(paste0(foldpath,"ukbb_pop_",cur_iter,".bim")))
+  .<-capture.output(file.remove(paste0(foldpath,"ukbb_pop_",cur_iter,".bed")))
+  .<-capture.output(file.remove(paste0(foldpath,"ukbb_pop_",cur_iter,".fam")))
   
   
   
