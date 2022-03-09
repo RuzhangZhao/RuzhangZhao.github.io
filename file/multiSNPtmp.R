@@ -1,12 +1,11 @@
 
-print("day2")
+print("elephant")
 
 #Nonnull_index<-c(2,130,173)
 Nonnull_index<-c(2,130,192)
 #Nonnull_index<-c(139,151,211)
 #Nonnull_index<-c(25,83,196)
 #Nonnull_index<-c(151,139,103)
-Nonnull_index<-c(211)
 
 library(inline)
 library(data.table)
@@ -63,7 +62,7 @@ cor_ref<-readRDS(paste0(foldpath,"cor_ref_FTO.rds"))
 #library(ComplexHeatmap)
 #Heatmap(cor_ref)
 cor_ref_cutoff<-cor_ref
-cor_ref_cutoff[which(cor_ref_cutoff<0.99)]<-0
+cor_ref_cutoff[which(cor_ref_cutoff<1.1)]<-0
 
 library(ggplot2)
 
@@ -152,8 +151,9 @@ intercept<- -2
 EAF<-colsums(ref)/nrow(ref)/2
 EAF[Nonnull_index]
 cur_iter<-1
-  cur_iter<-plus_number+cur_iter
   set.seed(cur_iter)
+  cur_iter<-plus_number+cur_iter
+  
   SNP_Pop_matrix<-ref
   SNP_Pop_matrix<-t(t(SNP_Pop_matrix)-colMeans(SNP_Pop_matrix)) 
   genetic_var<-c(coef_SNP^2%*%Rfast::colVars(SNP_Pop_matrix))
