@@ -1,12 +1,12 @@
 
-print("banana")
+print("cola")
 
 #Nonnull_index<-c(2,130,173)
 Nonnull_index<-c(2,130,192)
 #Nonnull_index<-c(139,151,211)
 #Nonnull_index<-c(25,83,196)
 #Nonnull_index<-c(151,139,103)
-Nonnull_index<-c(151)
+Nonnull_index<-c(211)
 
 library(inline)
 library(data.table)
