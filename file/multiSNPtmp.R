@@ -1,4 +1,4 @@
-final_list<-list()
+print(paste0('last update time:',Sys.time()))
 
 library(inline)
 library(data.table)
@@ -134,7 +134,7 @@ ref<-ref[,filter_SNP_vec]
 Nonnull_index<-c(2,130,192)
 #Nonnull_index<-c(139,151,211)
 #Nonnull_index<-c(25,83,196)
-
+Nonnull_index<-sample(1:254,3)
 
 
 #Nonnull_index<-sample(1:ncol(ref),3)
@@ -229,7 +229,7 @@ cur_iter<-1
     bim =  bim_sample))
   
   readr::write_tsv(ma_file,paste0(foldpath,"ukbb_pop_",cur_iter,".ma"))
-  aaa<-system(paste0("gcta64  --bfile ",foldpath,"ukbb_pop_",cur_iter," --cojo-file ",foldpath,"ukbb_pop_", cur_iter,".ma --cojo-slct --cojo-p 1e-5 --out ",foldpath,"test_",cur_iter),intern = TRUE)
+  aaa<-system(paste0("gcta64  --bfile ",foldpath,"ukbb_pop_",cur_iter," --cojo-file ",foldpath,"ukbb_pop_", cur_iter,".ma --cojo-slct --cojo-p 1e-4 --out ",foldpath,"test_",cur_iter),intern = TRUE)
   
   cojo_jma<-read.table(paste0(foldpath,"test_",cur_iter,".jma.cojo"),header = T)    
   
@@ -247,6 +247,50 @@ cur_iter<-1
   
   print(paste0("COJOJMA: len:",length(cojo_pos),", true select:",sum(cojo_pos%in%Nonnull_index_filter_less)))
   
+
+  .<-capture.output(file.remove(paste0("tmp/test_",cur_iter,".cma.cojo")))
+  .<-capture.output(file.remove(paste0("tmp/test_",cur_iter,".jma.cojo")))
+  .<-capture.output(file.remove(paste0("tmp/test_",cur_iter,".ldr.cojo")))
+  .<-capture.output(file.remove(paste0("tmp/test_",cur_iter,".log")))
+  .<-capture.output(file.remove(paste0("tmp/ukbb_pop_",cur_iter,".ma")))
+  .<-capture.output(file.remove(paste0("tmp/ukbb_pop_",cur_iter,".bim")))
+  .<-capture.output(file.remove(paste0("tmp/ukbb_pop_",cur_iter,".bed")))
+  .<-capture.output(file.remove(paste0("tmp/ukbb_pop_",cur_iter,".fam")))
+  
+  
+  
+  ########################################################
+  #######  study_info_scaled
+  ########################################################
+  
+  study_info<-lapply(1:nrow(gwas_res), function(i){
+    study.m = list(Coeff=gwas_res$BETA[i],Covariance=gwas_res$SE[i]^2,Sample_size=gwas_res$OBS_CT[i])
+    study.m
+  })
+  study_info_scaled<-study_info
+  
+  for(i in 1:length(study_info)){
+    cur_p<-EAF[i]
+    a<-sqrt(2*cur_p*(1-cur_p))
+    study_info_scaled[[i]]$Coeff<-study_info_scaled[[i]]$Coeff*a
+    study_info_scaled[[i]]$Covariance<-study_info_scaled[[i]]$Covariance*a^2
+  }
+  
+  SNP_names<-bim_sample$id
+  colnames(ref_sample)<-paste0('SNP',1:length(SNP_names))
+  pheno_covariates_sp<-Phenotype[index1]
+  
+  UKBB_pop_all<-data.frame(Phenotype=scale(pheno_covariates_sp),scale(ref_sample))
+  # The first column is phenotype:"Y"
+  colnames(UKBB_pop_all)[1]<-"Y"
+  # V is the intercept term
+  #UKBB_pop_all$V<-1
+  #UKBB_pop_all<-UKBB_pop_all[,c(1,ncol(UKBB_pop_all),2:(ncol(UKBB_pop_all)-1))]
+  UKBB_pop_all<-as.matrix(UKBB_pop_all)
+  
+  if(is.null(colnames(UKBB_pop_all)[1])){
+    stop("The column name of UKBB matrix should be clear.(Which one is SNP/GPC/risk factor")
+  }
   
   library(expm)
   var_SNP<-paste0("SNP",1:(N_SNP))
