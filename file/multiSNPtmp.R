@@ -1,5 +1,5 @@
 
-print("elephant")
+print("elephant2")
 
 #Nonnull_index<-c(2,130,173)
 Nonnull_index<-c(2,130,192)
@@ -7,7 +7,7 @@ Nonnull_index<-c(2,130,192)
 #Nonnull_index<-c(25,83,196)
 #Nonnull_index<-c(151,139,103)
 #Nonnull_index<-sample(1:254,3)
-Nonnull_index<-c(11,115,227)
+Nonnull_index<-c(11,115,227)#
 library(inline)
 library(data.table)
 library(dplyr)
@@ -63,7 +63,7 @@ cor_ref<-readRDS(paste0(foldpath,"cor_ref_FTO.rds"))
 #library(ComplexHeatmap)
 #Heatmap(cor_ref)
 cor_ref_cutoff<-cor_ref
-cor_ref_cutoff[which(cor_ref_cutoff<1)]<-0
+cor_ref_cutoff[which(cor_ref_cutoff<.95)]<-0
 
 library(ggplot2)
 
