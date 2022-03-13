@@ -1,5 +1,5 @@
 
-print("JSchongchongchongbisheng")
+print("JS")
 
 #Nonnull_index<-c(2,130,173)
 Nonnull_index<-c(2,130,192)
@@ -134,7 +134,7 @@ N_SNP<-ncol(ref)
 filter_SNP_vec<-1:N_SNP
 Nonnull_index_filter_less<-Nonnull_index
 
-coef_nonnull<-log(1.2)
+coef_nonnull<-log(1.25)
 coef_SNP<-rep(0,ncol(ref))
 coef_SNP[Nonnull_index]<-coef_nonnull
 coef_SNP[Nonnull_index]<-coef_SNP[Nonnull_index]*c(1,1,1)
@@ -315,12 +315,12 @@ cur_iter<-1
   
   
   lambda_initial<-aa$lambda.min*nrow(xtilde1)
-  beta_initial = as.numeric(coef(aa, s = "lambda.min"))[-1]
-  which(beta_initial!=0)
-  beta_initial[which(beta_initial!=0)]
+  beta_initial = as.numeric(coef(aa, s = "lambda.min",exact =T))[-1]
+  #which(beta_initial!=0)
+  #beta_initial[which(beta_initial!=0)]
   sigma_est<-estimateSigma(x= (xtilde1),y= (ytilde1),intercept=F,standardize = F)
   #out = fixedLassoInf(x=(pseudo_X),y= (pseudo_y),beta_initial,lambda_initial,sigma = sigma_est$sigmahat)
-  out = fixedLassoInf(x= (xtilde1),y= (ytilde1),beta_initial,lambda_initial,intercept=F,tol.beta = 1e-5,sigma = sigma_est$sigmahat)
+  out = fixedLassoInf(x= (xtilde1),y= (ytilde1),beta_initial,lambda_initial,intercept=F,tol.beta = 1e-4,sigma = sigma_est$sigmahat)
   lasgw_pos<-out$vars[which(out$pv<0.05/length(out$vars))]
   
   print(paste0("Only GWAS: len:",length(lasgw_pos),", true select:",sum(lasgw_pos%in%Nonnull_index_filter_less)))
