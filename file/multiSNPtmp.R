@@ -1,5 +1,5 @@
 
-print("JSchong")
+print("JSchongchongchongbisheng")
 
 #Nonnull_index<-c(2,130,173)
 Nonnull_index<-c(2,130,192)
@@ -8,37 +8,28 @@ Nonnull_index<-c(2,130,192)
 #Nonnull_index<-c(151,139,103)
 #Nonnull_index<-sample(1:254,3)
 Nonnull_index<-c(11,115,227)#
-library(inline)
-library(data.table)
-library(dplyr)
-library(speedglm)
-library(Rfast)
-library(feather)
-library(locfit)
-library(bigmemory)
-library(stringr)
+library(inline,quietly = T)
+library(data.table,quietly = T)
+library(dplyr,quietly = T)
+#library(speedglm,quietly = T)
+library(Rfast,quietly = T)
+#library(feather,quietly = T)
+library(locfit,quietly = T)
+library(stringr,quietly = T)
+library(selectiveInference,quietly = T)
 plus_number<-sample(1:1e4,1)
 foldpath<-"/dcl01/chatterj/data/rzhao/T2D_UKBB/"
 
-library(MultiPhen)
+library(MultiPhen,quietly = T)
 #region_name<-"T2D_FTO"
-
-library(pracma)
-library(Matrix)
-library(genio)
-library(glmnet)
-library(inline)
-library(data.table)
-library(dplyr)
-library(speedglm)
-library(Rfast)
-library(feather)
-library(locfit)
-library(bigmemory)
-library(stringr)
+library(ggplot2,quietly = T)
+library(pracma,quietly = T)
+library(Matrix,quietly = T)
+library(genio,quietly = T)
+library(glmnet,quietly = T)
 
 if(1){
-library(MultiPhen)
+
 region_name<-"T2D_FTO2"
 # load whole SNP data
 .<-capture.output(ref<-read.plink(paste0(foldpath,region_name)))
@@ -65,7 +56,7 @@ cor_ref<-readRDS(paste0(foldpath,"cor_ref_FTO.rds"))
 cor_ref_cutoff<-cor_ref
 cor_ref_cutoff[which(cor_ref_cutoff<.95)]<-0
 
-library(ggplot2)
+
 
 ## Get the filter version of some SNPs
 
@@ -187,7 +178,6 @@ cur_iter<-1
   fam_ref<-fam
   fam_ref<-fam_ref[-index1,]
   colnames(fam_ref)<-c("fam", "id", "pat", "mat", "sex", "pheno")
-  library(genio)
   write_plink(paste0("/dcl01/chatterj/data/rzhao/T2D_UKBB/sim_GWAS/ukbb_pop_all",cur_iter),as.matrix(t(ref)),
     bim =  bim_ref,fam = fam_ref)
   
@@ -213,7 +203,6 @@ cur_iter<-1
   .<-capture.output(file.remove(paste0(sim_GWAS_path,"GWAS_T2D_FTO_",cur_iter,".log")))
   
   ## COJO
-  library(genio)
   
   ma_file<- data.frame(SNP=gwas_res$ID,
     A1=bim_ref$ref,A2=bim_ref$alt,
@@ -221,7 +210,6 @@ cur_iter<-1
     se=gwas_res$SE,p=gwas_res$P,
     N=nrow(ref))
   
-  library(genio)
   bim_sample<-bim_ref
   colnames(ref_sample)<-bim_sample$id
   
@@ -292,7 +280,6 @@ cur_iter<-1
     stop("The column name of UKBB matrix should be clear.(Which one is SNP/GPC/risk factor")
   }
   
-  library(expm)
   var_SNP<-paste0("SNP",1:(N_SNP))
   len_SNP<-length(var_SNP)
   var_GPC<-NULL
@@ -331,7 +318,6 @@ cur_iter<-1
   beta_initial = as.numeric(coef(aa, s = "lambda.min"))[-1]
   which(beta_initial!=0)
   beta_initial[which(beta_initial!=0)]
-  library(selectiveInference)
   sigma_est<-estimateSigma(x= (xtilde1),y= (ytilde1),intercept=F,standardize = F)
   #out = fixedLassoInf(x=(pseudo_X),y= (pseudo_y),beta_initial,lambda_initial,sigma = sigma_est$sigmahat)
   out = fixedLassoInf(x= (xtilde1),y= (ytilde1),beta_initial,lambda_initial,intercept=F,tol.beta = 1e-5,sigma = sigma_est$sigmahat)
@@ -344,7 +330,6 @@ cur_iter<-1
   lambda_initial2<-UKBB_full_fit2$lambda.min*nrow(UKBB_pop_all)
   beta_initial2 = as.numeric(coef(UKBB_full_fit2, s = "lambda.min"))[-1]
   #which(beta_initial2!=0)
-  library(selectiveInference)
   out2 = fixedLassoInf(x=UKBB_pop_all[,var_names_full_fit],y=UKBB_pop_all[,"Y"],beta_initial2,lambda_initial2)
   print("individual level data prediction")
   lasso_pos<-out2$vars[which(out2$pv<0.05/length(out2$vars))]
