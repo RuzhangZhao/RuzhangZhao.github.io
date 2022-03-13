@@ -1,5 +1,5 @@
 
-print("elephant11")
+print("JSchong")
 
 #Nonnull_index<-c(2,130,173)
 Nonnull_index<-c(2,130,192)
@@ -63,7 +63,7 @@ cor_ref<-readRDS(paste0(foldpath,"cor_ref_FTO.rds"))
 #library(ComplexHeatmap)
 #Heatmap(cor_ref)
 cor_ref_cutoff<-cor_ref
-cor_ref_cutoff[which(cor_ref_cutoff<.99)]<-0
+cor_ref_cutoff[which(cor_ref_cutoff<.95)]<-0
 
 library(ggplot2)
 
@@ -280,7 +280,7 @@ cur_iter<-1
   colnames(ref_sample)<-paste0('SNP',1:length(SNP_names))
   pheno_covariates_sp<-Phenotype[index1]
   
-  UKBB_pop_all<-data.frame(Phenotype=scale(pheno_covariates_sp),scale(ref_sample))
+  UKBB_pop_all<-data.frame(Phenotype=scale(pheno_covariates_sp,scale = F),scale(ref_sample,scale = F))
   # The first column is phenotype:"Y"
   colnames(UKBB_pop_all)[1]<-"Y"
   # V is the intercept term
@@ -308,5 +308,47 @@ cur_iter<-1
   len_U = len_U1 + len_U2
   N_Pop<-nrow(UKBB_pop_all)
   
+  
+  xtilde<-t(UKBB_pop_all[,-1])%*%UKBB_pop_all[,-1]
+  ytilde<-sapply(1:N_SNP, function(snp_id){
+    u2_id<-UKBB_pop_all[,c(paste0("SNP",snp_id))]*(study_info[[snp_id]]$Coeff)
+    c(c(u2_id)%*%UKBB_pop_all[,paste0("SNP",snp_id)])
+  })
+  
+  C_half<-diag(sapply(1:N_SNP,function(i){
+    1/sqrt(study_info[[i]]$Covariance)/c(UKBB_pop_all[,c(paste0("SNP",i))]%*%UKBB_pop_all[,c(paste0("SNP",i))])
+  }))
+  
+  xtilde1<-C_half%*%xtilde
+  ytilde1<-c(C_half%*%ytilde)
+  #xtilde1<-xtilde
+  #ytilde1<-c(ytilde)
+  
+  aa<-cv.glmnet(xtilde1,ytilde1,intercept=F,standardize=F)
+  
+  
+  lambda_initial<-aa$lambda.min*nrow(xtilde1)
+  beta_initial = as.numeric(coef(aa, s = "lambda.min"))[-1]
+  which(beta_initial!=0)
+  beta_initial[which(beta_initial!=0)]
+  library(selectiveInference)
+  sigma_est<-estimateSigma(x= (xtilde1),y= (ytilde1),intercept=F,standardize = F)
+  #out = fixedLassoInf(x=(pseudo_X),y= (pseudo_y),beta_initial,lambda_initial,sigma = sigma_est$sigmahat)
+  out = fixedLassoInf(x= (xtilde1),y= (ytilde1),beta_initial,lambda_initial,intercept=F,tol.beta = 1e-5,sigma = sigma_est$sigmahat)
+  lasgw_pos<-out$vars[which(out$pv<0.05/length(out$vars))]
+  
+  print(paste0("Only GWAS: len:",length(lasgw_pos),", true select:",sum(lasgw_pos%in%Nonnull_index_filter_less)))
+  
+  
+  UKBB_full_fit2 <-cv.glmnet(x=UKBB_pop_all[,var_names_full_fit],y=UKBB_pop_all[,"Y"])
+  lambda_initial2<-UKBB_full_fit2$lambda.min*nrow(UKBB_pop_all)
+  beta_initial2 = as.numeric(coef(UKBB_full_fit2, s = "lambda.min"))[-1]
+  #which(beta_initial2!=0)
+  library(selectiveInference)
+  out2 = fixedLassoInf(x=UKBB_pop_all[,var_names_full_fit],y=UKBB_pop_all[,"Y"],beta_initial2,lambda_initial2)
+  print("individual level data prediction")
+  lasso_pos<-out2$vars[which(out2$pv<0.05/length(out2$vars))]
+  
+  print(paste0("Only GWAS: len:",length(lasso_pos),", true select:",sum(lasso_pos%in%Nonnull_index_filter_less)))
   
   
