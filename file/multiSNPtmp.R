@@ -1,5 +1,5 @@
 
-print("JS")
+print("JSgo")
 
 #Nonnull_index<-c(2,130,173)
 Nonnull_index<-c(2,130,192)
@@ -318,11 +318,18 @@ cur_iter<-1
   beta_initial = as.numeric(coef(aa, s = "lambda.min",exact =T))[-1]
   #which(beta_initial!=0)
   #beta_initial[which(beta_initial!=0)]
-  sigma_est<-estimateSigma(x= (xtilde1),y= (ytilde1),intercept=F,standardize = F)
+  #sigma_est<-estimateSigma(x= (xtilde1),y= (ytilde1),intercept=F,standardize = F)
   #out = fixedLassoInf(x=(pseudo_X),y= (pseudo_y),beta_initial,lambda_initial,sigma = sigma_est$sigmahat)
-  out = fixedLassoInf(x= (xtilde1),y= (ytilde1),beta_initial,lambda_initial,intercept=F,tol.beta = 1e-4,sigma = sigma_est$sigmahat)
-  lasgw_pos<-out$vars[which(out$pv<0.05/length(out$vars))]
+  #out = fixedLassoInf(x= (xtilde1),y= (ytilde1),beta_initial,lambda_initial,intercept=F,tol.beta = 1e-4,sigma = sigma_est$sigmahat)
+  #lasgw_pos<-out$vars[which(out$pv<0.05/length(out$vars))]
   
+  y_hat<-c(xtilde1%*%(beta_initial))
+  sig<-sum((ytilde1-y_hat)^2)/(nrow(UKBB_pop_all) - sum(beta_initial!=0)-1)
+  xtxinv<-diag(solve(t(xtilde1)%*%xtilde1))*sig
+  
+  aa_final<-1-pchisq(beta_initial^2/xtxinv,1)
+  xx_final<-which(aa_final<.05/sum(beta_initial!=0))
+  lasgw_pos<-xx_final
   print(paste0("Only GWAS: len:",length(lasgw_pos),", true select:",sum(lasgw_pos%in%Nonnull_index_filter_less)))
   
   
