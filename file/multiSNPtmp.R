@@ -1,5 +1,5 @@
 
-print("JSgoodhhhh")
+print("JSgood")
 
 #Nonnull_index<-c(2,130,173)
 #Nonnull_index<-c(2,130,192)
@@ -269,7 +269,7 @@ cur_iter<-1
   colnames(ref_sample)<-paste0('SNP',1:length(SNP_names))
   pheno_covariates_sp<-Phenotype[index1]
   
-  UKBB_pop_all<-data.frame(Phenotype=scale(pheno_covariates_sp,scale = F),scale(ref_sample,scale = F))
+  UKBB_pop_all<-data.frame(Phenotype=scale(pheno_covariates_sp,scale = T),scale(ref_sample,scale = T))
   # The first column is phenotype:"Y"
   colnames(UKBB_pop_all)[1]<-"Y"
   # V is the intercept term
@@ -423,7 +423,7 @@ cur_iter<-1
   
   xtx<-t(UKBB_pop[,-1])%*%UKBB_pop[,-1]/N_Pop
   M_inv_half<-cbind(xtx,xtx)%*%C_half
-  M_inv<-M_inv_half%*%t(M_inv_half)*N_Pop
+  M_inv<-M_inv_half%*%t(M_inv_half)#*N_Pop
   M<-solve(M_inv)
   ###### When computing C related items, please always use C_half 
   hat_y<-UKBB_pop[,-1]%*%beta
@@ -441,7 +441,7 @@ cur_iter<-1
     xtx%*%C_22%*%(xtx%*%beta - ytilde/N_Pop)
   
   debias_part<-M%*%a
-  
+  print(paste0("debias",max(debias_part)))
   beta_star<-beta+debias_part
   beta_star[abs(beta_star)<1e-5]<-0
   #beta<-beta_star
@@ -452,10 +452,9 @@ cur_iter<-1
   variance_2<-M%*%xtx%*%C_22%*%(diag(D_mat)/N_Pop)%*%diag(theta_cov)%*%diag(D_mat)%*%C_22%*%xtx%*%t(M)
   final_v<-diag(variance_1)+diag(variance_2)
   
-  which.min(final_v)
   aa_final<-1-pchisq(beta^2/final_v,1)
   xx_final<-which(aa_final<0.05/length(aa_final))
-  xx_final
+  lasgw_pos<-xx_final
   print(paste0("Only GWAS: len:",length(lasgw_pos),", true select:",sum(lasgw_pos%in%Nonnull_index_filter_less)))
   
   
