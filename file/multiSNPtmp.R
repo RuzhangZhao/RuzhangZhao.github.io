@@ -1,13 +1,14 @@
 
-print("JSgo")
+print("JSgoodhhhh")
 
 #Nonnull_index<-c(2,130,173)
-Nonnull_index<-c(2,130,192)
+#Nonnull_index<-c(2,130,192)
 #Nonnull_index<-c(139,151,211)
-#Nonnull_index<-c(25,83,196)
+
 #Nonnull_index<-c(151,139,103)
 #Nonnull_index<-sample(1:254,3)
-Nonnull_index<-c(11,115,227)#
+#Nonnull_index<-c(11,115,227)#
+Nonnull_index<-c(25,83,196)
 library(inline,quietly = T)
 library(data.table,quietly = T)
 library(dplyr,quietly = T)
@@ -295,7 +296,7 @@ cur_iter<-1
   len_U = len_U1 + len_U2
   N_Pop<-nrow(UKBB_pop_all)
   
-  
+  if(0){
   xtilde<-t(UKBB_pop_all[,-1])%*%UKBB_pop_all[,-1]
   ytilde<-sapply(1:N_SNP, function(snp_id){
     u2_id<-UKBB_pop_all[,c(paste0("SNP",snp_id))]*(study_info[[snp_id]]$Coeff)
@@ -330,6 +331,131 @@ cur_iter<-1
   aa_final<-1-pchisq(beta_initial^2/xtxinv,1)
   xx_final<-which(aa_final<.05/sum(beta_initial!=0))
   lasgw_pos<-xx_final
+  }
+  ############## Get initial value 
+  pseudo_Xy<-function(
+    C_half,UKBB_pop,
+    var_SNP,var_GPC,
+    N_SNP,theta_UKBB_GPC,study_info){
+    N_Pop<-nrow(UKBB_pop)
+    pseudo_X<-C_half%*%rbind(t(UKBB_pop[,-1]),t(UKBB_pop[,var_SNP]))%*%UKBB_pop[,-1]
+    pseudo_y1<-crossprod(UKBB_pop[,1],UKBB_pop[,-1])
+    if(0){
+      pseudo_y2<-sapply(1:N_SNP, function(snp_id){
+        u2_id<-UKBB_pop[,c("V",var_GPC,paste0("SNP",snp_id))]%*%c(theta_UKBB_GPC,study_info[[snp_id]]$Coeff)
+        c(c(u2_id)%*%UKBB_pop[,paste0("SNP",snp_id)])
+      })
+    }
+    pseudo_y22<-sapply(1:N_SNP, function(snp_id){
+      u2_id<-UKBB_pop[,c(var_GPC,paste0("SNP",snp_id))]*(study_info[[snp_id]]$Coeff)
+      c(c(u2_id)%*%UKBB_pop[,paste0("SNP",snp_id)])
+    })
+    
+    pseudo_y<-c(c(c(pseudo_y1),c(pseudo_y22))%*%C_half)
+    newList<-list("pseudo_X"=pseudo_X,"pseudo_y"=pseudo_y)
+    newList
+  }
+  C_half<-diag(1,len_U)
+  UKBB_pop<-UKBB_pop_all
+  pseudo_Xy_list<-pseudo_Xy(C_half,UKBB_pop,var_SNP,var_GPC,N_SNP,theta_UKBB_GPC,study_info)
+  
+  pseudo_X<-pseudo_Xy_list$pseudo_X
+  pseudo_y<-pseudo_Xy_list$pseudo_y
+  
+  initial_sf<-N_Pop^2/nrow(pseudo_X)
+  pseudo_X<-pseudo_Xy_list$pseudo_X/initial_sf
+  pseudo_y<-pseudo_Xy_list$pseudo_y/initial_sf
+  
+  library(selectiveInference)
+  UKBB_full_fit<-cv.glmnet(x= (pseudo_X),y= (pseudo_y),standardize=F,intercept=F)
+  #lambda_initial<-UKBB_full_fit$lambda.min*nrow(pseudo_X)
+  beta_initial = as.numeric(coef(UKBB_full_fit, s = "lambda.min"))[-1]
+  ############## Get C
+  
+  beta<-beta_initial
+  N_Pop<-nrow(UKBB_pop)
+  var_11_half<-UKBB_pop[,-1]*c(UKBB_pop[,1]-UKBB_pop[,-1]%*%beta)
+  var_U1<-crossprod(var_11_half,var_11_half)/N_Pop
+  C_11<-solve(var_U1)
+  C_11_half<-expm::sqrtm(C_11)
+  C_22<-diag(sapply(1:N_SNP,function(i){
+    (N_Pop)/(study_info[[i]]$Covariance)/(c(UKBB_pop_all[,c(paste0("SNP",i))]%*%UKBB_pop_all[,c(paste0("SNP",i))]))^2
+  }))
+  C_22_half<-diag(sqrt(diag(C_22)))
+  library(magic,quietly = T)
+  C_half<-adiag(C_11_half,C_22_half)
+  
+  
+  ############## Beta
+
+  pseudo_Xy_list<-pseudo_Xy(C_half,UKBB_pop,var_SNP,var_GPC,N_SNP,theta_UKBB_GPC,study_info)
+  initial_sf<-N_Pop^2/nrow(pseudo_X)
+  pseudo_X<-pseudo_Xy_list$pseudo_X/initial_sf
+  pseudo_y<-pseudo_Xy_list$pseudo_y/initial_sf
+  
+  UKBB_full_fit<-cv.glmnet(x= (pseudo_X),y= (pseudo_y),standardize=F,intercept=F)
+  lambda_initial<-UKBB_full_fit$lambda.min*nrow(pseudo_X)
+  beta_initial = as.numeric(coef(UKBB_full_fit, s = "lambda.min",exact = T))[-1]
+  which(beta_initial!=0)
+  #sigma_est<-estimateSigma(x= (pseudo_X),y= (pseudo_y),intercept=F,standardize = F)
+  #sigma_est<-estimateSigma(x= (UKBB_pop[,-1]),y= (UKBB_pop[,1]),intercept=F,standardize = T)
+  #out = fixedLassoInf(x= (pseudo_X),y= (pseudo_y),beta_initial,lambda_initial,intercept=F,tol.beta = 1e-4,sigma = sigma_est$sigmahat)
+  #out$vars[which(out$pv< 0.05/length(out$vars))]
+  
+  beta<-beta_initial
+  
+  ######## Inference 
+  study_info<-study_info_scaled
+  beta<-beta_initial
+  N_Pop<-nrow(UKBB_pop)
+  var_11_half<-UKBB_pop[,-1]*c(UKBB_pop[,1]-UKBB_pop[,-1]%*%beta)
+  var_U1<-crossprod(var_11_half,var_11_half)/N_Pop
+  C_11<-solve(var_U1)
+  C_11_half<-expm::sqrtm(C_11)
+  C_22<-diag(sapply(1:N_SNP,function(i){
+    (N_Pop)/(study_info[[i]]$Covariance)/(c(UKBB_pop[,c(paste0("SNP",i))]%*%UKBB_pop[,c(paste0("SNP",i))]))^2
+  }))
+  C_22_half<-diag(sqrt(diag(C_22)))
+  library(magic,quietly = T)
+  C_half<-adiag(C_11_half,C_22_half)
+  
+  
+  
+  xtx<-t(UKBB_pop[,-1])%*%UKBB_pop[,-1]/N_Pop
+  M_inv_half<-cbind(xtx,xtx)%*%C_half
+  M_inv<-M_inv_half%*%t(M_inv_half)*N_Pop
+  M<-solve(M_inv)
+  ###### When computing C related items, please always use C_half 
+  hat_y<-UKBB_pop[,-1]%*%beta
+  ytilde<-sapply(1:N_SNP, function(snp_id){
+    u2_id<-UKBB_pop[,c(paste0("SNP",snp_id))]*(study_info[[snp_id]]$Coeff)
+    c(c(u2_id)%*%UKBB_pop[,paste0("SNP",snp_id)])
+  })
+  D_mat<-sapply(1:N_SNP, function(snp_id){
+    UKBB_pop[,c(paste0("SNP",snp_id))]%*%UKBB_pop[,paste0("SNP",snp_id)]
+  })
+  theta_cov<-sapply(1:N_SNP, function(snp_id){
+    study_info[[snp_id]]$Covariance
+  })
+  a<-xtx%*%C_11%*%t(UKBB_pop[,-1])%*%(hat_y -UKBB_pop[,1])/N_Pop+
+    xtx%*%C_22%*%(xtx%*%beta - ytilde/N_Pop)
+  
+  debias_part<-M%*%a
+  
+  beta_star<-beta+debias_part
+  beta_star[abs(beta_star)<1e-5]<-0
+  #beta<-beta_star
+  hat_y2<-UKBB_pop[,-1]%*%beta_star
+  est_sigma<-sum((UKBB_pop[,1]-hat_y)^2)/(N_Pop - len_SNP)
+  variance_1<-M%*%xtx%*%C_11%*%xtx%*%C_11%*%xtx%*%t(M)*est_sigma
+  
+  variance_2<-M%*%xtx%*%C_22%*%(diag(D_mat)/N_Pop)%*%diag(theta_cov)%*%diag(D_mat)%*%C_22%*%xtx%*%t(M)
+  final_v<-diag(variance_1)+diag(variance_2)
+  
+  which.min(final_v)
+  aa_final<-1-pchisq(beta^2/final_v,1)
+  xx_final<-which(aa_final<0.05/length(aa_final))
+  xx_final
   print(paste0("Only GWAS: len:",length(lasgw_pos),", true select:",sum(lasgw_pos%in%Nonnull_index_filter_less)))
   
   
