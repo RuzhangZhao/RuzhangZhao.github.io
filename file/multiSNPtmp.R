@@ -1,5 +1,5 @@
 
-print("JSsb")
+print("JSbigsb")
 
 #Nonnull_index<-c(2,130,173)
 #Nonnull_index<-c(2,130,192)
@@ -161,7 +161,7 @@ cur_iter<-1
   
   
   library(caret)
-  index1<-createDataPartition(Phenotype,p = 0.3)[[1]]
+  index1<-createDataPartition(Phenotype,p = 0.04)[[1]]
   ref_sample<-ref[index1,filter_SNP_vec]
   ref<-ref[-index1,filter_SNP_vec]
   N_Pop<-nrow(ref_sample)
