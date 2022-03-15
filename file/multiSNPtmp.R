@@ -1,5 +1,5 @@
 
-print("JSgood")
+print("JSno")
 
 #Nonnull_index<-c(2,130,173)
 #Nonnull_index<-c(2,130,192)
@@ -161,7 +161,7 @@ cur_iter<-1
   
   
   library(caret)
-  index1<-createDataPartition(Phenotype,p = 0.06)[[1]]
+  index1<-createDataPartition(Phenotype,p = 0.5)[[1]]
   ref_sample<-ref[index1,filter_SNP_vec]
   ref<-ref[-index1,filter_SNP_vec]
   N_Pop<-nrow(ref_sample)
@@ -269,7 +269,7 @@ cur_iter<-1
   colnames(ref_sample)<-paste0('SNP',1:length(SNP_names))
   pheno_covariates_sp<-Phenotype[index1]
   
-  UKBB_pop_all<-data.frame(Phenotype=scale(pheno_covariates_sp,scale = T),scale(ref_sample,scale = T))
+  UKBB_pop_all<-data.frame(Phenotype=scale(pheno_covariates_sp,scale = F),scale(ref_sample,scale = T))
   # The first column is phenotype:"Y"
   colnames(UKBB_pop_all)[1]<-"Y"
   # V is the intercept term
@@ -409,8 +409,9 @@ cur_iter<-1
   beta<-beta_initial
   N_Pop<-nrow(UKBB_pop)
   var_11_half<-UKBB_pop[,-1]*c(UKBB_pop[,1]-UKBB_pop[,-1]%*%beta)
+  #var_11_half<-c(UKBB_pop[,1]-UKBB_pop[,-1]%*%beta)%*%UKBB_pop[,-1]
   var_U1<-crossprod(var_11_half,var_11_half)/N_Pop
-  C_11<-solve(var_U1)
+  C_11<-pinv(var_U1)
   C_11_half<-expm::sqrtm(C_11)
   C_22<-diag(sapply(1:N_SNP,function(i){
     (N_Pop)/(study_info[[i]]$Covariance)/(c(UKBB_pop[,c(paste0("SNP",i))]%*%UKBB_pop[,c(paste0("SNP",i))]))^2
@@ -423,7 +424,7 @@ cur_iter<-1
   
   xtx<-t(UKBB_pop[,-1])%*%UKBB_pop[,-1]/N_Pop
   M_inv_half<-cbind(xtx,xtx)%*%C_half
-  M_inv<-M_inv_half%*%t(M_inv_half)#*N_Pop
+  M_inv<-M_inv_half%*%t(M_inv_half)
   M<-solve(M_inv)
   ###### When computing C related items, please always use C_half 
   hat_y<-UKBB_pop[,-1]%*%beta
@@ -442,17 +443,17 @@ cur_iter<-1
   
   debias_part<-M%*%a
   print(paste0("debias",max(debias_part)))
-  beta_star<-beta+debias_part
+  beta_star<-beta-debias_part
   beta_star[abs(beta_star)<1e-5]<-0
   #beta<-beta_star
   hat_y2<-UKBB_pop[,-1]%*%beta_star
-  est_sigma<-sum((UKBB_pop[,1]-hat_y)^2)/(N_Pop - len_SNP)
+  est_sigma<-sum((UKBB_pop[,1]-hat_y)^2)/(N_Pop)
   variance_1<-M%*%xtx%*%C_11%*%xtx%*%C_11%*%xtx%*%t(M)*est_sigma
   
   variance_2<-M%*%xtx%*%C_22%*%(diag(D_mat)/N_Pop)%*%diag(theta_cov)%*%diag(D_mat)%*%C_22%*%xtx%*%t(M)
   final_v<-diag(variance_1)+diag(variance_2)
   
-  aa_final<-1-pchisq(beta^2/final_v,1)
+  aa_final<-1-pchisq(beta_star^2/final_v*N_Pop,1)
   xx_final<-which(aa_final<0.05/length(aa_final))
   lasgw_pos<-xx_final
   print(paste0("Only GWAS: len:",length(lasgw_pos),", true select:",sum(lasgw_pos%in%Nonnull_index_filter_less)))
