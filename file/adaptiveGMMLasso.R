@@ -106,9 +106,11 @@ adaptiveGMMlasso<-function(UKBB_pop,N_SNP,study_info){
   
   aa_final<-1-pchisq(N_Pop*beta[index_nonzero]^2/final_v,1)
   pos<-which(aa_final<0.05/ncol(UKBB_pop))
+  pos2<-which(aa_final<0.05/length(aa_final))
   
   newList<-list("beta"=beta,
     "pos"=pos,
+    "pos2"=pos2,
     "aa_final"=aa_final,
     "final_v"=final_v,
     "w_adaptive"=w_adaptive
