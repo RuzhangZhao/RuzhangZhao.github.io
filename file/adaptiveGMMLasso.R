@@ -65,8 +65,11 @@ adaptiveGMMlasso<-function(UKBB_pop,N_SNP,study_info){
   lambda_list<-lasso_initial$lambda
   
   ridge_fit<-glmnet(x= (pseudo_X),y= (pseudo_y),standardize=F,intercept=F,lambda = lambda_list[50],alpha = 0)
-  
   #ridge_fit<-glmnet(x= UKBB_pop[,-1],y= UKBB_pop[,1],standardize=F,intercept=F,lambda = lambda_list[100],alpha = 0)
+  gamma_adaptivelasso<-1/2
+  w_adaptive<-1/(abs(coef(ridge_fit)[-1]))^gamma_adaptivelasso
+  #ridge_fit<-glmnet(x= (pseudo_X),y= (pseudo_y),standardize=F,intercept=F,lambda = lambda_list[50],alpha = 0,penalty.factor = w_adaptive)
+  ridge_fit<-glmnet(x= UKBB_pop[,-1],y= UKBB_pop[,1],standardize=F,intercept=F,lambda = lambda_list[100],alpha = 0,penalty.factor = w_adaptive)
   gamma_adaptivelasso<-1/2
   w_adaptive<-1/(abs(coef(ridge_fit)[-1]))^gamma_adaptivelasso
   
@@ -77,19 +80,18 @@ adaptiveGMMlasso<-function(UKBB_pop,N_SNP,study_info){
   
   for( i in (which(lambda_list == adaptivelasso_fit$lambda.min)) : 2){
     beta_i<-coef(adaptivelasso_fit,s = lambda_list[i])[-1]
+    index_nonzero_i<-which(abs(beta_i)>1e-3)
     index_nonzero_i<-which(beta_i!=0)
     nonzero_cor_i<-UKBB_cor[index_nonzero_i,index_nonzero_i]
     diag(nonzero_cor_i)<-0
     lambda_index<-i
     if( sum(nonzero_cor_i > 0.9) == 0 )break
   }
-  
+  lambda_index=which(lambda_list == adaptivelasso_fit$lambda.min)
   
   beta<-coef(adaptivelasso_fit,s = lambda_list[lambda_index])[-1]
   index_nonzero<-which(beta!=0)
-  
-  
-  index_nonzero<-c(which(beta!=0))
+
   
   xtx<-t(UKBB_pop[,-1])%*%UKBB_pop[,-1]/N_Pop
   Sigsum_half<-cbind(xtx,xtx)%*%C_half
@@ -105,8 +107,8 @@ adaptiveGMMlasso<-function(UKBB_pop,N_SNP,study_info){
   final_v<-diag(inv_Sigsum_scaled_nonzero%*%W_nonzero%*%inv_Sigsum_scaled_nonzero)
   
   aa_final<-1-pchisq(N_Pop*beta[index_nonzero]^2/final_v,1)
-  pos<-which(aa_final<0.05/ncol(UKBB_pop))
-  pos2<-which(aa_final<0.05/length(aa_final))
+  pos<-index_nonzero[which(aa_final<0.05/ncol(UKBB_pop))]
+  pos2<-index_nonzero[which(aa_final<0.05/length(aa_final))]
   
   newList<-list("beta"=beta,
     "pos"=pos,
