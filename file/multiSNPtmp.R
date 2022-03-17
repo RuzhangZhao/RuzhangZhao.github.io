@@ -1,5 +1,5 @@
 
-print("JSnew")
+print("JSnew2")
 
 #Nonnull_index<-c(2,130,173)
 #Nonnull_index<-c(2,130,192)
@@ -280,7 +280,7 @@ cur_iter<-1
   if(is.null(colnames(UKBB_pop_all)[1])){
     stop("The column name of UKBB matrix should be clear.(Which one is SNP/GPC/risk factor")
   }
-  
+  source("http://ruzhangzhao.com/file/multiSNPfunc.R")
   a<-adaptiveGMMlasso(UKBB_pop_all,N_SNP,study_info_scaled)
   lasgw_pos<-a$pos
   print(paste0("Only GWAS: len:",length(lasgw_pos),", true select:",sum(lasgw_pos%in%Nonnull_index_filter_less)))
