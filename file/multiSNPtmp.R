@@ -1,5 +1,5 @@
 
-print("JS")
+print("JSgood2")
 cur_iter<-4
 #Nonnull_index<-c(2,130,173)
 #Nonnull_index<-c(2,130,192)
@@ -160,7 +160,7 @@ EAF[Nonnull_index]
   
   
   library(caret)
-  index1<-createDataPartition(Phenotype,p = 0.04)[[1]]
+  index1<-createDataPartition(Phenotype,p = 0.1)[[1]]
   ref_sample<-ref[index1,filter_SNP_vec]
   ref<-ref[-index1,filter_SNP_vec]
   N_Pop<-nrow(ref_sample)

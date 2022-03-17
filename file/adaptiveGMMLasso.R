@@ -63,13 +63,13 @@ adaptiveGMMlasso<-function(UKBB_pop,N_SNP,study_info){
   
   lasso_initial<-glmnet(x= (pseudo_X),y= (pseudo_y),standardize=F,intercept=F)
   lambda_list<-lasso_initial$lambda
-  
-  ridge_fit<-glmnet(x= (pseudo_X),y= (pseudo_y),standardize=F,intercept=F,lambda = lambda_list[50]/100,alpha = 0)
+  ridge_fit<-glmnet(x= UKBB_pop[,-1],y= UKBB_pop[,1],standardize=F,intercept=F,lambda = lambda_list[50]/100,alpha = 0)
   #ridge_fit<-glmnet(x= UKBB_pop[,-1],y= UKBB_pop[,1],standardize=F,intercept=F,lambda = lambda_list[100],alpha = 0)
   gamma_adaptivelasso<-1/2
   w_adaptive<-1/(abs(coef(ridge_fit)[-1]))^gamma_adaptivelasso
   #ridge_fit<-glmnet(x= (pseudo_X),y= (pseudo_y),standardize=F,intercept=F,lambda = lambda_list[50],alpha = 0,penalty.factor = w_adaptive)
-  ridge_fit<-glmnet(x= UKBB_pop[,-1],y= UKBB_pop[,1],standardize=F,intercept=F,lambda = lambda_list[50]/100/mean(w_adaptive),penalty.factor = w_adaptive)
+  ridge_fit<-glmnet(x= (pseudo_X),y= (pseudo_y),standardize=F,intercept=F,lambda = lambda_list[50]/100,alpha = 0,penalty.factor = w_adaptive)
+  #ridge_fit<-glmnet(x= scale(ref),y= scale(pheno_EUR$T2D,scale = F),standardize=F,intercept=F,lambda = lambda_list[50]/100/mean(w_adaptive),penalty.factor = w_adaptive)
   gamma_adaptivelasso<-1/2
   w_adaptive<-1/(abs(coef(ridge_fit)[-1]))^gamma_adaptivelasso
   #w_adaptive[!is.infinite(w_adaptive)]<-NA
@@ -85,7 +85,7 @@ adaptiveGMMlasso<-function(UKBB_pop,N_SNP,study_info){
     nonzero_cor_i<-UKBB_cor[index_nonzero_i,index_nonzero_i]
     diag(nonzero_cor_i)<-0
     lambda_index<-i
-    if( sum(nonzero_cor_i > 0.9) == 0 )break
+    if( sum(nonzero_cor_i > 0.8) == 0 )break
   }
   lambda_index=which(lambda_list == adaptivelasso_fit$lambda.min)
   
