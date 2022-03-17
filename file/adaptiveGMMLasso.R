@@ -69,7 +69,7 @@ adaptiveGMMlasso<-function(UKBB_pop,N_SNP,study_info){
   gamma_adaptivelasso<-1/2
   w_adaptive<-1/(abs(coef(ridge_fit)[-1]))^gamma_adaptivelasso
   #ridge_fit<-glmnet(x= (pseudo_X),y= (pseudo_y),standardize=F,intercept=F,lambda = lambda_list[50],alpha = 0,penalty.factor = w_adaptive)
-  ridge_fit<-glmnet(x= UKBB_pop[,-1],y= UKBB_pop[,1],standardize=F,intercept=F,lambda = lambda_list[50]/100,penalty.factor = w_adaptive)
+  ridge_fit<-glmnet(x= UKBB_pop[,-1],y= UKBB_pop[,1],standardize=F,intercept=F,lambda = lambda_list[50]/100/mean(w_adaptive),penalty.factor = w_adaptive)
   gamma_adaptivelasso<-1/2
   w_adaptive<-1/(abs(coef(ridge_fit)[-1]))^gamma_adaptivelasso
   #w_adaptive[!is.infinite(w_adaptive)]<-NA
