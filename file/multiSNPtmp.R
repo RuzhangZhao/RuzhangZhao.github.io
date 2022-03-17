@@ -1,6 +1,6 @@
 
-print("JS2")
-
+print("JS1")
+cur_iter<-1
 #Nonnull_index<-c(2,130,173)
 #Nonnull_index<-c(2,130,192)
 #Nonnull_index<-c(139,151,211)
@@ -143,7 +143,6 @@ intercept<- -2
 
 EAF<-colsums(ref)/nrow(ref)/2
 EAF[Nonnull_index]
-cur_iter<-2
   set.seed(cur_iter)
   cur_iter<-plus_number+cur_iter
   
