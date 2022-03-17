@@ -1,5 +1,5 @@
 
-print("JSnew2")
+print("JS")
 
 #Nonnull_index<-c(2,130,173)
 #Nonnull_index<-c(2,130,192)
@@ -143,7 +143,7 @@ intercept<- -2
 
 EAF<-colsums(ref)/nrow(ref)/2
 EAF[Nonnull_index]
-cur_iter<-1
+cur_iter<-2
   set.seed(cur_iter)
   cur_iter<-plus_number+cur_iter
   
@@ -282,7 +282,7 @@ cur_iter<-1
   }
   source("http://ruzhangzhao.com/file/multiSNPfunc.R")
   a<-adaptiveGMMlasso(UKBB_pop_all,N_SNP,study_info_scaled)
-  lasgw_pos<-a$pos
+  lasgw_pos<-names(a$pos)
   print(paste0("Only GWAS: len:",length(lasgw_pos),", true select:",sum(lasgw_pos%in%Nonnull_index_filter_less)))
   
   
