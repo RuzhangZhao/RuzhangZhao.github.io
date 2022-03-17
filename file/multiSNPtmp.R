@@ -279,7 +279,7 @@ EAF[Nonnull_index]
   if(is.null(colnames(UKBB_pop_all)[1])){
     stop("The column name of UKBB matrix should be clear.(Which one is SNP/GPC/risk factor")
   }
-  source("http://ruzhangzhao.com/file/multiSNPfunc.R")
+  source("http://ruzhangzhao.com/file/adaptiveGMMLasso.R")
   a<-adaptiveGMMlasso(UKBB_pop_all,N_SNP,study_info_scaled)
   lasgw_pos<-names(a$pos)
   print(paste0("Only GWAS: len:",length(lasgw_pos),", true select:",sum(lasgw_pos%in%Nonnull_index_filter_less)))
