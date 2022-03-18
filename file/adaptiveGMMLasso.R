@@ -92,7 +92,7 @@ adaptiveGMMlasso<-function(UKBB_pop,N_SNP,study_info){
     }
   }
 
-  
+  #beta<-coef(adaptivelasso_fit,s =lambda_list[lambda_index])[-1]
   beta<-coef(adaptivelasso_fit,s ='lambda.min')[-1]
   #index_nonzero_i0<-which(abs(beta)>1e-3)
   index_nonzero_i<-which(beta!=0)
@@ -141,7 +141,10 @@ adaptiveGMMlasso<-function(UKBB_pop,N_SNP,study_info){
   aa_final<-1-pchisq(N_Pop*beta[index_nonzero]^2/final_v,1)
   pos<-index_nonzero[which(aa_final<0.05/ncol(UKBB_pop))]
   pos2<-index_nonzero[which(aa_final<0.05/length(aa_final))]
-  
+  print(pos2)
+  print(beta[index_nonzero])
+  print(final_v[index_nonzero])
+  print(index_nonzero)
   newList<-list("beta"=beta,
     "pos"=pos,
     "pos2"=pos2,
