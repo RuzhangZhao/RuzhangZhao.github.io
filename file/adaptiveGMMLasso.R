@@ -1,3 +1,5 @@
+UKBB_pop<-UKBB_pop_all
+study_info<-study_info_scaled
 ## UKBB_pop should be scaled with SNPs, 
 ## but not with phenotype.
 ## Both SNP and phenotype should be centered. 
@@ -62,38 +64,67 @@ adaptiveGMMlasso<-function(UKBB_pop,N_SNP,study_info){
   pseudo_y<-pseudo_Xy_list$pseudo_y/initial_sf
   
   lasso_initial<-glmnet(x= (pseudo_X),y= (pseudo_y),standardize=F,intercept=F)
-  lambda_list<-lasso_initial$lambda
-  
-  ridge_fit<-glmnet(x= UKBB_pop[,-1],y= UKBB_pop[,1],standardize=F,intercept=F,lambda = lambda_list[50]/100,alpha = 0)
+  lambda_list0<-lasso_initial$lambda
+  ridge_fit0<-glmnet(x= (pseudo_X),y= (pseudo_y),standardize=F,intercept=F,lambda = lambda_list0[50]/100,alpha = 0.01)
   #ridge_fit<-glmnet(x= UKBB_pop[,-1],y= UKBB_pop[,1],standardize=F,intercept=F,lambda = lambda_list[100],alpha = 0)
   gamma_adaptivelasso<-1/2
-  w_adaptive<-1/(abs(coef(ridge_fit)[-1]))^gamma_adaptivelasso
+  w_adaptive0<-1/(abs(coef(ridge_fit0)[-1]))^gamma_adaptivelasso
+  w_adaptive0[is.infinite(w_adaptive0)]<-max(w_adaptive0[!is.infinite(w_adaptive0)])*5
   #ridge_fit<-glmnet(x= (pseudo_X),y= (pseudo_y),standardize=F,intercept=F,lambda = lambda_list[50],alpha = 0,penalty.factor = w_adaptive)
-  ridge_fit<-glmnet(x= (pseudo_X),y= (pseudo_y),standardize=F,intercept=F,lambda = lambda_list[50]/10,alpha = 0.01,penalty.factor = w_adaptive)
+  ridge_fit<-glmnet(x= UKBB_pop[,-1],y= UKBB_pop[,1],standardize=F,intercept=F,lambda = lambda_list0[50]/100,alpha = 0.01,penalty.factor = w_adaptive0)
   #ridge_fit<-glmnet(x= scale(ref),y= scale(pheno_EUR$T2D,scale = F),standardize=F,intercept=F,lambda = lambda_list[50]/100/mean(w_adaptive),penalty.factor = w_adaptive)
   gamma_adaptivelasso<-1/2
   w_adaptive<-1/(abs(coef(ridge_fit)[-1]))^gamma_adaptivelasso
   w_adaptive[is.infinite(w_adaptive)]<-max(w_adaptive[!is.infinite(w_adaptive)])*10
-  adaptivelasso_fit<-cv.glmnet(x= (pseudo_X),y= (pseudo_y),standardize=F,intercept=F,penalty.factor = w_adaptive)
+  adaptivelasso_fit<-cv.glmnet(x= (pseudo_X),y= (pseudo_y),standardize=F,intercept=F,alpha = 1,penalty.factor = w_adaptive)
   lambda_list<-adaptivelasso_fit$lambda
   UKBB_cor<-cor(UKBB_pop[,-1])
   #nonzero_cor<-UKBB_cor[index_nonzero,index_nonzero]
-  
-  for( i in (which(lambda_list == adaptivelasso_fit$lambda.min)) : 2){
-    beta_i<-coef(adaptivelasso_fit,s = lambda_list[i])[-1]
-    #beta_i[abs(beta_i)<1e-5]=0
-    index_nonzero_i<-which(beta_i!=0)
-    nonzero_cor_i<-UKBB_cor[index_nonzero_i,index_nonzero_i]
-    diag(nonzero_cor_i)<-0
-    lambda_index<-i
-    if( sum(nonzero_cor_i > 0.8) == 0 )break
+  if(0){
+    for( i in (which(lambda_list == adaptivelasso_fit$lambda.min)) : 2){
+      beta_i<-coef(adaptivelasso_fit,s = lambda_list[i])[-1]
+      index_nonzero_i<-which(beta_i!=0)
+      index_nonzero_i0<-which(abs(beta_i)>1e-3)
+      nonzero_cor_i<-UKBB_cor[index_nonzero_i0,index_nonzero_i]
+      nonzero_cor_i[nonzero_cor_i == 1] = 0
+      lambda_index<-i
+      if( sum(nonzero_cor_i > 0.8) == 0 )break
+    }
   }
-  lambda_index=which(lambda_list == adaptivelasso_fit$lambda.min)
-  
-  beta<-coef(adaptivelasso_fit,s = lambda_list[lambda_index])[-1]
-  index_nonzero<-which(beta!=0)
 
   
+  beta<-coef(adaptivelasso_fit,s ='lambda.min')[-1]
+  #index_nonzero_i0<-which(abs(beta)>1e-3)
+  index_nonzero_i<-which(beta!=0)
+  nonzero_cor_i<-UKBB_cor[index_nonzero_i,index_nonzero_i]
+  nonzero_cor_i[nonzero_cor_i == 1] = 0
+  tmp<-which(nonzero_cor_i>0.75,arr.ind = T)
+  if(nrow(tmp)>0){
+    tmp<-cbind(index_nonzero_i[tmp[,2]],index_nonzero_i[tmp[,1]])
+    tmp<-tmp[tmp[,1]<tmp[,2],]
+    #which(index_nonzero_i[tmp[,2]]%in%index_nonzero_i0[tmp[,1]])
+    rm_index<-c()
+    for(i in 1:nrow(tmp)){
+      z1<-study_info[[tmp[i,1]]]$Coeff^2/study_info[[tmp[i,1]]]$Covariance
+      z2<-study_info[[tmp[i,2]]]$Coeff^2/study_info[[tmp[i,2]]]$Covariance
+      if( z1 > z2){
+        rm_index<-c(rm_index,tmp[i,2])
+      }else{
+        rm_index<-c(rm_index,tmp[i,1])
+      }
+    }
+    w_adaptive_filter<-w_adaptive
+    w_adaptive_filter[rm_index]<-w_adaptive_filter[rm_index]*100
+    adaptivelasso_fit<-cv.glmnet(x= (pseudo_X),y= (pseudo_y),standardize=F,intercept=F,alpha = 1,penalty.factor = w_adaptive_filter)
+    lambda_list<-adaptivelasso_fit$lambda
+    lambda_index=which(lambda_list == adaptivelasso_fit$lambda.min)
+    
+    beta<-coef(adaptivelasso_fit,s = lambda_list[lambda_index])[-1]
+  }
+  
+  #index_nonzero_i0<-which(abs(beta)>1e-3)
+  
+  index_nonzero<-which(beta!=0)
   xtx<-t(UKBB_pop[,-1])%*%UKBB_pop[,-1]/N_Pop
   Sigsum_half<-cbind(xtx,xtx)%*%C_half
   Sigsum_scaled<-Sigsum_half%*%t(Sigsum_half)
