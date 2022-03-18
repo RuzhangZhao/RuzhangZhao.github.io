@@ -7,8 +7,8 @@ cur_iter<-4
 
 #Nonnull_index<-c(151,139,103)
 #Nonnull_index<-sample(1:254,3)
-Nonnull_index<-c(11,115,227)#
-#Nonnull_index<-c(25,83,196)
+#Nonnull_index<-c(11,115,227)#
+Nonnull_index<-c(25,83,196)
 library(inline,quietly = T)
 library(data.table,quietly = T)
 library(dplyr,quietly = T)
@@ -279,12 +279,12 @@ EAF[Nonnull_index]
   if(is.null(colnames(UKBB_pop_all)[1])){
     stop("The column name of UKBB matrix should be clear.(Which one is SNP/GPC/risk factor")
   }
-  source("http://ruzhangzhao.com/file/adaptiveGMMLasso.R")
+  source("~/multiSNP/adaptiveGMMLasso.R")
   a<-adaptiveGMMlasso(UKBB_pop_all,N_SNP,study_info_scaled)
   lasgw_pos<-names(a$pos)
   print(paste0("Only GWAS: len:",length(lasgw_pos),", true select:",sum(lasgw_pos%in%Nonnull_index_filter_less)))
   
-  
+  if(0){
   UKBB_full_fit2 <-cv.glmnet(x=UKBB_pop_all[,var_names_full_fit],y=UKBB_pop_all[,"Y"])
   lambda_initial2<-UKBB_full_fit2$lambda.min*nrow(UKBB_pop_all)
   beta_initial2 = as.numeric(coef(UKBB_full_fit2, s = "lambda.min"))[-1]
@@ -294,5 +294,5 @@ EAF[Nonnull_index]
   lasso_pos<-out2$vars[which(out2$pv<0.05/length(out2$vars))]
   
   print(paste0("Only GWAS: len:",length(lasso_pos),", true select:",sum(lasso_pos%in%Nonnull_index_filter_less)))
-  
+  }
   
