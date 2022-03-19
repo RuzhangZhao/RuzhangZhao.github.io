@@ -1,6 +1,6 @@
 
 print("JSgood2")
-cur_iter<-3
+cur_iter<-1
 #Nonnull_index<-c(2,130,173)
 #Nonnull_index<-c(2,130,192)
 #Nonnull_index<-c(139,151,211)
@@ -139,7 +139,7 @@ coef_nonnull<-log(1.25)
 coef_SNP<-rep(0,ncol(ref))
 coef_SNP[Nonnull_index]<-coef_nonnull
 coef_SNP[Nonnull_index]<-coef_SNP[Nonnull_index]*c(1,1,1)
-intercept<- -2
+intercept<- -1
 
 EAF<-colsums(ref)/nrow(ref)/2
 EAF[Nonnull_index]
