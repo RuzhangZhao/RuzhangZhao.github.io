@@ -1,5 +1,5 @@
 
-print("JSgood2")
+print("JS")
 cur_iter<-1
 #Nonnull_index<-c(2,130,173)
 #Nonnull_index<-c(2,130,192)
