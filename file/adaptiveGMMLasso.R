@@ -312,9 +312,9 @@ adaptiveGMMlasso2<-function(UKBB_pop,N_SNP,study_info){
   pos<-index_nonzero[which(aa_final<0.05/ncol(UKBB_pop))]
   pos2<-index_nonzero[which(aa_final<0.05/length(aa_final))]
   print(pos)
-  print(beta[index_nonzero])
-  print(final_v)
-  print(index_nonzero)
+  #print(beta[index_nonzero])
+  #print(final_v)
+  #print(index_nonzero)
   newList<-list("beta"=beta,
     "pos"=pos,
     "pos2"=pos2,
