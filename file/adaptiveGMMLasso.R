@@ -192,7 +192,7 @@ adaptiveGMMlasso2<-function(UKBB_pop,N_SNP,study_info){
   
   #### adaptive lasso with fast lasso computation 
   var_11_half<-UKBB_pop[,-1]#*c(UKBB_pop[,1]-UKBB_pop[,-1]%*%beta)
-  var_U1<-crossprod(var_11_half,var_11_half)/N_Pop#*var(UKBB_pop[,1])
+  var_U1<-crossprod(var_11_half,var_11_half)/N_Pop*var(UKBB_pop[,1])
   C_11<-solve(var_U1)
   C_11_half<-expm::sqrtm(C_11)
   C_22<-diag(sapply(1:N_SNP,function(i){
@@ -239,7 +239,8 @@ adaptiveGMMlasso2<-function(UKBB_pop,N_SNP,study_info){
   w_adaptive0<-1/(abs(coef(ridge_fit0)[-1]))^gamma_adaptivelasso
   w_adaptive0[is.infinite(w_adaptive0)]<-max(w_adaptive0[!is.infinite(w_adaptive0)])*5
   #ridge_fit<-glmnet(x= (pseudo_X),y= (pseudo_y),standardize=F,intercept=F,lambda = lambda_list[50],alpha = 0,penalty.factor = w_adaptive)
-  ridge_fit<-glmnet(x= (pseudo_X),y= (pseudo_y),standardize=F,intercept=F,lambda = lambda_list0[50]/100,alpha = 0.01,penalty.factor = w_adaptive0)
+  #ridge_fit<-glmnet(x= (pseudo_X),y= (pseudo_y),standardize=F,intercept=F,lambda = lambda_list0[50]/10,alpha = 0.01,penalty.factor = w_adaptive0)
+  ridge_fit<-glmnet(x= (pseudo_X),y= (pseudo_y),standardize=F,intercept=F,lambda = lambda_list0[50]/10,alpha = 0.01)
   #ridge_fit<-glmnet(x= scale(ref),y= scale(pheno_EUR$T2D,scale = F),standardize=F,intercept=F,lambda = lambda_list[50]/100/mean(w_adaptive),penalty.factor = w_adaptive)
   gamma_adaptivelasso<-1/2
   w_adaptive<-1/(abs(coef(ridge_fit)[-1]))^gamma_adaptivelasso

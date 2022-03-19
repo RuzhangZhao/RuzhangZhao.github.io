@@ -267,7 +267,7 @@ EAF[Nonnull_index]
   SNP_names<-bim_sample$id
   colnames(ref_sample)<-paste0('SNP',1:length(SNP_names))
   pheno_covariates_sp<-Phenotype[index1]
-  
+  UKBB_pop_all<-data.frame(Phenotype=scale(pheno_covariates_sp,center = T,scale = F),scale(ref_sample,center = T,scale = F))
   UKBB_pop_all<-data.frame(Phenotype=scale(pheno_covariates_sp,center = T,scale = F),scale(ref_sample,center = T,scale = T))
   # The first column is phenotype:"Y"
   colnames(UKBB_pop_all)[1]<-"Y"
@@ -280,8 +280,9 @@ EAF[Nonnull_index]
     stop("The column name of UKBB matrix should be clear.(Which one is SNP/GPC/risk factor")
   }
   source("~/multiSNP/adaptiveGMMLasso.R")
-  a<-adaptiveGMMlasso(UKBB_pop_all,N_SNP,study_info_scaled)
-  lasgw_pos<-names(a$pos)
+  a<-adaptiveGMMlasso2(UKBB_pop_all,N_SNP,study_info_scaled)
+  a<-adaptiveGMMlasso2(UKBB_pop_all,N_SNP,study_info)
+  lasgw_pos<-a$pos2
   print(paste0("Only GWAS: len:",length(lasgw_pos),", true select:",sum(lasgw_pos%in%Nonnull_index_filter_less)))
   
   if(0){
