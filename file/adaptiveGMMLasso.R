@@ -93,48 +93,18 @@ adaptiveGMMlasso<-function(UKBB_pop,N_SNP,study_info){
       if( sum(nonzero_cor_i > 0.8) == 0 )break
     }
   }
-
-  #beta<-coef(adaptivelasso_fit,s =lambda_list[lambda_index])[-1]
-  beta<-coef(adaptivelasso_fit,s ='lambda.min')[-1]
-  #index_nonzero_i0<-which(abs(beta)>1e-3)
-  index_nonzero_i<-which(beta!=0)
-  nonzero_cor_i<-UKBB_cor[index_nonzero_i,index_nonzero_i]
-  nonzero_cor_i[nonzero_cor_i == 1] = 0
-  tmp<-which(abs(nonzero_cor_i)>0.75,arr.ind = T)
-  if(nrow(tmp)>0){
-    tmp<-cbind(index_nonzero_i[tmp[,2]],index_nonzero_i[tmp[,1]])
-    tmp<-tmp[tmp[,1]<tmp[,2],]
-    #which(index_nonzero_i[tmp[,2]]%in%index_nonzero_i0[tmp[,1]])
-    rm_index<-c()
-    if(is.null(dim(tmp)[1])){
-      z1<-study_info[[tmp[1]]]$Coeff^2/study_info[[tmp[1]]]$Covariance
-      z2<-study_info[[tmp[2]]]$Coeff^2/study_info[[tmp[2]]]$Covariance
-      if( z1 > z2){
-        rm_index<-c(rm_index,tmp[2])
-      }else{
-        rm_index<-c(rm_index,tmp[1])
-      }
-    }else{
-      for(i in 1:nrow(tmp)){
-        z1<-study_info[[tmp[i,1]]]$Coeff^2/study_info[[tmp[i,1]]]$Covariance
-        z2<-study_info[[tmp[i,2]]]$Coeff^2/study_info[[tmp[i,2]]]$Covariance
-        if( z1 > z2){
-          rm_index<-c(rm_index,tmp[i,2])
-        }else{
-          rm_index<-c(rm_index,tmp[i,1])
-        }
-      }
+  if(1){
+    for( i in length(adaptivelasso_fit$lambda.min) : 2){
+      beta_i<-coef(adaptivelasso_fit,s = lambda_list[i])[-1]
+      index_nonzero_i<-which(beta_i!=0)
+      index_nonzero_i0<-which(abs(beta_i)>1e-3)
+      nonzero_cor_i<-UKBB_cor[index_nonzero_i0,index_nonzero_i]
+      nonzero_cor_i[nonzero_cor_i == 1] = 0
+      lambda_index<-i
+      if( sum(nonzero_cor_i > 0.75) == 0 )break
     }
-    
-    w_adaptive_filter<-w_adaptive
-    w_adaptive_filter[rm_index]<-w_adaptive_filter[rm_index]*100
-    adaptivelasso_fit<-cv.glmnet(x= (pseudo_X),y= (pseudo_y),standardize=F,intercept=F,alpha = 1,penalty.factor = w_adaptive_filter)
-    lambda_list<-adaptivelasso_fit$lambda
-    lambda_index=which(lambda_list == adaptivelasso_fit$lambda.min)
-    
-    beta<-coef(adaptivelasso_fit,s = lambda_list[lambda_index])[-1]
   }
-  
+  beta<-coef(adaptivelasso_fit,s =lambda_list[lambda_index])[-1]
   #index_nonzero_i0<-which(abs(beta)>1e-3)
   
   index_nonzero<-which(beta!=0)
