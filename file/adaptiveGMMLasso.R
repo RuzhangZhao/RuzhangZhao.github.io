@@ -198,7 +198,7 @@ adaptiveGMMlasso2<-function(UKBB_pop,N_SNP,study_info){
   C_22<-diag(sapply(1:N_SNP,function(i){
     (N_Pop)/(study_info[[i]]$Covariance)/(c(UKBB_pop[,c(paste0("SNP",i))]%*%UKBB_pop[,c(paste0("SNP",i))]))^2
   }))
-  C_22<-C_22*study_info[[1]]$Sample_size/N_Pop
+  #C_22<-C_22*study_info[[1]]$Sample_size/N_Pop
   C_22_half<-diag(sqrt(diag(C_22)))
   C_half<-adiag(C_11_half,C_22_half)
   
@@ -241,7 +241,7 @@ adaptiveGMMlasso2<-function(UKBB_pop,N_SNP,study_info){
   w_adaptive0[is.infinite(w_adaptive0)]<-max(w_adaptive0[!is.infinite(w_adaptive0)])*5
   #ridge_fit<-glmnet(x= (pseudo_X),y= (pseudo_y),standardize=F,intercept=F,lambda = lambda_list[50],alpha = 0,penalty.factor = w_adaptive)
   #ridge_fit<-glmnet(x= (pseudo_X),y= (pseudo_y),standardize=F,intercept=F,lambda = lambda_list0[50]/10,alpha = 0.01,penalty.factor = w_adaptive0)
-  ridge_fit<-glmnet(x= (pseudo_X),y= (pseudo_y),standardize=F,intercept=F,lambda = lambda_list0[50]/10,alpha = 0.1)
+  ridge_fit<-glmnet(x= (pseudo_X),y= (pseudo_y),standardize=F,intercept=F,lambda = lambda_list0[50]/10,alpha = 0.01)
   #ridge_fit<-glmnet(x= scale(ref),y= scale(pheno_EUR$T2D,scale = F),standardize=F,intercept=F,lambda = lambda_list[50]/100/mean(w_adaptive),penalty.factor = w_adaptive)
   gamma_adaptivelasso<-1/2
   w_adaptive<-1/(abs(coef(ridge_fit)[-1]))^gamma_adaptivelasso
