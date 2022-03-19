@@ -139,7 +139,7 @@ coef_nonnull<-log(1.25)
 coef_SNP<-rep(0,ncol(ref))
 coef_SNP[Nonnull_index]<-coef_nonnull
 coef_SNP[Nonnull_index]<-coef_SNP[Nonnull_index]*c(1,1,1)
-intercept<- -1
+intercept<- -2
 
 EAF<-colsums(ref)/nrow(ref)/2
 EAF[Nonnull_index]
