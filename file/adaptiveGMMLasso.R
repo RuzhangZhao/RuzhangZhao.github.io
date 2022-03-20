@@ -473,8 +473,7 @@ adaptiveGMMlasso3<-function(UKBB_pop,N_SNP,study_info){
 }
 
 
-
-adaptiveGMMlasso31<-function(UKBB_pop,N_SNP,study_info){
+adaptiveGMMlasso31<-function(UKBB_pop,N_SNP,study_info,type=1){
   colnames(UKBB_pop)[1]<-"Y"
   var_SNP<-paste0("SNP",1:(N_SNP))
   len_SNP<-length(var_SNP)
@@ -715,47 +714,76 @@ adaptiveGMMlasso31<-function(UKBB_pop,N_SNP,study_info){
   }
   beta2<-beta
   
-  mse1_uk<-sum((UKBB_pop[,-1]%*%beta1-UKBB_pop[,1])^2))
-mse1_ps<-sum((pseudo_X%*%beta1-pseudo_y)^2)
-
-
-mse2_uk<-sum((UKBB_pop[,-1]%*%beta2-UKBB_pop[,1])^2))
-mse2_ps<-sum((pseudo_X%*%beta2-pseudo_y)^2)
-
-if(mse1_ps<mse2_ps){
-  beta<-beta1
-}else{
-  beta<-beta2
+  mse1_uk<-mean((UKBB_pop[,-1]%*%beta1-UKBB_pop[,1])^2)
+  mse1_ps<-mean((pseudo_X%*%beta1-pseudo_y)^2)
+  
+  
+  mse2_uk<-mean((UKBB_pop[,-1]%*%beta2-UKBB_pop[,1])^2)
+  mse2_ps<-mean((pseudo_X%*%beta2-pseudo_y)^2)
+  if(type == 1){
+    if(mse1_ps<mse2_ps){
+      beta<-beta1
+    }else{
+      beta<-beta2
+    }
+  }else if(type == 2){
+    if(mse1_uk<mse2_uk){
+      beta<-beta1
+    }else{
+      beta<-beta2
+    }
+  }else if(type == 3){
+    
+    if(mse1_uk<mse2_uk & mse1_ps<mse2_ps){
+      beta<-beta1
+    }else if(mse1_uk>mse2_uk & mse1_ps>mse2_ps){
+      beta<-beta2
+    }else if( mse1_uk>mse2_uk & mse1_ps<mse2_ps){
+      if(mse1_uk/mse2_uk > mse2_ps/mse1_ps ){
+        beta<-beta2
+      }else{
+        beta<-beta1
+      }
+    }else{
+      if(mse2_uk/mse1_uk > mse1_ps/mse2_ps ){
+        beta<-beta1
+      }else{
+        beta<-beta2
+      }
+    }
+    
+    
+  }
+  
+  index_nonzero<-which(beta!=0)
+  xtx<-t(UKBB_pop[,-1])%*%UKBB_pop[,-1]/N_Pop
+  Sigsum_half<-cbind(xtx,xtx)%*%C_half
+  Sigsum_scaled<-Sigsum_half%*%t(Sigsum_half)
+  Sigsum_scaled_nonzero<-Sigsum_scaled[index_nonzero,index_nonzero]
+  inv_Sigsum_scaled_nonzero<-solve(Sigsum_scaled_nonzero)
+  
+  W1 = xtx/var(UKBB_pop[,1])
+  W2 = xtx%*%C_22%*%xtx
+  W = W1+W2
+  W_nonzero = W[index_nonzero,index_nonzero]
+  
+  final_v<-diag(inv_Sigsum_scaled_nonzero%*%W_nonzero%*%inv_Sigsum_scaled_nonzero)
+  
+  aa_final<-1-pchisq(N_Pop*beta[index_nonzero]^2/final_v,1)
+  pos<-index_nonzero[which(aa_final<0.05/ncol(UKBB_pop))]
+  pos2<-index_nonzero[which(aa_final<0.05/length(aa_final))]
+  #print(pos)
+  #print(beta[index_nonzero])
+  #print(final_v)
+  #print(index_nonzero)
+  
+  newList<-list("beta"=beta,
+    "pos"=pos,
+    "pos2"=pos2,
+    "aa_final"=aa_final,
+    "final_v"=final_v,
+    "w_adaptive"=w_adaptive)
 }
-index_nonzero<-which(beta!=0)
-xtx<-t(UKBB_pop[,-1])%*%UKBB_pop[,-1]/N_Pop
-Sigsum_half<-cbind(xtx,xtx)%*%C_half
-Sigsum_scaled<-Sigsum_half%*%t(Sigsum_half)
-Sigsum_scaled_nonzero<-Sigsum_scaled[index_nonzero,index_nonzero]
-inv_Sigsum_scaled_nonzero<-solve(Sigsum_scaled_nonzero)
 
-W1 = xtx/var(UKBB_pop[,1])
-W2 = xtx%*%C_22%*%xtx
-W = W1+W2
-W_nonzero = W[index_nonzero,index_nonzero]
-
-final_v<-diag(inv_Sigsum_scaled_nonzero%*%W_nonzero%*%inv_Sigsum_scaled_nonzero)
-
-aa_final<-1-pchisq(N_Pop*beta[index_nonzero]^2/final_v,1)
-pos<-index_nonzero[which(aa_final<0.05/ncol(UKBB_pop))]
-pos2<-index_nonzero[which(aa_final<0.05/length(aa_final))]
-#print(pos)
-#print(beta[index_nonzero])
-#print(final_v)
-#print(index_nonzero)
-
-newList<-list("beta"=beta,
-  "pos"=pos,
-  "pos2"=pos2,
-  "aa_final"=aa_final,
-  "final_v"=final_v,
-  "w_adaptive"=w_adaptive
-)
-}
 
 
