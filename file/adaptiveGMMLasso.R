@@ -124,10 +124,10 @@ adaptiveGMMlasso<-function(UKBB_pop,N_SNP,study_info){
   aa_final<-1-pchisq(N_Pop*beta[index_nonzero]^2/final_v,1)
   pos<-index_nonzero[which(aa_final<0.05/ncol(UKBB_pop))]
   pos2<-index_nonzero[which(aa_final<0.05/length(aa_final))]
-  print(pos2)
-  print(beta[index_nonzero])
-  print(final_v)
-  print(index_nonzero)
+  #print(pos2)
+  #print(beta[index_nonzero])
+  #print(final_v)
+  #print(index_nonzero)
   newList<-list("beta"=beta,
     "pos"=pos,
     "pos2"=pos2,
@@ -281,10 +281,13 @@ adaptiveGMMlasso2<-function(UKBB_pop,N_SNP,study_info){
   aa_final<-1-pchisq(N_Pop*beta[index_nonzero]^2/final_v,1)
   pos<-index_nonzero[which(aa_final<0.05/ncol(UKBB_pop))]
   pos2<-index_nonzero[which(aa_final<0.05/length(aa_final))]
-  print(pos)
+  #print(pos)
   #print(beta[index_nonzero])
   #print(final_v)
   #print(index_nonzero)
+  print(paste0("original_MSE:",sum((UKBB_pop[,-1]%*%beta-UKBB_pop[,1])^2)))
+  print(paste0("pseudo_MSE:",sum((pseudo_X%*%beta-pseudo_y)^2)))
+  
   newList<-list("beta"=beta,
     "pos"=pos,
     "pos2"=pos2,
@@ -453,10 +456,13 @@ adaptiveGMMlasso3<-function(UKBB_pop,N_SNP,study_info){
   aa_final<-1-pchisq(N_Pop*beta[index_nonzero]^2/final_v,1)
   pos<-index_nonzero[which(aa_final<0.05/ncol(UKBB_pop))]
   pos2<-index_nonzero[which(aa_final<0.05/length(aa_final))]
-  print(pos)
+  #print(pos)
   #print(beta[index_nonzero])
   #print(final_v)
   #print(index_nonzero)
+  print(paste0("original_MSE:",sum((UKBB_pop[,-1]%*%beta-UKBB_pop[,1])^2)))
+  print(paste0("pseudo_MSE:",sum((pseudo_X%*%beta-pseudo_y)^2)))
+  
   newList<-list("beta"=beta,
     "pos"=pos,
     "pos2"=pos2,
