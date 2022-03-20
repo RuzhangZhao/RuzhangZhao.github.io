@@ -285,8 +285,8 @@ adaptiveGMMlasso2<-function(UKBB_pop,N_SNP,study_info){
   #print(beta[index_nonzero])
   #print(final_v)
   #print(index_nonzero)
-  print(paste0("original_MSE:",sum((UKBB_pop[,-1]%*%beta-UKBB_pop[,1])^2)))
-  print(paste0("pseudo_MSE:",sum((pseudo_X%*%beta-pseudo_y)^2)))
+  print(paste0("original_MSE2:",sum((UKBB_pop[,-1]%*%beta-UKBB_pop[,1])^2)))
+  print(paste0("pseudo_MSE2:",sum((pseudo_X%*%beta-pseudo_y)^2)))
   
   newList<-list("beta"=beta,
     "pos"=pos,
@@ -460,8 +460,8 @@ adaptiveGMMlasso3<-function(UKBB_pop,N_SNP,study_info){
   #print(beta[index_nonzero])
   #print(final_v)
   #print(index_nonzero)
-  print(paste0("original_MSE:",sum((UKBB_pop[,-1]%*%beta-UKBB_pop[,1])^2)))
-  print(paste0("pseudo_MSE:",sum((pseudo_X%*%beta-pseudo_y)^2)))
+  print(paste0("original_MSE3:",sum((UKBB_pop[,-1]%*%beta-UKBB_pop[,1])^2)))
+  print(paste0("pseudo_MSE3:",sum((pseudo_X%*%beta-pseudo_y)^2)))
   
   newList<-list("beta"=beta,
     "pos"=pos,
