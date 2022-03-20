@@ -727,10 +727,16 @@ adaptiveGMMlasso31<-function(UKBB_pop,N_SNP,study_info,type=1){
       beta<-beta2
     }
   }else if(type == 2){
-    if(mse1_uk<mse2_uk){
+    if(mse1_uk<mse2_uk & mse1_ps<mse2_ps){
       beta<-beta1
-    }else{
+    }else if(mse1_uk>mse2_uk & mse1_ps>mse2_ps){
       beta<-beta2
+    }else{
+      if(mse1_uk+mse1_ps < mse2_ps+mse2_uk ){
+        beta<-beta1
+      }else{
+        beta<-beta2
+      }
     }
   }else if(type == 3){
     
