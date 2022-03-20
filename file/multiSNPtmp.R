@@ -1,6 +1,6 @@
 
-print("JS2")
-cur_iter<-2
+print("JS")
+cur_iter<-4
 #Nonnull_index<-c(2,130,173)
 #Nonnull_index<-c(2,130,192)
 #Nonnull_index<-c(139,151,211)
@@ -281,6 +281,7 @@ EAF[Nonnull_index]
   }
   source("~/multiSNP/adaptiveGMMLasso.R")
   a<-adaptiveGMMlasso2(UKBB_pop_all,N_SNP,study_info_scaled)
+  a3<-adaptiveGMMlasso3(UKBB_pop_all,N_SNP,study_info_scaled)
   #a<-adaptiveGMMlasso2(UKBB_pop_all,N_SNP,study_info)
   lasgw_pos<-a$pos
   print(paste0("Only GWAS: len:",length(lasgw_pos),", true select:",sum(lasgw_pos%in%Nonnull_index_filter_less)))
