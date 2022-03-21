@@ -461,8 +461,8 @@ adaptiveGMMlasso3<-function(UKBB_pop,N_SNP,study_info){
   #print(beta[index_nonzero])
   #print(final_v)
   #print(index_nonzero)
-  print(paste0("original_MSE3:",sum((UKBB_pop[,-1]%*%beta-UKBB_pop[,1])^2)))
-  print(paste0("pseudo_MSE3:",sum((pseudo_X%*%beta-pseudo_y)^2)))
+  #print(paste0("original_MSE3:",sum((UKBB_pop[,-1]%*%beta-UKBB_pop[,1])^2)))
+  #print(paste0("pseudo_MSE3:",sum((pseudo_X%*%beta-pseudo_y)^2)))
   
   newList<-list("beta"=beta,
     "pos"=pos,
@@ -721,6 +721,15 @@ adaptiveGMMlasso31<-function(UKBB_pop,N_SNP,study_info,type=1,cor_cut=0.5){
   
   mse2_uk<-mean((UKBB_pop[,-1]%*%beta2-UKBB_pop[,1])^2)
   mse2_ps<-mean((pseudo_X%*%beta2-pseudo_y)^2)
+  
+  
+  print(paste0("original_MSE_both:",mse1_uk))
+  print(paste0("pseudo_MSE_both:",mse1_ps))
+  
+  print(paste0("original_MSE_gwas:",mse2_uk))
+  print(paste0("pseudo_MSE_gwas:",mse2_ps))
+  
+  
   if(type == 1){
     if(mse1_ps<mse2_ps){
       beta<-beta1
@@ -742,16 +751,20 @@ adaptiveGMMlasso31<-function(UKBB_pop,N_SNP,study_info,type=1,cor_cut=0.5){
   }else if(type == 3){
     
     if(mse1_uk<mse2_uk & mse1_ps<mse2_ps){
+      print(3.1)
       beta<-beta1
     }else if(mse1_uk>mse2_uk & mse1_ps>mse2_ps){
+      print(3.2)
       beta<-beta2
     }else if( mse1_uk>mse2_uk & mse1_ps<mse2_ps){
+      print(3.3)
       if(mse1_uk/mse2_uk > mse2_ps/mse1_ps ){
         beta<-beta2
       }else{
         beta<-beta1
       }
     }else{
+      print(3.4)
       if(mse2_uk/mse1_uk > mse1_ps/mse2_ps ){
         beta<-beta1
       }else{
