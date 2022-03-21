@@ -282,8 +282,9 @@ EAF[Nonnull_index]
   source("~/multiSNP/adaptiveGMMLasso.R")
   a<-adaptiveGMMlasso2(UKBB_pop_all,N_SNP,study_info_scaled)
   a3<-adaptiveGMMlasso3(UKBB_pop_all,N_SNP,study_info_scaled)
+  a31<-adaptiveGMMlasso31(UKBB_pop_all,N_SNP,study_info_scaled,type=3)
   #a<-adaptiveGMMlasso2(UKBB_pop_all,N_SNP,study_info)
-  lasgw_pos<-a$pos
+  lasgw_pos<-a31$pos
   print(paste0("Only GWAS: len:",length(lasgw_pos),", true select:",sum(lasgw_pos%in%Nonnull_index_filter_less)))
   
   if(0){

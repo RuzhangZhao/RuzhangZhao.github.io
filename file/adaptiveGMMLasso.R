@@ -473,7 +473,7 @@ adaptiveGMMlasso3<-function(UKBB_pop,N_SNP,study_info){
 }
 
 
-adaptiveGMMlasso31<-function(UKBB_pop,N_SNP,study_info,type=1){
+adaptiveGMMlasso31<-function(UKBB_pop,N_SNP,study_info,type=1,cor_cut=0.5){
   colnames(UKBB_pop)[1]<-"Y"
   var_SNP<-paste0("SNP",1:(N_SNP))
   len_SNP<-length(var_SNP)
@@ -676,7 +676,7 @@ adaptiveGMMlasso31<-function(UKBB_pop,N_SNP,study_info,type=1){
     index_nonzero_i<-which(beta!=0)
     nonzero_cor_i<-UKBB_cor[index_nonzero_i,index_nonzero_i]
     nonzero_cor_i[nonzero_cor_i == 1] = 0
-    tmp<-which(abs(nonzero_cor_i)>0.75,arr.ind = T)
+    tmp<-which(abs(nonzero_cor_i)>cor_cut,arr.ind = T)
     if(nrow(tmp)>0){
       tmp<-cbind(index_nonzero_i[tmp[,2]],index_nonzero_i[tmp[,1]])
       tmp<-tmp[tmp[,1]<tmp[,2],]
