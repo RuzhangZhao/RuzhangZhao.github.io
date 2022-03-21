@@ -230,6 +230,7 @@ adaptiveGMMlasso2<-function(UKBB_pop,N_SNP,study_info){
     if(nrow(tmp)>0){
       tmp<-cbind(index_nonzero_i[tmp[,2]],index_nonzero_i[tmp[,1]])
       tmp<-tmp[tmp[,1]<tmp[,2],]
+      print(tmp)
       #which(index_nonzero_i[tmp[,2]]%in%index_nonzero_i0[tmp[,1]])
       rm_index<-c()
       if(is.null(dim(tmp)[1])){
