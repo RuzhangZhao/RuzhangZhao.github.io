@@ -1,6 +1,6 @@
 
 print("JS2")
-cur_iter<-2
+cur_iter<-5
 #Nonnull_index<-c(2,130,173)
 Nonnull_index<-c(2,130,192)
 #Nonnull_index<-c(139,151,211)
@@ -252,7 +252,7 @@ EAF[Nonnull_index]
   ########################################################
   
   study_info<-lapply(1:nrow(gwas_res), function(i){
-    study.m = list(Coeff=gwas_res$BETA[i],Covariance=gwas_res$SE[i]^2,Sample_size=gwas_res$OBS_CT[i])
+    study.m = list(Coeff=gwas_res$BETA[i],Covariance=gwas_res$SE[i]^2,Sample_size=gwas_res$OBS_CT[i],P=gwas_res$P[i])
     study.m
   })
   study_info_scaled<-study_info
@@ -280,11 +280,12 @@ EAF[Nonnull_index]
     stop("The column name of UKBB matrix should be clear.(Which one is SNP/GPC/risk factor")
   }
   source("~/multiSNP/adaptiveGMMLasso.R")
-  a<-adaptiveGMMlasso2(UKBB_pop_all,N_SNP,study_info_scaled)
-  a3<-adaptiveGMMlasso3(UKBB_pop_all,N_SNP,study_info_scaled)
-  a31<-adaptiveGMMlasso31(UKBB_pop_all,N_SNP,study_info_scaled,type=3,cor_cut = 0.5)
+  #a<-adaptiveGMMlasso2(UKBB_pop_all,N_SNP,study_info_scaled)
+  #a3<-adaptiveGMMlasso3(UKBB_pop_all,N_SNP,study_info_scaled)
+  #a31<-adaptiveGMMlasso31(UKBB_pop_all,N_SNP,study_info_scaled,type=3,cor_cut = 0.5)
   #a<-adaptiveGMMlasso2(UKBB_pop_all,N_SNP,study_info)
-  lasgw_pos<-a31$pos
+  a<-adaptiveGMMlasso4(UKBB_pop_all,N_SNP,study_info_scaled)
+  lasgw_pos<-a$pos
   print(paste0("Only GWAS: len:",length(lasgw_pos),", true select:",sum(lasgw_pos%in%Nonnull_index_filter_less)))
   
   if(0){
