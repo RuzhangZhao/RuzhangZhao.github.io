@@ -226,7 +226,7 @@ adaptiveGMMlasso2<-function(UKBB_pop,N_SNP,study_info){
     index_nonzero_i<-which(beta!=0)
     nonzero_cor_i<-UKBB_cor[index_nonzero_i,index_nonzero_i]
     nonzero_cor_i[nonzero_cor_i == 1] = 0
-    tmp<-which(abs(nonzero_cor_i)>0.8,arr.ind = T)
+    tmp<-which(abs(nonzero_cor_i)>0.5,arr.ind = T)
     if(nrow(tmp)>0){
       tmp<-cbind(index_nonzero_i[tmp[,2]],index_nonzero_i[tmp[,1]])
       tmp<-tmp[tmp[,1]<tmp[,2],]
@@ -457,7 +457,7 @@ adaptiveGMMlasso3<-function(UKBB_pop,N_SNP,study_info){
   aa_final<-1-pchisq(N_Pop*beta[index_nonzero]^2/final_v,1)
   pos<-index_nonzero[which(aa_final<0.05/ncol(UKBB_pop))]
   pos2<-index_nonzero[which(aa_final<0.05/length(aa_final))]
-  #print(pos)
+  print(pos)
   #print(beta[index_nonzero])
   #print(final_v)
   #print(index_nonzero)
@@ -474,7 +474,7 @@ adaptiveGMMlasso3<-function(UKBB_pop,N_SNP,study_info){
 }
 
 
-adaptiveGMMlasso31<-function(UKBB_pop,N_SNP,study_info,type=1,cor_cut=0.5){
+adaptiveGMMlasso31<-function(UKBB_pop,N_SNP,study_info,type=1,cor_cut=0.8){
   colnames(UKBB_pop)[1]<-"Y"
   var_SNP<-paste0("SNP",1:(N_SNP))
   len_SNP<-length(var_SNP)
@@ -558,7 +558,7 @@ adaptiveGMMlasso31<-function(UKBB_pop,N_SNP,study_info,type=1,cor_cut=0.5){
     index_nonzero_i<-which(beta!=0)
     nonzero_cor_i<-UKBB_cor[index_nonzero_i,index_nonzero_i]
     nonzero_cor_i[nonzero_cor_i == 1] = 0
-    tmp<-which(abs(nonzero_cor_i)>0.8,arr.ind = T)
+    tmp<-which(abs(nonzero_cor_i)>cor_cut,arr.ind = T)
     if(nrow(tmp)>0){
       tmp<-cbind(index_nonzero_i[tmp[,2]],index_nonzero_i[tmp[,1]])
       tmp<-tmp[tmp[,1]<tmp[,2],]
