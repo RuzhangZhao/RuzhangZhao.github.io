@@ -1296,7 +1296,7 @@ adaptiveGMMlasso34<-function(UKBB_pop,study_info,type=3,filter_index = TRUE,cor_
     "w_adaptive"=w_adaptive)
 }
 
-adaptiveGMMlasso35<-function(UKBB_pop,study_info,type=3,filter_index = TRUE,cor_cut=0.4,p_val_cut=1e-5){
+adaptiveGMMlasso35<-function(UKBB_pop,study_info,type=3,filter_index = TRUE,cor_cut=0.5,p_val_cut=1e-5){
   if(filter_index){
     ### Trick 1 index filtering 
     index_filter<-c()
@@ -1542,10 +1542,10 @@ adaptiveGMMlasso35<-function(UKBB_pop,study_info,type=3,filter_index = TRUE,cor_
       beta<-beta2
       select1 =F
     }else{
-      print("select gwas2")
-      beta<-beta2
-      select1 =F
-      if(0){
+      #print("select gwas2")
+      #beta<-beta2
+      #select1 =F
+      if(1){
         if(mse2_uk/mse1_uk > mse1_ps/mse2_ps ){
           print("select both2")
           beta<-beta1
