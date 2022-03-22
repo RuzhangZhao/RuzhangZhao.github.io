@@ -460,7 +460,7 @@ adaptiveGMMlasso21<-function(UKBB_pop,study_info,cor_cut=0.5){
   )
 }
 
-adaptiveGMMlasso35<-function(UKBB_pop,study_info,cor_cut=0.5){
+adaptiveGMMlasso35<-function(UKBB_pop,study_info,cor_cut=0.5,filter_index=TRUE){
   if(filter_index){
     ### Trick 1 index filtering 
     index_filter<-c()
