@@ -990,7 +990,7 @@ adaptiveGMMlasso34<-function(UKBB_pop,N_SNP,study_info,type=3,cor_cut=0.6,p_val_
   study_info<-study_info[index_filter]
   
   N_SNP<-ncol(UKBB_pop)-1
-  
+  colnames(UKBB_pop)[-1]<-paste0("SNP",1:(N_SNP))
   colnames(UKBB_pop)[1]<-"Y"
   var_SNP<-paste0("SNP",1:(N_SNP))
   len_SNP<-length(var_SNP)
