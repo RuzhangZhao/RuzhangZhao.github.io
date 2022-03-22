@@ -1234,24 +1234,18 @@ adaptiveGMMlasso34<-function(UKBB_pop,N_SNP,study_info,type=3,filter_index = TRU
   }else if(type == 3){
     
     if(mse1_uk<mse2_uk & mse1_ps<mse2_ps){
-      print(3.1)
+      print("select both")
       beta<-beta1
     }else if(mse1_uk>mse2_uk & mse1_ps>mse2_ps){
-      print(3.2)
+      print("select gwas")
       beta<-beta2
-    }else if( mse1_uk>mse2_uk & mse1_ps<mse2_ps){
-      print(3.3)
-      if(mse1_uk/mse2_uk > mse2_ps/mse1_ps ){
-        beta<-beta2
-      }else{
-        beta<-beta1
-      }
     }else{
-      print(3.4)
       if(mse2_uk/mse1_uk > mse1_ps/mse2_ps ){
+        print("select both")
         beta<-beta1
       }else{
         beta<-beta2
+        print("select gwas2")
       }
     }
     
