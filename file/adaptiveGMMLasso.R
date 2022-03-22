@@ -1296,8 +1296,7 @@ adaptiveGMMlasso34<-function(UKBB_pop,study_info,type=3,filter_index = TRUE,cor_
     "w_adaptive"=w_adaptive)
 }
 
-
-adaptiveGMMlasso35<-function(UKBB_pop,study_info,type=3,filter_index = TRUE,cor_cut=0.6,p_val_cut=1e-5){
+adaptiveGMMlasso35<-function(UKBB_pop,N_SNP,study_info,type=3,filter_index = TRUE,cor_cut=0.6,p_val_cut=1e-5){
   if(filter_index){
     ### Trick 1 index filtering 
     index_filter<-c()
@@ -1495,7 +1494,7 @@ adaptiveGMMlasso35<-function(UKBB_pop,study_info,type=3,filter_index = TRUE,cor_
       w_adaptive<-w_adaptive
       w_adaptive[rm_index]<-w_adaptive[rm_index]*100
       
-      adaptivelasso_fit<-cv.glmnet(x= (pseudo_X),y= (pseudo_y),standardize=F,intercept=F,alpha = 1,penalty.factor = w_adaptive)
+      adaptivelasso_fit<-cv.glmnet(x= (pseudo_X_shrink),y= (pseudo_y_shrink),standardize=F,intercept=F,alpha = 1,penalty.factor = w_adaptive)
       beta<-coef(adaptivelasso_fit,s = 'lambda.min')[-1]
       
     }else{
@@ -1586,11 +1585,7 @@ adaptiveGMMlasso35<-function(UKBB_pop,study_info,type=3,filter_index = TRUE,cor_
     W = W1+W2
   }
   
-  
-  
   W_nonzero = W[index_nonzero,index_nonzero]
-  
-  
   
   final_v<-diag(inv_Sigsum_scaled_nonzero%*%W_nonzero%*%inv_Sigsum_scaled_nonzero)
   
