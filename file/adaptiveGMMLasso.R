@@ -1332,7 +1332,7 @@ adaptiveGMMlasso35<-function(UKBB_pop,N_SNP,study_info,type=3,filter_index = TRU
   var_U1<-crossprod(var_11_half,var_11_half)/N_Pop#*var(UKBB_pop[,1])
   C_11<-solve(var_U1)
   C_11_half<-expm::sqrtm(C_11)
-  C_11_shrink<-C11*N_Pop/study_info[[1]]$Sample_size
+  C_11_shrink<-C_11*N_Pop/study_info[[1]]$Sample_size
   C_11_shrink_half<-C_11_half*sqrt(N_Pop/study_info[[1]]$Sample_size)
   C_22<-diag(sapply(1:N_SNP,function(i){
     (N_Pop)/(study_info[[i]]$Covariance)/(c(UKBB_pop[,c(paste0("SNP",i))]%*%UKBB_pop[,c(paste0("SNP",i))]))^2
