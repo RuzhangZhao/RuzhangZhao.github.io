@@ -1,14 +1,14 @@
 
 print("JS2")
-cur_iter<-5
+cur_iter<-3
 #Nonnull_index<-c(2,130,173)
 #Nonnull_index<-c(2,130,192)
 Nonnull_index<-c(139,151,211)
 
 #Nonnull_index<-c(151,139,103)
 #Nonnull_index<-sample(1:254,3)
-Nonnull_index<-c(11,115,227)#
-#Nonnull_index<-c(25,83,196)
+#Nonnull_index<-c(11,115,227)#
+Nonnull_index<-c(25,83,196)
 library(inline,quietly = T)
 library(data.table,quietly = T)
 library(dplyr,quietly = T)
