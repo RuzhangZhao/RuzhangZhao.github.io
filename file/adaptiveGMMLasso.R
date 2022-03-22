@@ -1216,11 +1216,11 @@ adaptiveGMMlasso34<-function(UKBB_pop,N_SNP,study_info,type=3,filter_index = TRU
   mse2_ps<-mean((pseudo_X%*%beta2-pseudo_y)^2)
   
   
-  print(paste0("original_MSE_both:",mse1_uk))
-  print(paste0("pseudo_MSE_both:",mse1_ps))
+  #print(paste0("original_MSE_both:",mse1_uk))
+  #print(paste0("pseudo_MSE_both:",mse1_ps))
   
-  print(paste0("original_MSE_gwas:",mse2_uk))
-  print(paste0("pseudo_MSE_gwas:",mse2_ps))
+  #print(paste0("original_MSE_gwas:",mse2_uk))
+  #print(paste0("pseudo_MSE_gwas:",mse2_ps))
   
   
   if(type == 1){
