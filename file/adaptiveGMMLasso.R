@@ -1587,7 +1587,8 @@ adaptiveGMMlasso35<-function(UKBB_pop,study_info,type=3,filter_index = TRUE,cor_
   W_nonzero = W[index_nonzero,index_nonzero]
   
   final_v<-diag(inv_Sigsum_scaled_nonzero%*%W_nonzero%*%inv_Sigsum_scaled_nonzero)
-  final_v<-diag(inv_Sigsum_scaled_nonzero)
+  #final_v<-diag(inv_Sigsum_scaled_nonzero)
+  final_v<-diag(solve(xtx)[index_nonzero,index_nonzero]*(var(UKBB_pop[,1])))
   aa_final<-1-pchisq(N_Pop*beta[index_nonzero]^2/final_v,1)
   if(filter_index){
     pos<-index_filter[index_nonzero[which(aa_final<0.05/ncol(UKBB_pop))]]
