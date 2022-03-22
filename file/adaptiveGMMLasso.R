@@ -144,7 +144,7 @@ adaptiveGMMlasso<-function(UKBB_pop,study_info){
 ## Both SNP and phenotype should be centered. 
 library(expm,quietly = T)
 library(magic,quietly = T)
-adaptiveGMMlasso2<-function(UKBB_pop,study_info){
+adaptiveGMMlasso35<-function(UKBB_pop,study_info){
   N_SNP<-ncol(UKBB_pop)-1
   colnames(UKBB_pop)[-1]<-paste0("SNP",1:(N_SNP))
   colnames(UKBB_pop)[1]<-"Y"
@@ -480,7 +480,7 @@ adaptiveGMMlasso3<-function(UKBB_pop,study_info){
 }
 
 
-adaptiveGMMlasso31<-function(UKBB_pop,N_SNP,study_info,type=1,cor_cut=0.8){
+adaptiveGMMlasso31<-function(UKBB_pop,N_SNP,study_info,type=3,cor_cut=0.8){
   colnames(UKBB_pop)[1]<-"Y"
   var_SNP<-paste0("SNP",1:(N_SNP))
   len_SNP<-length(var_SNP)
