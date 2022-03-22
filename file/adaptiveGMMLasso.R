@@ -1267,7 +1267,7 @@ adaptiveGMMlasso34<-function(UKBB_pop,N_SNP,study_info,type=3,filter_index = TRU
   ### trick 3 change variance 
   
   
-  W1 = xtx/var(UKBB_pop[,1])
+  W1 = xtx#/var(UKBB_pop[,1])
   W2 = xtx%*%C_22%*%xtx
   W = W1+W2
   W_nonzero = W[index_nonzero,index_nonzero]

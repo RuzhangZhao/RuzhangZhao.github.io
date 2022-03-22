@@ -282,8 +282,8 @@ EAF[Nonnull_index]
   source("~/multiSNP/adaptiveGMMLasso.R")
   #a<-adaptiveGMMlasso2(UKBB_pop_all,N_SNP,study_info_scaled)
   #a3<-adaptiveGMMlasso3(UKBB_pop_all,N_SNP,study_info_scaled)
-  a31<-adaptiveGMMlasso31(UKBB_pop_all,N_SNP,study_info_scaled,type=3,cor_cut = 0.5)
-  a<-adaptiveGMMlasso2(UKBB_pop_all,N_SNP,study_info_scaled)
+  #a31<-adaptiveGMMlasso31(UKBB_pop_all,N_SNP,study_info_scaled,type=3,cor_cut = 0.5)
+  #a<-adaptiveGMMlasso2(UKBB_pop_all,N_SNP,study_info_scaled)
   a<-adaptiveGMMlasso34(UKBB_pop_all,N_SNP,study_info_scaled,cor_cut = 0.8,type=3)
   lasgw_pos<-a$pos
   print(paste0("adaptiveGMMlasso: len:",length(lasgw_pos),", true select:",sum(lasgw_pos%in%Nonnull_index_filter_less)))
