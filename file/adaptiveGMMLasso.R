@@ -979,15 +979,17 @@ adaptiveGMMlasso4<-function(UKBB_pop,N_SNP,study_info,cor_cut=0.8,p_val_cut=1e-5
 }
 
 
-adaptiveGMMlasso34<-function(UKBB_pop,N_SNP,study_info,type=3,cor_cut=0.6,p_val_cut=1e-5){
-  ### Trick 1 index filtering 
-  index_filter<-c()
-  for(i in 1:length(study_info)){
-    if(study_info[[i]]$P<p_val_cut) index_filter<-c(index_filter,i)
+adaptiveGMMlasso34<-function(UKBB_pop,N_SNP,study_info,type=3,filter_index = TRUE,cor_cut=0.6,p_val_cut=1e-5){
+  if(filter_index){
+    ### Trick 1 index filtering 
+    index_filter<-c()
+    for(i in 1:length(study_info)){
+      if(study_info[[i]]$P<p_val_cut) index_filter<-c(index_filter,i)
+    }
+    Nonnull_index2<-which(index_filter%in%Nonnull_index)
+    UKBB_pop<-UKBB_pop_all[,c(1,(index_filter+1))]
+    study_info<-study_info[index_filter]
   }
-  Nonnull_index2<-which(index_filter%in%Nonnull_index)
-  UKBB_pop<-UKBB_pop_all[,c(1,(index_filter+1))]
-  study_info<-study_info[index_filter]
   
   N_SNP<-ncol(UKBB_pop)-1
   colnames(UKBB_pop)[-1]<-paste0("SNP",1:(N_SNP))
