@@ -979,7 +979,7 @@ adaptiveGMMlasso4<-function(UKBB_pop,N_SNP,study_info,cor_cut=0.8,p_val_cut=1e-5
 }
 
 
-adaptiveGMMlasso34<-function(UKBB_pop,N_SNP,study_info,type=3,filter_index = TRUE,cor_cut=0.6,p_val_cut=1e-5){
+adaptiveGMMlasso34<-function(UKBB_pop,study_info,type=3,filter_index = TRUE,cor_cut=0.6,p_val_cut=1e-5){
   if(filter_index){
     ### Trick 1 index filtering 
     index_filter<-c()
@@ -1297,7 +1297,7 @@ adaptiveGMMlasso34<-function(UKBB_pop,N_SNP,study_info,type=3,filter_index = TRU
 }
 
 
-adaptiveGMMlasso35<-function(UKBB_pop,N_SNP,study_info,type=3,filter_index = TRUE,cor_cut=0.6,p_val_cut=1e-5){
+adaptiveGMMlasso35<-function(UKBB_pop,study_info,type=3,filter_index = TRUE,cor_cut=0.6,p_val_cut=1e-5){
   if(filter_index){
     ### Trick 1 index filtering 
     index_filter<-c()
