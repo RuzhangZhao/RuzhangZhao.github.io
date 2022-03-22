@@ -1244,7 +1244,7 @@ adaptiveGMMlasso34<-function(UKBB_pop,N_SNP,study_info,type=3,filter_index = TRU
       print("select gwas")
       beta<-beta2
     }else{
-      print("select gwas")
+      print("select gwas2")
       beta<-beta2
       if(0){
         if(mse2_uk/mse1_uk > mse1_ps/mse2_ps ){
