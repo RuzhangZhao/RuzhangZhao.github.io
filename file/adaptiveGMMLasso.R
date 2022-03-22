@@ -1230,7 +1230,11 @@ adaptiveGMMlasso34<-function(UKBB_pop,N_SNP,study_info,type=3,filter_index = TRU
       beta<-beta2
     }
   }else if(type == 2){
-    
+    if(mse1_uk<mse2_uk){
+      beta<-beta1
+    }else{
+      beta<-beta2
+    }
   }else if(type == 3){
     
     if(mse1_uk<mse2_uk & mse1_ps<mse2_ps){
@@ -1240,12 +1244,16 @@ adaptiveGMMlasso34<-function(UKBB_pop,N_SNP,study_info,type=3,filter_index = TRU
       print("select gwas")
       beta<-beta2
     }else{
-      if(mse2_uk/mse1_uk > mse1_ps/mse2_ps ){
-        print("select both")
-        beta<-beta1
-      }else{
-        beta<-beta2
-        print("select gwas2")
+      print("select gwas")
+      beta<-beta2
+      if(0){
+        if(mse2_uk/mse1_uk > mse1_ps/mse2_ps ){
+          print("select both2")
+          beta<-beta1
+        }else{
+          beta<-beta2
+          print("select gwas2")
+        }
       }
     }
     
