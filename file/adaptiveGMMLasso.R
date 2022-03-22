@@ -433,8 +433,8 @@ adaptiveGMMlasso35<-function(UKBB_pop,study_info,cor_cut=0.5){
   Sigsum_scaled<-Sigsum_half%*%t(Sigsum_half)
   Sigsum_scaled_nonzero<-Sigsum_scaled[index_nonzero,index_nonzero]
   inv_Sigsum_scaled_nonzero<-solve(Sigsum_scaled_nonzero)
-  
-  W1 = xtx*var(UKBB_pop[,1])
+  N_Pop/study_info[[1]]$Sample_size/var(UKBB_pop[,1])
+  W1 = xtx/var(UKBB_pop[,1])*(N_Pop/study_info[[1]]$Sample_size)^2
   W2 = xtx%*%C_22%*%xtx
   W = W1+W2
   W_nonzero = W[index_nonzero,index_nonzero]
