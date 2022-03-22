@@ -1296,7 +1296,7 @@ adaptiveGMMlasso34<-function(UKBB_pop,study_info,type=3,filter_index = TRUE,cor_
     "w_adaptive"=w_adaptive)
 }
 
-adaptiveGMMlasso35<-function(UKBB_pop,study_info,type=3,filter_index = TRUE,cor_cut=0.6,p_val_cut=1e-5){
+adaptiveGMMlasso35<-function(UKBB_pop,study_info,type=3,filter_index = TRUE,cor_cut=0.4,p_val_cut=1e-5){
   if(filter_index){
     ### Trick 1 index filtering 
     index_filter<-c()
@@ -1567,7 +1567,7 @@ adaptiveGMMlasso35<-function(UKBB_pop,study_info,type=3,filter_index = TRUE,cor_
     inv_Sigsum_scaled_nonzero<-solve(Sigsum_scaled_nonzero)
     ### trick 3 change variance 
     
-    W1 = xtx
+    W1 = xtx/sqrt(var(UKBB_pop[,1]))
     W2 = xtx%*%C_22%*%xtx
     W = W1+W2
   }else{
