@@ -1230,17 +1230,7 @@ adaptiveGMMlasso34<-function(UKBB_pop,N_SNP,study_info,type=3,filter_index = TRU
       beta<-beta2
     }
   }else if(type == 2){
-    if(mse1_uk<mse2_uk & mse1_ps<mse2_ps){
-      beta<-beta1
-    }else if(mse1_uk>mse2_uk & mse1_ps>mse2_ps){
-      beta<-beta2
-    }else{
-      if(mse1_uk+mse1_ps < mse2_ps+mse2_uk ){
-        beta<-beta1
-      }else{
-        beta<-beta2
-      }
-    }
+    
   }else if(type == 3){
     
     if(mse1_uk<mse2_uk & mse1_ps<mse2_ps){
@@ -1275,7 +1265,9 @@ adaptiveGMMlasso34<-function(UKBB_pop,N_SNP,study_info,type=3,filter_index = TRU
   Sigsum_scaled_nonzero<-Sigsum_scaled[index_nonzero,index_nonzero]
   inv_Sigsum_scaled_nonzero<-solve(Sigsum_scaled_nonzero)
   ### trick 3 change variance 
-  W1 = xtx#/var(UKBB_pop[,1])
+  
+  
+  W1 = xtx/var(UKBB_pop[,1])
   W2 = xtx%*%C_22%*%xtx
   W = W1+W2
   W_nonzero = W[index_nonzero,index_nonzero]
