@@ -305,7 +305,9 @@ adaptiveGMMlasso2<-function(UKBB_pop,N_SNP,study_info){
 
 library(expm,quietly = T)
 library(magic,quietly = T)
-adaptiveGMMlasso3<-function(UKBB_pop,N_SNP,study_info){
+adaptiveGMMlasso35<-function(UKBB_pop,study_info){
+  N_SNP<-ncol(UKBB_pop)-1
+  colnames(UKBB_pop)[-1]<-paste0("SNP",1:(N_SNP))
   colnames(UKBB_pop)[1]<-"Y"
   var_SNP<-paste0("SNP",1:(N_SNP))
   len_SNP<-length(var_SNP)
@@ -1296,7 +1298,7 @@ adaptiveGMMlasso34<-function(UKBB_pop,study_info,type=3,filter_index = TRUE,cor_
     "w_adaptive"=w_adaptive)
 }
 
-adaptiveGMMlasso35<-function(UKBB_pop,study_info,type=3,filter_index = TRUE,cor_cut=0.5,p_val_cut=1e-5){
+adaptiveGMMlasso350<-function(UKBB_pop,study_info,type=3,filter_index = TRUE,cor_cut=0.5,p_val_cut=1e-5){
   if(filter_index){
     ### Trick 1 index filtering 
     index_filter<-c()
