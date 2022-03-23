@@ -429,7 +429,7 @@ adaptiveGMMlasso35<-function(UKBB_pop,study_info){
   
   index_nonzero<-which(beta!=0)
   var_11_half<-(UKBB_pop[,-1])[,index_nonzero]
-  var_U1<-crossprod(var_11_half,var_11_half)/N_Pop*var(UKBB_pop[,1])
+  var_U1<-crossprod(var_11_half,var_11_half)/N_Pop#*var(UKBB_pop[,1])
   C_11<-solve(var_U1)
   C_11_half<-expm::sqrtm(C_11)
   C_22<-diag(sapply(index_nonzero,function(i){
