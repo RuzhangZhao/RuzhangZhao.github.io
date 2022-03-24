@@ -1597,9 +1597,9 @@ adaptiveGMMlasso35<-function(UKBB_pop,study_info,cor_cut=0.75,filter_index=TRUE,
       UKBB_cor_i<-UKBB_cor[index_filter,index_filter]
       cur_i<-which.min(pval_list)
       index_filter2<-c(index_filter2,index_filter[cur_i])
-      print(index_filter[cur_i])
+      #print(index_filter[cur_i])
       rm_index<-c(cur_i,which(UKBB_cor_i[cur_i,]>0.9))
-      print(index_filter[rm_index])
+      #print(index_filter[rm_index])
       index_filter<-index_filter[-rm_index]
       pval_list<-pval_list[-rm_index]
     }
@@ -2129,11 +2129,11 @@ adaptiveGMMlasso31<-function(UKBB_pop,N_SNP,study_info,type=3,cor_cut=0.8){
   mse2_ps<-mean((pseudo_X%*%beta2-pseudo_y)^2)
   
   
-  print(paste0("original_MSE_both:",mse1_uk))
-  print(paste0("pseudo_MSE_both:",mse1_ps))
+  #print(paste0("original_MSE_both:",mse1_uk))
+  #print(paste0("pseudo_MSE_both:",mse1_ps))
   
-  print(paste0("original_MSE_gwas:",mse2_uk))
-  print(paste0("pseudo_MSE_gwas:",mse2_ps))
+  #print(paste0("original_MSE_gwas:",mse2_uk))
+  #print(paste0("pseudo_MSE_gwas:",mse2_ps))
   
   
   if(type == 1){
