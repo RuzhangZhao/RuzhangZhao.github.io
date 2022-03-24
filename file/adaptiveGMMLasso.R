@@ -1577,7 +1577,7 @@ adaptiveGMMlasso3_work_for_15<-function(UKBB_pop,study_info,cor_cut0=0.9,cor_cut
   )
 }
 
-adaptiveGMMlasso35<-function(UKBB_pop,N_SNP,study_info,cor_cut=0.75,filter_index=TRUE,p_val_cut=1e-5){
+adaptiveGMMlasso35<-function(UKBB_pop,study_info,cor_cut=0.75,filter_index=TRUE,p_val_cut=1e-5){
   UKBB_cor<-cor(UKBB_pop[,-1])
   diag(UKBB_cor) = 0
   if(filter_index){
