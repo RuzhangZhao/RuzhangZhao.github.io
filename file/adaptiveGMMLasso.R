@@ -1850,10 +1850,21 @@ adaptiveGMMlasso35<-function(UKBB_pop,study_info,cor_cut=0.75,filter_index=TRUE,
   #W2 = xtx%*%C_22%*%xtx
   #W = W1+W2
   #W_nonzero = W[index_nonzero,index_nonzero]
-  print(beta[index_nonzero])
+  #print(beta[index_nonzero])
   #final_v<-diag(inv_Sigsum_scaled_nonzero%*%W_nonzero%*%inv_Sigsum_scaled_nonzero)
   final_v<-diag(inv_Sigsum_scaled_nonzero)
   aa_final<-1-pchisq(N_Pop*beta[index_nonzero]^2/final_v,1)
+  
+  if(filter_index){
+    pos<-index_filter[index_nonzero[which(aa_final<0.05/ncol(UKBB_pop))]]
+    pos2<-index_filter[index_nonzero[which(aa_final<0.05/length(aa_final))]]
+  }else{
+    pos<-index_nonzero[which(aa_final<0.05/ncol(UKBB_pop))]
+    pos2<-index_nonzero[which(aa_final<0.05/length(aa_final))]
+  }
+  print(paste("pos:",pos))
+  print(paste("pos2:",pos))
+  
   confident_pos<-which.min(aa_final[which(aa_final<0.05/length(aa_final))])
   candidate_pos<-index_nonzero[which(aa_final<0.05/length(aa_final))]
   gamma_adaptivelasso<-1/2
