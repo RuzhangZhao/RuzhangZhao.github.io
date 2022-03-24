@@ -281,6 +281,7 @@ EAF[Nonnull_index]
   }
   source("~/multiSNP/adaptiveGMMLasso.R")
   a<-adaptiveGMMlasso35(UKBB_pop_all,study_info_scaled)
+  a<-adaptiveGMMlasso_normal_for15(UKBB_pop_all,study_info_scaled)
   #a3<-adaptiveGMMlasso3(UKBB_pop_all,study_info_scaled)
   #a31<-adaptiveGMMlasso31(UKBB_pop_all,N_SNP,study_info_scaled,type=3,cor_cut = 0.5)
   #a<-adaptiveGMMlasso21(UKBB_pop_all,N_SNP,study_info_scaled)
