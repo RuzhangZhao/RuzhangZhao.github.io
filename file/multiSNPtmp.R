@@ -1,6 +1,6 @@
 
 print("JS7")
-cur_iter<-7
+cur_iter<-8
 #Nonnull_index<-c(2,130,173)
 #Nonnull_index<-c(2,130,192)
 Nonnull_index<-c(139,151,211)
