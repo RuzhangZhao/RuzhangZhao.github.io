@@ -1831,18 +1831,8 @@ adaptiveGMMlasso35<-function(UKBB_pop,study_info,cor_cut=0.75,filter_index=TRUE,
   
   mse1_uk<-mean((UKBB_pop[,-1]%*%beta1-UKBB_pop[,1])^2)
   mse1_ps<-mean((pseudo_X%*%beta1-pseudo_y)^2)
-  
-  
   mse2_uk<-mean((UKBB_pop[,-1]%*%beta2-UKBB_pop[,1])^2)
   mse2_ps<-mean((pseudo_X%*%beta2-pseudo_y)^2)
-  
-  
-  #print(paste0("original_MSE_both:",mse1_uk))
-  #print(paste0("pseudo_MSE_both:",mse1_ps))
-  
-  #print(paste0("original_MSE_gwas:",mse2_uk))
-  #print(paste0("pseudo_MSE_gwas:",mse2_ps))
-  
   if(mse1_uk*mse1_ps > mse2_uk*mse2_ps ){
     beta<-beta2
   }else{
@@ -1856,21 +1846,31 @@ adaptiveGMMlasso35<-function(UKBB_pop,study_info,cor_cut=0.75,filter_index=TRUE,
   Sigsum_scaled_nonzero<-Sigsum_scaled[index_nonzero,index_nonzero]
   inv_Sigsum_scaled_nonzero<-solve(Sigsum_scaled_nonzero)
   
-  W1 = xtx/var(UKBB_pop[,1])
-  W2 = xtx%*%C_22%*%xtx
-  W = W1+W2
-  W_nonzero = W[index_nonzero,index_nonzero]
+  #W1 = xtx/var(UKBB_pop[,1])
+  #W2 = xtx%*%C_22%*%xtx
+  #W = W1+W2
+  #W_nonzero = W[index_nonzero,index_nonzero]
   
-  final_v<-diag(inv_Sigsum_scaled_nonzero%*%W_nonzero%*%inv_Sigsum_scaled_nonzero)
+  #final_v<-diag(inv_Sigsum_scaled_nonzero%*%W_nonzero%*%inv_Sigsum_scaled_nonzero)
   final_v<-diag(inv_Sigsum_scaled_nonzero)
   aa_final<-1-pchisq(N_Pop*beta[index_nonzero]^2/final_v,1)
+  
+  candidate_pos<-index_nonzero[which(aa_final<0.05/length(aa_final))]
+  gamma_adaptivelasso<-1/2
+  w_adaptive_candidate<-1/(abs(beta[candidate_pos]))^gamma_adaptivelasso
+  #w_adaptive_candidate[confident_pos]<-0
+  ridge_fit_candidate<-cv.glmnet(x= UKBB_pop[,(candidate_pos+1)],y= UKBB_pop[,1],standardize=F,intercept=F,alpha = 1,penalty.factor = w_adaptive_candidate)
+  
+  confident_pos<-candidate_pos[which(coef(ridge_fit_candidate,s='lambda.min')[-1]!=0)]
+  
   if(filter_index){
-    pos2<-index_filter[index_nonzero[which(aa_final<0.05/ncol(UKBB_pop))]]
-    pos<-index_filter[index_nonzero[which(aa_final<0.05/length(aa_final))]]
+    pos2<-index_filter[confident_pos]
+    pos<-index_filter[confident_pos]
   }else{
-    pos<-index_nonzero[which(aa_final<0.05/ncol(UKBB_pop))]
-    pos2<-index_nonzero[which(aa_final<0.05/length(aa_final))]
+    pos<-confident_pos
+    pos2<-confident_pos
   }
+  
   #print(pos)
   newList<-list("beta"=beta,
     "pos"=pos,
