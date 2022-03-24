@@ -1862,7 +1862,7 @@ adaptiveGMMlasso35<-function(UKBB_pop,study_info,cor_cut=0.75,filter_index=TRUE,
   ridge_fit_candidate<-cv.glmnet(x= UKBB_pop[,(candidate_pos+1)],y= UKBB_pop[,1],standardize=F,intercept=F,alpha = 1,penalty.factor = w_adaptive_candidate)
   
   confident_pos<-candidate_pos[which(coef(ridge_fit_candidate,s='lambda.min')[-1]!=0)]
-  print(paste0("confident_pos",confident_pos))
+  print(paste("confident_pos:",confident_pos))
   if(filter_index){
     pos2<-index_filter[confident_pos]
     pos<-index_filter[confident_pos]
