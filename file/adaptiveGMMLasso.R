@@ -999,7 +999,7 @@ adaptiveGMMlasso_supergood_for15<-function(UKBB_pop,study_info,cor_cut0=0.9,cor_
   )
 }
 
-adaptiveGMMlasso_normal_for15<-function(UKBB_pop,study_info,cor_cut=0.5,filter_index=TRUE,p_val_cut=1e-5){
+adaptiveGMMlasso_normal_for15<-function(UKBB_pop,study_info,cor_cut=0.75,filter_index=TRUE,p_val_cut=1e-5){
   UKBB_cor<-cor(UKBB_pop[,-1])
   diag(UKBB_cor) = 0
   if(filter_index){
@@ -1019,9 +1019,7 @@ adaptiveGMMlasso_normal_for15<-function(UKBB_pop,study_info,cor_cut=0.5,filter_i
       UKBB_cor_i<-UKBB_cor[index_filter,index_filter]
       cur_i<-which.min(pval_list)
       index_filter2<-c(index_filter2,index_filter[cur_i])
-      print(index_filter[cur_i])
       rm_index<-c(cur_i,which(UKBB_cor_i[cur_i,]>0.9))
-      print(index_filter[rm_index])
       index_filter<-index_filter[-rm_index]
       pval_list<-pval_list[-rm_index]
     }
@@ -1393,9 +1391,7 @@ adaptiveGMMlasso35<-function(UKBB_pop,study_info,cor_cut0=0.9,cor_cut=0.7,filter
       UKBB_cor_i<-UKBB_cor[index_filter,index_filter]
       cur_i<-which.min(pval_list)
       index_filter2<-c(index_filter2,index_filter[cur_i])
-      print(index_filter[cur_i])
       rm_index<-c(cur_i,which(UKBB_cor_i[cur_i,]>cor_cut0))
-      print(index_filter[rm_index])
       index_filter<-index_filter[-rm_index]
       pval_list<-pval_list[-rm_index]
     }
