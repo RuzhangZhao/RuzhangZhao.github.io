@@ -1,6 +1,6 @@
 
 print("JS4")
-cur_iter<-1
+cur_iter<-10
 #Nonnull_index<-c(2,130,173)
 #Nonnull_index<-c(2,130,192)
 #Nonnull_index<-c(139,151,211)
@@ -286,7 +286,7 @@ EAF[Nonnull_index]
   #a31<-adaptiveGMMlasso31(UKBB_pop_all,N_SNP,study_info_scaled,type=3,cor_cut = 0.5)
   #a<-adaptiveGMMlasso21(UKBB_pop_all,N_SNP,study_info_scaled)
   #a<-adaptiveGMMlasso4(UKBB_pop_all,N_SNP,study_info_scaled,cor_cut = 0.75)
-  lasgw_pos<-a$pos2
+  lasgw_pos<-a$pos
   print(paste0("adaptiveGMMlasso: len:",length(lasgw_pos),", true select:",sum(lasgw_pos%in%Nonnull_index_filter_less)))
   
   if(0){
