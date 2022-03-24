@@ -634,7 +634,7 @@ adaptiveGMMlasso22<-function(UKBB_pop,study_info,cor_cut=0.5,filter_index=TRUE,p
       if(study_info[[i]]$P<p_val_cut) index_filter<-c(index_filter,i)
     }
     Nonnull_index2<-which(index_filter%in%Nonnull_index)
-    UKBB_pop<-UKBB_pop_all[,c(1,(index_filter+1))]
+    UKBB_pop<-UKBB_pop[,c(1,(index_filter+1))]
     study_info<-study_info[index_filter]
   }
   
@@ -1865,8 +1865,8 @@ adaptiveGMMlasso35<-function(UKBB_pop,study_info,cor_cut=0.75,filter_index=TRUE,
   final_v<-diag(inv_Sigsum_scaled_nonzero)
   aa_final<-1-pchisq(N_Pop*beta[index_nonzero]^2/final_v,1)
   if(filter_index){
-    pos<-index_filter[index_nonzero[which(aa_final<0.05/ncol(UKBB_pop))]]
-    pos2<-index_filter[index_nonzero[which(aa_final<0.05/length(aa_final))]]
+    pos2<-index_filter[index_nonzero[which(aa_final<0.05/ncol(UKBB_pop))]]
+    pos<-index_filter[index_nonzero[which(aa_final<0.05/length(aa_final))]]
   }else{
     pos<-index_nonzero[which(aa_final<0.05/ncol(UKBB_pop))]
     pos2<-index_nonzero[which(aa_final<0.05/length(aa_final))]
@@ -2221,7 +2221,7 @@ adaptiveGMMlasso4<-function(UKBB_pop,N_SNP,study_info,cor_cut=0.8,p_val_cut=1e-5
     if(study_info[[i]]$P<p_val_cut) index_filter<-c(index_filter,i)
   }
   Nonnull_index2<-which(index_filter%in%Nonnull_index)
-  UKBB_pop<-UKBB_pop_all[,c(1,(index_filter+1))]
+  UKBB_pop<-UKBB_pop[,c(1,(index_filter+1))]
   study_info<-study_info[index_filter]
   
   N_SNP<-ncol(UKBB_pop)-1
@@ -2392,7 +2392,7 @@ adaptiveGMMlasso34<-function(UKBB_pop,study_info,type=3,filter_index = TRUE,cor_
       if(study_info[[i]]$P<p_val_cut) index_filter<-c(index_filter,i)
     }
     Nonnull_index2<-which(index_filter%in%Nonnull_index)
-    UKBB_pop<-UKBB_pop_all[,c(1,(index_filter+1))]
+    UKBB_pop<-UKBB_pop[,c(1,(index_filter+1))]
     study_info<-study_info[index_filter]
   }
   
@@ -2709,7 +2709,7 @@ adaptiveGMMlasso350<-function(UKBB_pop,study_info,type=3,filter_index = TRUE,cor
       if(study_info[[i]]$P<p_val_cut) index_filter<-c(index_filter,i)
     }
     Nonnull_index2<-which(index_filter%in%Nonnull_index)
-    UKBB_pop<-UKBB_pop_all[,c(1,(index_filter+1))]
+    UKBB_pop<-UKBB_pop[,c(1,(index_filter+1))]
     study_info<-study_info[index_filter]
   }
   
@@ -3024,7 +3024,7 @@ adaptiveGMMlasso352<-function(UKBB_pop,study_info,type=3,filter_index = TRUE,cor
       if(study_info[[i]]$P<p_val_cut) index_filter<-c(index_filter,i)
     }
     Nonnull_index2<-which(index_filter%in%Nonnull_index)
-    UKBB_pop<-UKBB_pop_all[,c(1,(index_filter+1))]
+    UKBB_pop<-UKBB_pop[,c(1,(index_filter+1))]
     study_info<-study_info[index_filter]
   }
   
