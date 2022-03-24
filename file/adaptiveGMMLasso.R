@@ -1854,11 +1854,11 @@ adaptiveGMMlasso35<-function(UKBB_pop,study_info,cor_cut=0.75,filter_index=TRUE,
   #final_v<-diag(inv_Sigsum_scaled_nonzero%*%W_nonzero%*%inv_Sigsum_scaled_nonzero)
   final_v<-diag(inv_Sigsum_scaled_nonzero)
   aa_final<-1-pchisq(N_Pop*beta[index_nonzero]^2/final_v,1)
-  
+  confident_pos<-which.min(aa_final[which(aa_final<0.05/length(aa_final))])
   candidate_pos<-index_nonzero[which(aa_final<0.05/length(aa_final))]
   gamma_adaptivelasso<-1/2
   w_adaptive_candidate<-1/(abs(beta[candidate_pos]))^gamma_adaptivelasso
-  #w_adaptive_candidate[confident_pos]<-0
+  w_adaptive_candidate[confident_pos]<-0
   ridge_fit_candidate<-cv.glmnet(x= UKBB_pop[,(candidate_pos+1)],y= UKBB_pop[,1],standardize=F,intercept=F,alpha = 1,penalty.factor = w_adaptive_candidate)
   
   confident_pos<-candidate_pos[which(coef(ridge_fit_candidate,s='lambda.min')[-1]!=0)]
