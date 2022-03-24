@@ -1,6 +1,6 @@
 
-print("JS5")
-cur_iter<-5
+print("JS6")
+cur_iter<-6
 #Nonnull_index<-c(2,130,173)
 #Nonnull_index<-c(2,130,192)
 #Nonnull_index<-c(139,151,211)
