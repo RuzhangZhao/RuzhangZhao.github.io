@@ -1,6 +1,6 @@
 
-print("JS3")
-cur_iter<-3
+print("JS4")
+cur_iter<-4
 #Nonnull_index<-c(2,130,173)
 #Nonnull_index<-c(2,130,192)
 Nonnull_index<-c(139,151,211)
