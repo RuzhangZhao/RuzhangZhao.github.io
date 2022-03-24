@@ -280,7 +280,7 @@ EAF[Nonnull_index]
     stop("The column name of UKBB matrix should be clear.(Which one is SNP/GPC/risk factor")
   }
   source("~/multiSNP/adaptiveGMMLasso.R")
-  a<-adaptiveGMMlasso22(UKBB_pop_all,study_info_scaled)
+  a<-adaptiveGMMlasso35(UKBB_pop_all,study_info_scaled)
   #a3<-adaptiveGMMlasso3(UKBB_pop_all,study_info_scaled)
   #a31<-adaptiveGMMlasso31(UKBB_pop_all,N_SNP,study_info_scaled,type=3,cor_cut = 0.5)
   #a<-adaptiveGMMlasso21(UKBB_pop_all,N_SNP,study_info_scaled)
