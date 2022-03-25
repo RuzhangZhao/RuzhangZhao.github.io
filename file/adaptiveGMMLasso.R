@@ -2548,16 +2548,8 @@ adaptiveGMMlasso35<-function(UKBB_pop,study_info,cor_cut=0.75,filter_index=TRUE,
   
   lasso_initial<-glmnet(x= (pseudo_X),y= (pseudo_y),standardize=F,intercept=F)
   lambda_list0<-lasso_initial$lambda
-  
-  #ridge_fit0<-glmnet(x= UKBB_pop[,-1],y= UKBB_pop[,1],standardize=F,intercept=F,lambda = lambda_list0[50]/100,alpha = 0.01)
-  #ridge_fit<-glmnet(x= UKBB_pop[,-1],y= UKBB_pop[,1],standardize=F,intercept=F,lambda = lambda_list[100],alpha = 0)
-  #gamma_adaptivelasso<-1/2
-  #w_adaptive0<-1/(abs(coef(ridge_fit0)[-1]))^gamma_adaptivelasso
-  #w_adaptive0[is.infinite(w_adaptive0)]<-max(w_adaptive0[!is.infinite(w_adaptive0)])*5
-  #ridge_fit<-glmnet(x= (pseudo_X),y= (pseudo_y),standardize=F,intercept=F,lambda = lambda_list[50],alpha = 0,penalty.factor = w_adaptive)
-  #ridge_fit<-glmnet(x= (pseudo_X),y= (pseudo_y),standardize=F,intercept=F,lambda = lambda_list0[50]/10,alpha = 0.01,penalty.factor = w_adaptive0)
   ridge_fit<-glmnet(x= (pseudo_X),y= (pseudo_y),standardize=F,intercept=F,lambda = lambda_list0[50]/100,alpha = 0.01)#,penalty.factor = w_adaptive0)
-  #ridge_fit<-glmnet(x= scale(ref),y= scale(pheno_EUR$T2D,scale = F),standardize=F,intercept=F,lambda = lambda_list[50]/100/mean(w_adaptive),penalty.factor = w_adaptive)
+  
   gamma_adaptivelasso<-1/2
   w_adaptive<-1/(abs(coef(ridge_fit)[-1]))^gamma_adaptivelasso
   w_adaptive[is.infinite(w_adaptive)]<-max(w_adaptive[!is.infinite(w_adaptive)])*10
@@ -2639,20 +2631,15 @@ adaptiveGMMlasso35<-function(UKBB_pop,study_info,cor_cut=0.75,filter_index=TRUE,
   aa_final<-1-pchisq(N_Pop*beta[index_nonzero]^2/final_v,1)
   
   
-  
-  #print(paste("pos:",pos))
-  #print(paste("pos2:",pos2))
   candidate_pos<-index_nonzero[which(aa_final<0.05/ncol(UKBB_pop))]
   candidate_cor<-cor(UKBB_pop[,c(candidate_pos+1)])
   diag(candidate_cor)<-0
   
   
   if(max(abs(candidate_cor))>0.1){
-    confident_pos<-which.min(aa_final[which(aa_final<0.05/ncol(UKBB_pop))])
     
     gamma_adaptivelasso<-2
     w_adaptive_candidate<-1/(abs(beta[candidate_pos]))^gamma_adaptivelasso
-    #w_adaptive_candidate[confident_pos]<-0
     lasso_fit_candidate<-cv.glmnet(x= UKBB_pop[,(candidate_pos+1)],y= UKBB_pop[,1],standardize=F,intercept=F,alpha = 1,penalty.factor = w_adaptive_candidate)
     
     confident_pos<-candidate_pos[which(coef(lasso_fit_candidate,s='lambda.min')[-1]!=0)]
@@ -2673,6 +2660,17 @@ adaptiveGMMlasso35<-function(UKBB_pop,study_info,cor_cut=0.75,filter_index=TRUE,
       w_adaptive_candidate<-1/(abs(beta[candidate_pos[weak_among_candidate] ]))^gamma_adaptivelasso
       lasso_fit_candidate<-cv.glmnet(x= UKBB_pop[,(candidate_pos[weak_among_candidate]+1)],y= UKBB_pop[,1],standardize=F,intercept=F,alpha = 1,penalty.factor = w_adaptive_candidate)
       confident_pos_weak<-(candidate_pos[weak_among_candidate])[which(coef(lasso_fit_candidate,s='lambda.min')[-1]!=0)]
+      if(length(confident_pos_weak) == 0){
+        z<-c()
+        for(i in weak_among_candidate){
+          z<-c(z,study_info[[candidate_pos[weak_among_candidate]]]$Coeff^2/study_info[[candidate_pos[weak_among_candidate]]]$Covariance)
+        }
+        confident_pos_weak<-weak_among_candidate[which.max(z)]
+      }
+    }else if(length(weak_among_candidate) == 1){
+      confident_pos_weak<-candidate_pos[weak_among_candidate]
+    }else{
+      confident_pos_weak<-c()
     }
     
     true_weak<-c()
