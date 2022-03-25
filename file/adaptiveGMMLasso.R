@@ -2,6 +2,122 @@ if(0){
   UKBB_pop<-UKBB_pop_all
   study_info<-study_info_scaled 
 }
+bb<-function(section_num,true_pos = c(25,83,196)){
+  fold_path<-paste0("run_batch",section_num,"/result/")
+  file_list<-list.files(fold_path)
+  final_list<-list()
+  for (i in file_list ){
+    final_list1<-readRDS(paste0(fold_path,i)) 
+    for (i in 1:length(final_list1)){
+      if(!is.null(final_list1[[i]])){
+        final_list[[i]]=final_list1[[i]]
+      }
+    }
+  }
+  
+  count = 0
+  count_list<-c()
+  for (i in 1:length(final_list)){
+    
+    if(!is.null(final_list[[i]])){
+      count_list<-c(count_list,i)
+      count = count+1
+    }
+  }
+  print(count)
+  fdr_individual<-c()
+  fdr_individual2<-c()
+  fdr_gwas<-c()
+  fdr_gwas2<-c()
+  fdr_final<-c()
+  fdr_final2<-c()
+  #fdr_initial<-c()
+  
+  tpr_individual<-c()
+  tpr_individual2<-c()
+  tpr_gwas<-c()
+  tpr_gwas2<-c()
+  tpr_final<-c()
+  tpr_final2<-c()
+  
+  fdr_individual<-c()
+  fdr_individual2<-c()
+  fdr_gwas<-c()
+  fdr_gwas2<-c()
+  fdr_final<-c()
+  fdr_final2<-c()
+  #fdr_initial<-c()
+  
+  tpr_individual<-c()
+  tpr_individual2<-c()
+  tpr_gwas<-c()
+  tpr_gwas2<-c()
+  tpr_final<-c()
+  tpr_final2<-c()
+  
+  ## type I error 
+  for (i in 1:length(final_list)){
+    if(!is.null(final_list[[i]])){
+      
+      fdr_gwas<-c(fdr_gwas,sum(final_list[[i]]$cojo%in% true_pos))
+      fdr_final<-c(fdr_final,sum(final_list[[i]]$proposed%in% true_pos))
+      fdr_final2<-c(fdr_final2,sum(final_list[[i]]$new%in% true_pos))
+      tpr_gwas<-c(tpr_gwas,length(final_list[[i]]$cojo))
+      tpr_final<-c(tpr_final,sum(!is.na(final_list[[i]]$proposed)))
+      tpr_final2<-c(tpr_final2,sum(!is.na(final_list[[i]]$new)))
+    }
+  }
+  x1<-(sum(tpr_gwas) - sum(fdr_gwas))/count/282
+  y1<-(sum(tpr_final) - sum(fdr_final))/count/282
+  z1<-(sum(tpr_final2) - sum(fdr_final2))/count/282
+  
+  
+  ## FDR 
+  
+  fdr_individual<-c()
+  fdr_individual2<-c()
+  fdr_gwas<-c()
+  fdr_gwas2<-c()
+  fdr_final<-c()
+  fdr_final2<-c()
+  #fdr_initial<-c()
+  
+  tpr_individual<-c()
+  tpr_individual2<-c()
+  tpr_gwas<-c()
+  tpr_gwas2<-c()
+  tpr_final<-c()
+  tpr_final2<-c()
+  
+  for (i in 1:length(final_list)){
+    if(!is.null(final_list[[i]])){
+      
+      fdr_gwas<-c(fdr_gwas,sum(final_list[[i]]$cojo%in% true_pos)/length(final_list[[i]]$cojo))
+      fdr_final<-c(fdr_final,sum(final_list[[i]]$proposed%in% true_pos)/length(final_list[[i]]$proposed))
+      fdr_final2<-c(fdr_final2,sum(final_list[[i]]$new%in% true_pos)/max(1,length(final_list[[i]]$new)))
+      
+      
+      tpr_gwas<-c(tpr_gwas,sum(final_list[[i]]$cojo%in% true_pos)/length(true_pos))
+      tpr_final<-c(tpr_final,sum(final_list[[i]]$proposed%in% true_pos)/length(true_pos))
+      tpr_final2<-c(tpr_final2,sum(final_list[[i]]$new%in% true_pos)/length(true_pos))
+      
+      
+    }
+  }
+  
+  x2<-(1-mean(fdr_gwas))
+  #y2<-(1-mean(fdr_final[which(fdr_final!=0)]))
+  y2<-(1-mean(fdr_final,na.rm=T))
+  x3<-(mean(tpr_gwas))
+  #y3<-(mean(tpr_final[which(tpr_final!=0)]))
+  y3<-(mean(tpr_final[which(tpr_final!=0)]))
+  z2<-(1-mean(fdr_final2))
+  z3<-(mean(tpr_final2))
+  print(paste0(round(x1,5),",",round(x2,5),",",round(x3,5)))
+  print(paste0(round(y1,5),",",round(y2,5),",",round(y3,5)))
+  #print(paste0(round(z1,5),",",round(z2,5),",",round(z3,5)))
+}
+
 ## UKBB_pop should be scaled with SNPs, 
 ## but not with phenotype.
 ## Both SNP and phenotype should be centered. 
