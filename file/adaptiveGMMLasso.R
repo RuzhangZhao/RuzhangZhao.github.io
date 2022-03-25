@@ -2676,14 +2676,14 @@ adaptiveGMMlasso35<-function(UKBB_pop,study_info,cor_cut=0.75,filter_index=TRUE,
     }
     
     true_weak<-c()
-    if(len(weak_among_candidate) > 0){
+    if(length(weak_among_candidate) > 0){
       for( weakone in weak_among_candidate){
         if(max(abs(candidate_cor[,weakone]))<0.1){
           true_weak<-c(true_weak,weakone)      
         }
       }
     }
-    if(len(true_weak)>0) true_weak<-candidate_pos[true_weak]
+    if(length(true_weak)>0) true_weak<-candidate_pos[true_weak]
     confident_pos<-union(true_weak,confident_pos)
     confident_pos<-union(confident_pos_weak,confident_pos)
     
