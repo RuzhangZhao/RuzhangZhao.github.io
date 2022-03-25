@@ -1983,7 +1983,7 @@ adaptiveGMMlasso35<-function(UKBB_pop,study_info,cor_cut=0.75,filter_index=TRUE,
   
   confident_pos<-which.min(aa_final[which(aa_final<0.05/ncol(UKBB_pop))])
   candidate_pos<-index_nonzero[which(aa_final<0.05/ncol(UKBB_pop))]
-  gamma_adaptivelasso<-1/2
+  gamma_adaptivelasso<-1
   w_adaptive_candidate<-1/(abs(beta[candidate_pos]))^gamma_adaptivelasso
   #w_adaptive_candidate[confident_pos]<-0
   ridge_fit_candidate<-cv.glmnet(x= UKBB_pop[,(candidate_pos+1)],y= UKBB_pop[,1],standardize=F,intercept=F,alpha = 1,penalty.factor = w_adaptive_candidate)
