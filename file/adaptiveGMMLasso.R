@@ -2682,8 +2682,8 @@ adaptiveGMMlasso35<-function(UKBB_pop,study_info,cor_cut=0.75,filter_index=TRUE,
       }
     }
     if(length(true_weak)>0) true_weak<-candidate_pos[true_weak]
-    confident_pos<-union(true_weak,confident_pos)
-    confident_pos<-union(confident_pos_weak,confident_pos)
+    confident_pos<-union(confident_pos,true_weak)
+    confident_pos<-union(confident_pos,confident_pos_weak)
     
   }else{
     print("NOT USED")
