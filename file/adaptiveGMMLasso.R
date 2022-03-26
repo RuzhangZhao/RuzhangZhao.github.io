@@ -2,7 +2,7 @@ if(0){
   UKBB_pop<-UKBB_pop_all
   study_info<-study_info_scaled 
 }
-bb<-function(section_num,true_pos = c(25,83,196)){
+bb<-function(section_num){
   fold_path<-paste0("run_batch",section_num,"/result/")
   file_list<-list.files(fold_path)
   final_list<-list()
@@ -14,7 +14,8 @@ bb<-function(section_num,true_pos = c(25,83,196)){
       }
     }
   }
-  
+  true_pos = final_list[[length(final_list)]]$true_pos
+  print(paste0("true:", paste0(final_list[[length(final_list)]]$true_pos,collapse = " ") ))
   count = 0
   count_list<-c()
   for (i in 1:length(final_list)){
