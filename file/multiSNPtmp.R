@@ -1,6 +1,6 @@
 
 print("JS2")
-cur_iter<-4
+cur_iter<-3
 #source("~/multiSNP/multiSNPtmp.R")
 #Nonnull_index<-c(2,130,173)
 #Nonnull_index<-c(2,130,192)
