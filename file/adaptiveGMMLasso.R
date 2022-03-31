@@ -2709,7 +2709,7 @@ adaptiveGMMlassofinal_version4<-function(UKBB_pop,study_info,cor_cut=0.75,filter
     "final_v"=final_v,
     "w_adaptive"=w_adaptive)
 }
-
+## This 35 is final version 
 adaptiveGMMlasso35<-function(UKBB_pop,study_info,cor_cut=0.75,filter_index=TRUE,filter_by_EAF=TRUE){
   UKBB_cor<-cor(UKBB_pop[,-1])
   diag(UKBB_cor) = 0

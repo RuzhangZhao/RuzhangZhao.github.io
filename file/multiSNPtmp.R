@@ -218,7 +218,19 @@ EAF[Nonnull_index]
     bim =  bim_sample))
   
   readr::write_tsv(ma_file,paste0(foldpath,"ukbb_pop_",cur_iter,".ma"))
+  
   aaa<-system(paste0("gcta64  --bfile ",foldpath,"ukbb_pop_",cur_iter," --cojo-file ",foldpath,"ukbb_pop_", cur_iter,".ma --cojo-slct --cojo-p 1e-5 --out ",foldpath,"test_",cur_iter),intern = TRUE)
+  
+  ####################### computation the time  
+  
+  a<-function(){
+    for(i in 1:100){
+      aaa<-system(paste0("gcta64  --bfile ",foldpath,"ukbb_pop_",cur_iter," --cojo-file ",foldpath,"ukbb_pop_", cur_iter,".ma --cojo-slct --cojo-p 1e-5 --out ",foldpath,"test_",cur_iter),intern = TRUE)
+    }
+  }
+  t_cojo<-system.time(a())
+  
+  
   
   cojo_jma<-read.table(paste0(foldpath,"test_",cur_iter,".jma.cojo"),header = T)    
   
@@ -282,13 +294,25 @@ EAF[Nonnull_index]
   }
   source("~/multiSNP/adaptiveGMMLasso.R")
   a<-adaptiveGMMlasso35(UKBB_pop_all,study_info_scaled)
+  
+  aa<-function(){
+    for(i in 1:100){
+      a<-adaptiveGMMlasso35(UKBB_pop_all,study_info_scaled)
+    }
+  }
   #a<-adaptiveGMMlasso_normal_for15(UKBB_pop_all,study_info_scaled)
   #a3<-adaptiveGMMlasso3(UKBB_pop_all,study_info_scaled)
   #a31<-adaptiveGMMlasso31(UKBB_pop_all,N_SNP,study_info_scaled,type=3,cor_cut = 0.5)
   #a<-adaptiveGMMlasso21(UKBB_pop_all,N_SNP,study_info_scaled)
   #a<-adaptiveGMMlasso4(UKBB_pop_all,N_SNP,study_info_scaled,cor_cut = 0.75)
-  lasgw_pos<-a$pos
-  print(paste0("adaptiveGMMlasso: len:",length(lasgw_pos),", true select:",sum(lasgw_pos%in%Nonnull_index_filter_less)))
+  #lasgw_pos<-a$pos
+  #print(paste0("adaptiveGMMlasso: len:",length(lasgw_pos),", true select:",sum(lasgw_pos%in%Nonnull_index_filter_less)))
+  t_a<-system.time(aa())
+  
+  print("COJO time")
+  print(t_cojo)
+  print("ada time")
+  print(t_a)
   
   if(0){
   UKBB_full_fit2 <-cv.glmnet(x=UKBB_pop_all[,var_names_full_fit],y=UKBB_pop_all[,"Y"])
