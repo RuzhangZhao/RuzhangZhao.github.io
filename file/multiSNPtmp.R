@@ -307,11 +307,11 @@ aa<-function(){
 #a<-adaptiveGMMlasso4(UKBB_pop_all,N_SNP,study_info_scaled,cor_cut = 0.75)
 #lasgw_pos<-a$pos
 #print(paste0("adaptiveGMMlasso: len:",length(lasgw_pos),", true select:",sum(lasgw_pos%in%Nonnull_index_filter_less)))
-t_a<-system.time(aa())
+#t_a<-system.time(aa())
 #print("COJO time")
 #print(t_cojo)
-print("ada time")
-print(t_a)
+#print("ada time")
+#print(t_a)
 
 
 if(0){
