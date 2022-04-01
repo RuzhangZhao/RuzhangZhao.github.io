@@ -307,11 +307,11 @@ aa<-function(){
 #a<-adaptiveGMMlasso4(UKBB_pop_all,N_SNP,study_info_scaled,cor_cut = 0.75)
 #lasgw_pos<-a$pos
 #print(paste0("adaptiveGMMlasso: len:",length(lasgw_pos),", true select:",sum(lasgw_pos%in%Nonnull_index_filter_less)))
-#t_a<-system.time(aa())
+t_a<-system.time(aa())
 #print("COJO time")
 #print(t_cojo)
-#print("ada time")
-#print(t_a)
+print("ada time")
+print(t_a)
 
 
 if(0){
@@ -330,12 +330,12 @@ aaa<-function(){
   UKBB_full_fit2 <-cv.glmnet(x=UKBB_pop_all[,],y=UKBB_pop_all[,"Y"])
   lambda_initial2<-UKBB_full_fit2$lambda.min*nrow(UKBB_pop_all)
   beta_initial2 = as.numeric(coef(UKBB_full_fit2, s = "lambda.min"))[-1]
-  out2 = fixedLassoInf(x=UKBB_pop_all[,-1],y=UKBB_pop_all[,"Y"],beta_initial2,lambda_initial2)
+  #out2 = fixedLassoInf(x=UKBB_pop_all[,-1],y=UKBB_pop_all[,"Y"],beta_initial2,lambda_initial2)
   return(0)
 }
-#t_aaa<-system.time(aaa())
-#print("individual time")
-#print(t_aaa)
+t_aaa<-system.time(aaa())
+print("individual time")
+print(t_aaa)
 
 
 
