@@ -1,6 +1,6 @@
 
 print("JS")
-cur_iter<-6
+cur_iter<-4
 
 # 4 will delete 35
 #source("~/multiSNP/multiSNPtmp.R")
