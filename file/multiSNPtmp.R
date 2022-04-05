@@ -363,8 +363,8 @@ aa<-function(){
 #a31<-adaptiveGMMlasso31(UKBB_pop_all,N_SNP,study_info_scaled,type=3,cor_cut = 0.5)
 #a<-adaptiveGMMlasso21(UKBB_pop_all,N_SNP,study_info_scaled)
 #a<-adaptiveGMMlasso4(UKBB_pop_all,N_SNP,study_info_scaled,cor_cut = 0.75)
-#lasgw_pos<-a$pos
-#print(paste0("adaptiveGMMlasso: len:",length(lasgw_pos),", true select:",sum(lasgw_pos%in%Nonnull_index_filter_less)))
+lasgw_pos<-a$pos
+print(paste0("adaptiveGMMlasso: len:",length(lasgw_pos),", true select:",sum(lasgw_pos%in%Nonnull_index_filter_less)))
 #t_a<-system.time(aa())
 #print("COJO time")
 #print(t_cojo)
@@ -391,9 +391,9 @@ aaa<-function(){
   #out2 = fixedLassoInf(x=UKBB_pop_all[,-1],y=UKBB_pop_all[,"Y"],beta_initial2,lambda_initial2)
   return(0)
 }
-t_aaa<-system.time(aaa())
-print("individual time")
-print(t_aaa)
+#t_aaa<-system.time(aaa())
+#print("individual time")
+#print(t_aaa)
 
 
 
