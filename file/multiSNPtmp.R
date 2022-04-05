@@ -348,7 +348,7 @@ UKBB_pop_all<-as.matrix(UKBB_pop_all)
 if(is.null(colnames(UKBB_pop_all)[1])){
   stop("The column name of UKBB matrix should be clear.(Which one is SNP/GPC/risk factor")
 }
-source("~/multiSNP/adaptiveGMMLasso.R")
+source("~/multiSNP/adaptiveGMMLasso2.R")
 a<-adaptiveGMMlasso35(UKBB_pop_all,study_info_scaled)
 
 aa<-function(){
