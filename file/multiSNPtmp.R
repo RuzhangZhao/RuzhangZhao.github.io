@@ -1,8 +1,8 @@
 
 print("JS")
-cur_iter<-4
+cur_iter<-7
 
-# 4 will delete 35
+# 4 will delete 35 if 
 #source("~/multiSNP/multiSNPtmp.R")
 #Nonnull_index<-c(2,130,173)
 #Nonnull_index<-c(2,130,192)
