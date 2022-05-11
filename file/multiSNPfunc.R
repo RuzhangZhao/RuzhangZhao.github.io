@@ -247,8 +247,6 @@ final_var_U_beta_theta_hat_func<-function(
   res
 }
 
-
-
 utcu_C<-function(u,C){
   c(u%*%C%*%u)
 }
