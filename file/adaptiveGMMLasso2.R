@@ -74,10 +74,10 @@ aa<-function(section_num,allp=FALSE){
       
       fdr_gwas<-c(fdr_gwas,sum(final_list[[i]]$cojo%in% true_pos))
       fdr_final<-c(fdr_final,sum(final_list[[i]]$proposed%in% true_pos))
-      fdr_final2<-c(fdr_final2,sum(final_list[[i]]$susie%in% true_pos))
+      fdr_final2<-c(fdr_final2,sum(final_list[[i]]$susiE%in% true_pos))
       tpr_gwas<-c(tpr_gwas,length(final_list[[i]]$cojo))
       tpr_final<-c(tpr_final,sum(!is.na(final_list[[i]]$proposed)))
-      tpr_final2<-c(tpr_final2,sum(!is.na(final_list[[i]]$susie)))
+      tpr_final2<-c(tpr_final2,sum(!is.na(final_list[[i]]$susiE)))
     }
   }
   x1<-(sum(tpr_gwas) - sum(fdr_gwas))/count/254
@@ -107,12 +107,12 @@ aa<-function(section_num,allp=FALSE){
       
       fdr_gwas<-c(fdr_gwas,sum(final_list[[i]]$cojo%in% true_pos)/length(final_list[[i]]$cojo))
       fdr_final<-c(fdr_final,sum(final_list[[i]]$proposed%in% true_pos)/max(length(final_list[[i]]$proposed),1))
-      fdr_final2<-c(fdr_final2,sum(final_list[[i]]$susie%in% true_pos)/max(1,length(final_list[[i]]$susie)))
+      fdr_final2<-c(fdr_final2,sum(final_list[[i]]$susiE%in% true_pos)/max(1,length(final_list[[i]]$susiE)))
       
       
       tpr_gwas<-c(tpr_gwas,sum(final_list[[i]]$cojo%in% true_pos)/length(true_pos))
       tpr_final<-c(tpr_final,sum(final_list[[i]]$proposed%in% true_pos)/length(true_pos))
-      tpr_final2<-c(tpr_final2,sum(final_list[[i]]$susie%in% true_pos)/length(true_pos))
+      tpr_final2<-c(tpr_final2,sum(final_list[[i]]$susiE%in% true_pos)/length(true_pos))
       
       
     }
@@ -128,7 +128,7 @@ aa<-function(section_num,allp=FALSE){
   z3<-(mean(tpr_final2))
   print(paste0("COJO:",round(x1,8),",",round(x2,8),",",round(x3,8)))
   print(paste0("Proposed_block:",round(y1,8),",",round(y2,8),",",round(y3,8)))
-  print(paste0("Susie",round(z1,8),",",round(z2,8),",",round(z3,8)))
+  print(paste0("susiE",round(z1,8),",",round(z2,8),",",round(z3,8)))
   if(allp){
     
     type_final<-c()
