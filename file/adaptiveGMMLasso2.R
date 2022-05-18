@@ -608,6 +608,8 @@ cc<-function(section_num,allp=FALSE){
 library(expm,quietly = T)
 library(magic,quietly = T)
 library(glmnet)
+library(cluster)
+
 adaptiveGMMlasso_group<-function(UKBB_pop,study_info,
   ld_cut=0.9,
   cor_cut=0.9,
@@ -801,62 +803,70 @@ adaptiveGMMlasso_group<-function(UKBB_pop,study_info,
         stop("wrong p_val_cut")
       }
       
-      if(sum(important_index%in%candidate_pos)>0){
-        important_index<-important_index[-which(important_index%in%candidate_pos)]
-      }
-      
-      ############# Find clusters 
-      
-      library(cluster)
-      final_rm_list<-c()
       group_info<-c()
+      
       while(1){
-        nonzero_cor<-UKBB_cor[index_filter[index_nonzero],index_filter[index_nonzero]]
-        cluster_rows = hclust(dist(nonzero_cor))
-        nonzero_cor_clu = nonzero_cor[cluster_rows$order, cluster_rows$order]
-        off_diagonal_elements<-abs(nonzero_cor_clu[row(nonzero_cor_clu)==col(nonzero_cor_clu)+1])
-        pam_res<-pam(x =off_diagonal_elements[order(off_diagonal_elements)] ,k = 2)
-        change_order<-order(off_diagonal_elements)[which(pam_res$clustering == 2)]
+        if(length(important_index) == 0) break
+        if(sum(important_index%in%candidate_pos)>0){
+          important_index<-important_index[-which(important_index%in%candidate_pos)]
+        }
         
-        if( sum(important_index%in%c(cluster_rows$order[change_order],cluster_rows$order[change_order+1])) >0){
-          change_order_important<-unique(c(which(cluster_rows$order[change_order]%in%important_index & off_diagonal_elements[change_order] >0.5 )
-            ,which(cluster_rows$order[change_order+1]%in%important_index & off_diagonal_elements[change_order] >0.5)))
+        ############# Find clusters 
+        final_rm_list<-c()
+        while(1){
+          nonzero_cor<-UKBB_cor[index_filter[index_nonzero],index_filter[index_nonzero]]
+          cluster_rows = hclust(dist(nonzero_cor))
+          nonzero_cor_clu = nonzero_cor[cluster_rows$order, cluster_rows$order]
+          off_diagonal_elements<-abs(nonzero_cor_clu[row(nonzero_cor_clu)==col(nonzero_cor_clu)+1])
+          pam_res<-pam(x =off_diagonal_elements[order(off_diagonal_elements)] ,k = 2)
+          change_order<-order(off_diagonal_elements)[which(pam_res$clustering == 2)]
+          
+          if( sum(important_index%in%c(cluster_rows$order[change_order],cluster_rows$order[change_order+1])) >0){
+            change_order_important<-unique(c(which(cluster_rows$order[change_order]%in%important_index & off_diagonal_elements[change_order] >0.5 )
+              ,which(cluster_rows$order[change_order+1]%in%important_index & off_diagonal_elements[change_order] >0.5)))
+          }else{
+            break 
+          }
+          
+          if(length(change_order_important)==0) break
+          rm_list_after<-cbind(index_nonzero[cluster_rows$order[change_order][change_order_important]],index_nonzero[cluster_rows$order[change_order+1][change_order_important]])
+          
+          for(i in 1:nrow(rm_list_after)){
+            rm_list_after[i,]<-sort(rm_list_after[i,])
+          }
+          group_info<-rbind(group_info,rm_list_after)
+          for(j in rm_list_after[,2]){
+            index_nonzero<-index_nonzero[-which(index_nonzero == j)]
+            final_rm_list<-c(final_rm_list,j)
+          }
+        }
+        
+        if(length(final_rm_list) == 0){break}
+        w_adaptive[final_rm_list]<-1e3
+        adaptivelasso_fit<-cv.glmnet(x= (pseudo_X),y= (pseudo_y),standardize=F,intercept=F,alpha = 1,penalty.factor = w_adaptive)
+        lambda_list<-adaptivelasso_fit$lambda
+        beta<-coef(adaptivelasso_fit,s ='lambda.min')[-1]
+        index_nonzero<-which(beta!=0)
+        xtx<-t(UKBB_pop[,-1])%*%UKBB_pop[,-1]/N_Pop
+        Sigsum_half<-cbind(xtx,xtx)%*%C_half
+        Sigsum_scaled<-Sigsum_half%*%t(Sigsum_half)
+        Sigsum_scaled_nonzero<-Sigsum_scaled[index_nonzero,index_nonzero]
+        inv_Sigsum_scaled_nonzero<-solve(Sigsum_scaled_nonzero)
+        final_v<-diag(inv_Sigsum_scaled_nonzero)
+        aa_final<-pchisq(N_Pop*beta[index_nonzero]^2/final_v,1,lower.tail = F)
+        if(p_val_cut == "Method1"){
+          candidate_pos<-index_nonzero[which(aa_final<0.05/N_SNP)]
+        }else if(p_val_cut == "Method2"){
+          candidate_pos<-index_nonzero[which(aa_final<0.05/length(index_nonzero))]
         }else{
-          break 
+          stop("wrong p_val_cut")
         }
         
-        if(length(change_order_important)==0) break
-        rm_list_after<-cbind(index_nonzero[cluster_rows$order[change_order][change_order_important]],index_nonzero[cluster_rows$order[change_order+1][change_order_important]])
-        
-        for(i in 1:nrow(rm_list_after)){
-          rm_list_after[i,]<-sort(rm_list_after[i,])
-        }
-        group_info<-rbind(group_info,rm_list_after)
-        for(j in rm_list_after[,2]){
-          index_nonzero<-index_nonzero[-which(index_nonzero == j)]
-          final_rm_list<-c(final_rm_list,j)
-        }
       }
       
-      w_adaptive[final_rm_list]<-1e3
-      adaptivelasso_fit<-cv.glmnet(x= (pseudo_X),y= (pseudo_y),standardize=F,intercept=F,alpha = 1,penalty.factor = w_adaptive)
-      lambda_list<-adaptivelasso_fit$lambda
-      beta<-coef(adaptivelasso_fit,s ='lambda.min')[-1]
-      index_nonzero<-which(beta!=0)
-      xtx<-t(UKBB_pop[,-1])%*%UKBB_pop[,-1]/N_Pop
-      Sigsum_half<-cbind(xtx,xtx)%*%C_half
-      Sigsum_scaled<-Sigsum_half%*%t(Sigsum_half)
-      Sigsum_scaled_nonzero<-Sigsum_scaled[index_nonzero,index_nonzero]
-      inv_Sigsum_scaled_nonzero<-solve(Sigsum_scaled_nonzero)
-      final_v<-diag(inv_Sigsum_scaled_nonzero)
-      aa_final<-pchisq(N_Pop*beta[index_nonzero]^2/final_v,1,lower.tail = F)
-      if(p_val_cut == "Method1"){
-        candidate_pos<-index_nonzero[which(aa_final<0.05/N_SNP)]
-      }else if(p_val_cut == "Method2"){
-        candidate_pos<-index_nonzero[which(aa_final<0.05/length(index_nonzero))]
-      }else{
-        stop("wrong p_val_cut")
-      }
+      
+      
+      
       if(length(candidate_pos) == 0){
         cv_with_individual = TRUE
       }
@@ -911,72 +921,55 @@ adaptiveGMMlasso_group<-function(UKBB_pop,study_info,
       stop("wrong p_val_cut")
     }
   }
-  if(length(candidate_pos) > 1){
-    candidate_cor<-cor(UKBB_pop[,c(candidate_pos+1)])
-    diag(candidate_cor)<-0
-    if(max(abs(candidate_cor))>0.1){
-      UKBB_pop_orig<-UKBB_pop[,c(candidate_pos+1)]
-      for(i in 1:ncol(UKBB_pop_orig)){
-        cur_snp<-UKBB_pop_orig[,i]
-        UKBB_pop_orig[which(cur_snp == max(cur_snp)),i] = 2
-        UKBB_pop_orig[which(cur_snp == min(cur_snp)),i] = 0
-        UKBB_pop_orig[which(cur_snp > min(cur_snp) & cur_snp < max(cur_snp)),i] = 1
-      }
-      candidate_EAF<-colsums(UKBB_pop_orig)/nrow(UKBB_pop_orig)/2
-      weak_among_candidate<-which(candidate_EAF < 0.05)
-      if(filter_by_EAF){
-        if(length(weak_among_candidate) > 1){
-          gamma_adaptivelasso<-1/2
-          w_adaptive_candidate<-1/(abs(beta[candidate_pos[weak_among_candidate] ]))^gamma_adaptivelasso
-          tmp_count<-sapply(1:10, function(j){
-            lasso_fit_candidate<-cv.glmnet(x= UKBB_pop[,(candidate_pos[weak_among_candidate]+1)],y= UKBB_pop[,1],standardize=F,intercept=F,alpha = 1,penalty.factor = w_adaptive_candidate)
-            abs(coef(lasso_fit_candidate,s='lambda.min')[-1])>1e-4
-          })
-          confident_pos_weak<-(candidate_pos[weak_among_candidate])[which(rowMeans(tmp_count) >= 0.8)]
-          if(length(confident_pos_weak) == 0){
-            z<-c()
-            for(i in weak_among_candidate){
-              z<-c(z,study_info[[candidate_pos[weak_among_candidate]]]$Coeff^2/study_info[[candidate_pos[weak_among_candidate]]]$Covariance)
-            }
-            confident_pos_weak<-weak_among_candidate[which.max(z)]
-          }
-        }else if(length(weak_among_candidate) == 1){
-          confident_pos_weak<-candidate_pos[weak_among_candidate]
-        }else{
-          confident_pos_weak<-c()
-        }
-        true_weak<-c()
-        if(length(weak_among_candidate) > 0){
-          for( weakone in weak_among_candidate){
-            if(max(abs(candidate_cor[,weakone]))<0.1){
-              true_weak<-c(true_weak,weakone)      
-            }
-          }
-        }
-        if(length(true_weak)>0) true_weak<-candidate_pos[true_weak]
-        confident_pos_weak <-union(confident_pos_weak,true_weak)
-      }else{
-        confident_pos_weak <-candidate_pos[weak_among_candidate]
-      }
-      gamma_adaptivelasso<-2
-      w_adaptive_candidate<-1/(abs(beta[candidate_pos]))^gamma_adaptivelasso
-      w_adaptive_candidate[which(candidate_pos%in%confident_pos_weak)]<-0
-      tmp_count<-sapply(1:10, function(j){
-        lasso_fit_candidate<-cv.glmnet(x= UKBB_pop[,(candidate_pos+1)],y= UKBB_pop[,1],standardize=F,intercept=F,alpha = 0.9,penalty.factor = w_adaptive_candidate)
-        abs(coef(lasso_fit_candidate,s='lambda.min')[-1])>1e-4
-        #coef(lasso_fit_candidate,s='lambda.min')[-1]!=0
+  
+  if(cv_with_individual){
+    #index11<-which(adaptivelasso_fit$nzero>1)
+    #index11<-unique(c(max(min(index11)-1,1),index11))
+    #lambda_list<-lambda_list[index11]
+    
+    library(caret)
+    index_fold<-createFolds(as.numeric(UKBB_pop[,1]>0),k = kfolds)
+    a<-sapply(1:kfolds, function(cur_fold){
+      index_test<-index_fold[[cur_fold]]
+      UKBB_pop_train<-UKBB_pop[-index_test,]
+      UKBB_pop_test<-UKBB_pop[index_test,]
+      pseudo_Xy_list_train<-pseudo_Xy(C_half,UKBB_pop_train,var_SNP,var_GPC,N_SNP,theta_UKBB_GPC,study_info)
+      initial_sf_train<-nrow(UKBB_pop_train)/sqrt(nrow(pseudo_Xy_list_train$pseudo_X))
+      pseudo_X_train<-pseudo_Xy_list_train$pseudo_X/initial_sf_train
+      pseudo_y_train<-pseudo_Xy_list_train$pseudo_y/initial_sf_train
+      cv_beta<-lapply(lambda_list,function(cur_lam){
+        cv_adaptivelasso_fit<-glmnet(x= (pseudo_X_train),y= (pseudo_y_train),standardize=F,intercept=F,alpha = 1,penalty.factor = w_adaptive,lambda = cur_lam)
+        coef(cv_adaptivelasso_fit)[-1]
       })
-      confident_pos<-candidate_pos[which(rowMeans(tmp_count) >= 0.8)]
-      confident_pos<-union(confident_pos,confident_pos_weak)
-    }else{
-      print("NOT USED")
-      confident_pos<-candidate_pos
+      cv_mse_sum<-sapply(1:length(cv_beta), function(kk){
+        cur_beta<-cv_beta[[kk]]
+        sum((UKBB_pop_test[,-1]%*%cur_beta - UKBB_pop_test[,1])^2)
+      })
+      cv_mse_sum
+    })
+    beta<-coef(adaptivelasso_fit,s=lambda_list[which.min(rowSums(a))])[-1]
+    index_nonzero<-which(beta!=0)
+    ########??????????????????
+    if(length(index_nonzero) == 0){
+      beta<-coef(adaptivelasso_fit,s=lambda_list[which(adaptivelasso_fit$nzero>0)[which.min(rowSums(a)[which(adaptivelasso_fit$nzero>0)])]])[-1]
+      index_nonzero<-which(beta!=0)
     }
-  }else{
-    confident_pos<-candidate_pos
+    
+    xtx<-t(UKBB_pop[,-1])%*%UKBB_pop[,-1]/N_Pop
+    Sigsum_half<-cbind(xtx,xtx)%*%C_half
+    Sigsum_scaled<-Sigsum_half%*%t(Sigsum_half)
+    Sigsum_scaled_nonzero<-Sigsum_scaled[index_nonzero,index_nonzero]
+    inv_Sigsum_scaled_nonzero<-solve(Sigsum_scaled_nonzero)
+    final_v<-diag(inv_Sigsum_scaled_nonzero)
+    aa_final<-pchisq(N_Pop*beta[index_nonzero]^2/final_v,1,lower.tail = F)
+    if(p_val_cut == "Method1"){
+      candidate_pos<-index_nonzero[which(aa_final<0.05/N_SNP)]
+    }else if(p_val_cut == "Method2"){
+      candidate_pos<-index_nonzero[which(aa_final<0.05/length(index_nonzero))]
+    }else{
+      stop("wrong p_val_cut")
+    }
   }
-  
-  
   if(filter_index){
     pos<-index_filter[confident_pos]
     pos_bf<-index_filter[candidate_pos]
@@ -993,9 +986,9 @@ adaptiveGMMlasso_group<-function(UKBB_pop,study_info,
     "aa_final"=aa_final,
     "final_v"=final_v,
     "w_adaptive"=w_adaptive,
-    "index_filter"=index_filter,
-    "group_info"=group_info)
+    "index_filter"=index_filter)
 }
+
 
 adaptiveGMMlasso<-function(UKBB_pop,study_info,
   ld_cut = 0.9,
