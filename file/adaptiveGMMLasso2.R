@@ -608,7 +608,7 @@ cc<-function(section_num,allp=FALSE){
 library(expm,quietly = T)
 library(magic,quietly = T)
 library(glmnet)
-adaptiveGMMlasso<-function(UKBB_pop,study_info,
+adaptiveGMMlasso_group<-function(UKBB_pop,study_info,
   ld_cut=0.9,
   cor_cut=0.9,
   filter_index=TRUE,
@@ -831,7 +831,7 @@ adaptiveGMMlasso<-function(UKBB_pop,study_info,
         for(i in 1:nrow(rm_list_after)){
           rm_list_after[i,]<-sort(rm_list_after[i,])
         }
-        group_info<-cbind(group_info,rm_list_after)
+        group_info<-rbind(group_info,rm_list_after)
         for(j in rm_list_after[,2]){
           index_nonzero<-index_nonzero[-which(index_nonzero == j)]
           final_rm_list<-c(final_rm_list,j)
@@ -929,9 +929,11 @@ adaptiveGMMlasso<-function(UKBB_pop,study_info,
     "aa_final"=aa_final,
     "final_v"=final_v,
     "w_adaptive"=w_adaptive,
-    "index_filter"=index_filter)
+    "index_filter"=index_filter,
+    "group_info"=group_info)
 }
-adaptiveGMMlasso2<-function(UKBB_pop,study_info,
+
+adaptiveGMMlasso<-function(UKBB_pop,study_info,
   ld_cut = 0.9,
   cor_cut=0.9,
   filter_index=TRUE,
