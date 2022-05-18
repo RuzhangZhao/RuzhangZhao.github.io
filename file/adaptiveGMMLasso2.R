@@ -659,6 +659,7 @@ adaptiveGMMlasso_group<-function(UKBB_pop,study_info,
       pval_list_save<-c(pval_list_save,z_here)
     }
     important_index<-which(pval_list_save>ratio_cutoff)
+    original_important_index<-important_index
   }
   N_SNP<-ncol(UKBB_pop)-1
   colnames(UKBB_pop)[-1]<-paste0("SNP",1:(N_SNP))
@@ -834,8 +835,10 @@ adaptiveGMMlasso_group<-function(UKBB_pop,study_info,
           
           for(i in 1:nrow(rm_list_after)){
             rm_list_after[i,]<-sort(rm_list_after[i,])
+            if(rm_list_after[i,1]%in%original_important_index & rm_list_after[i,2]%in%original_important_index){
+              group_info<-rbind(group_info,rm_list_after)
+            }
           }
-          group_info<-rbind(group_info,rm_list_after)
           for(j in rm_list_after[,2]){
             index_nonzero<-index_nonzero[-which(index_nonzero == j)]
             final_rm_list<-c(final_rm_list,j)
@@ -1055,6 +1058,9 @@ adaptiveGMMlasso_group<-function(UKBB_pop,study_info,
     "index_filter"=index_filter,
     "group_info"=group_info)
 }
+
+
+
 adaptiveGMMlasso<-function(UKBB_pop,study_info,
   ld_cut = 0.9,
   cor_cut=0.9,
