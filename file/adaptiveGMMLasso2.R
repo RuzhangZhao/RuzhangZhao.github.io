@@ -807,7 +807,7 @@ adaptiveGMMlasso_group<-function(UKBB_pop,study_info,
       
       group_info<-c()
       
-      if(length(index_nonzero) >=2){
+      if(length(index_nonzero) >=3){
       while(1){
         if(length(important_index) == 0) break
         if(sum(important_index%in%candidate_pos)>0){
