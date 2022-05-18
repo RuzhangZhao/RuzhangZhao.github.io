@@ -1052,7 +1052,8 @@ adaptiveGMMlasso_group<-function(UKBB_pop,study_info,
     "aa_final"=aa_final,
     "final_v"=final_v,
     "w_adaptive"=w_adaptive,
-    "index_filter"=index_filter)
+    "index_filter"=index_filter,
+    "group_info"=group_info)
 }
 adaptiveGMMlasso<-function(UKBB_pop,study_info,
   ld_cut = 0.9,
