@@ -807,6 +807,7 @@ adaptiveGMMlasso_group<-function(UKBB_pop,study_info,
       
       group_info<-c()
       
+      if(length(index_nonzero) >=2){
       while(1){
         if(length(important_index) == 0) break
         if(sum(important_index%in%candidate_pos)>0){
@@ -859,15 +860,15 @@ adaptiveGMMlasso_group<-function(UKBB_pop,study_info,
         final_v<-diag(inv_Sigsum_scaled_nonzero)
         aa_final<-pchisq(N_Pop*beta[index_nonzero]^2/final_v,1,lower.tail = F)
         if(p_val_cut == "Method1"){
-          candidate_pos<-index_nonzero[which(aa_final<0.05/N_SNP)]
+          candidate_pos<-unique(c(candidate_pos,index_nonzero[which(aa_final<0.05/N_SNP)]))
         }else if(p_val_cut == "Method2"){
-          candidate_pos<-index_nonzero[which(aa_final<0.05/length(index_nonzero))]
+          candidate_pos<-unique(c(candidate_pos,index_nonzero[which(aa_final<0.05/length(index_nonzero))]))
         }else{
           stop("wrong p_val_cut")
         }
         
       }
-      
+      }
       
       
       
