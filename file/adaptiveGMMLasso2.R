@@ -1068,8 +1068,8 @@ adaptiveGMMlasso<-function(UKBB_pop,study_info,
   filter_index=TRUE,
   filter_by_EAF=FALSE,
   cv_with_individual=FALSE,
-  C_update = "Method1",
-  p_val_cut = "Method1",
+  C_update = "Method2",
+  p_val_cut = "Method2",
   kfolds=10){
   UKBB_cor<-cor(UKBB_pop[,-1])
   diag(UKBB_cor) = 0
