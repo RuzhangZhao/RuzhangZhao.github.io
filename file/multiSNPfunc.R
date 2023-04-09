@@ -243,7 +243,6 @@ final_var_U_beta_theta_hat_func<-function(
     cov_3rd_between_1st_2nd<-cov_U%*%mat_outside%*%t(U_theta_gradient[,1:(1+len_GPC)])
     
     res<-(var_1st_U_beta_theta+var_2nd_grad_times_theta_hat+cov_3rd_between_1st_2nd+t(cov_3rd_between_1st_2nd))
-  
   res
 }
 

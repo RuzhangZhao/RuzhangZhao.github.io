@@ -609,6 +609,2528 @@ library(expm,quietly = T)
 library(magic,quietly = T)
 library(glmnet)
 library(cluster)
+library(MASS)
+library(Rfast)
+library(locfit)
+
+
+adaptiveGMMlassoBMIforBiomarker2<-function(UKBB_pop,BMI,study_info,
+                                           ld_cut = 0.9,
+                                           cor_cut=0.9,
+                                           initial2=TRUE,
+                                           filter_index=FALSE,
+                                           filter_by_EAF=FALSE,
+                                           cv_with_individual=FALSE,
+                                           C_update = "Method2",
+                                           p_val_cut = "Method2",
+                                           penalty_all = FALSE,
+                                           predictonly = TRUE,
+                                           kfolds=10){
+  index_filter<-NULL
+  if(filter_index){
+    UKBB_cor<-cor(UKBB_pop[,-1])
+    diag(UKBB_cor) = 0
+    ### Trick 1 index filtering 
+    index_filter<-c()
+    pval_list<-c()
+    for(i in 1:length(study_info)){
+      #if(study_info[[i]]$P<p_val_cut){
+      index_filter<-c(index_filter,i)
+      z_here<-study_info[[i]]$Coeff^2/study_info[[i]]$Covariance
+      pval_list<-c(pval_list,z_here)
+      #}
+    }
+    index_filter0<-index_filter
+    pval_list0<-pval_list
+    index_filter2<-c()
+    while (length(index_filter) > 1){
+      UKBB_cor_i<-UKBB_cor[index_filter,index_filter]
+      cur_i<-which.max(pval_list)
+      index_filter2<-c(index_filter2,index_filter[cur_i])
+      #print(index_filter[cur_i])
+      rm_index<-c(cur_i,which(abs(UKBB_cor_i[cur_i,])>ld_cut))
+      #print(index_filter[rm_index])
+      index_filter<-index_filter[-rm_index]
+      pval_list<-pval_list[-rm_index]
+    }
+    
+    #Nonnull_index2<-which(index_filter2%in%Nonnull_index)
+    UKBB_pop<-UKBB_pop[,c(1,(index_filter2+1))]
+    study_info<-study_info[index_filter2]
+    index_filter<-index_filter2
+  }
+  
+  N_SNP<-ncol(UKBB_pop)-1
+  colnames(UKBB_pop)[-1]<-paste0("SNP",1:(N_SNP))
+  colnames(UKBB_pop)[1]<-"Y"
+  var_SNP<-paste0("SNP",1:(N_SNP))
+  len_SNP<-length(var_SNP)
+  var_GPC<-NULL
+  len_GPC<-length(var_GPC)
+  var_nonSNP<-c(var_GPC,paste0("BMI",1:ncol(BMI)))
+  len_nonSNP<-length(var_nonSNP)
+  var_names_full_fit <- c(var_SNP,var_nonSNP)
+  colname_UKBB<-colnames(UKBB_pop)
+  len_U1 = len_SNP+len_nonSNP
+  len_U2 = len_SNP
+  len_beta = len_U1
+  len_theta = len_SNP+len_GPC
+  len_U = len_U1 + len_U2
+  N_Pop<-nrow(UKBB_pop)
+  UKBB_pop<-cbind(UKBB_pop,BMI)
+  ############## Beta
+  pseudo_Xy<-function(
+    C_half,UKBB_pop,
+    var_SNP,var_GPC,
+    N_SNP,theta_UKBB_GPC,study_info){
+    N_Pop<-nrow(UKBB_pop)
+    pseudo_X<-C_half%*%rbind(t(UKBB_pop[,-1]),t(UKBB_pop[,var_SNP]))%*%UKBB_pop[,-1]
+    pseudo_y1<-crossprod(UKBB_pop[,1],UKBB_pop[,-1])
+    pseudo_y2<-crossprod(UKBB_pop[,var_SNP],UKBB_pop[,var_SNP])%*%study_info[[1]]$Coeff
+    pseudo_y<-c(c(c(pseudo_y1),c(pseudo_y2))%*%C_half)
+    newList<-list("pseudo_X"=pseudo_X,"pseudo_y"=pseudo_y)
+    newList
+  }
+  var_U_beta_theta_func<-function(
+    UKBB_pop,
+    beta,
+    study_info,
+    theta_UKBB_GPC=NULL){
+    N_Pop<-nrow(UKBB_pop)
+    xtbeta<-(UKBB_pop[,-1]%*%beta)
+    xttheta<-(UKBB_pop[,var_SNP]%*%study_info[[1]]$Coeff)
+    var_11<-crossprod(UKBB_pop[,-1]*c(UKBB_pop[,1]-xtbeta),UKBB_pop[,-1]*c(UKBB_pop[,1]-xtbeta))
+    var_22<-crossprod(UKBB_pop[,var_SNP]*c(xtbeta-xttheta),UKBB_pop[,var_SNP]*c(xtbeta-xttheta))
+    var_12<-crossprod(UKBB_pop[,-1]*c(xtbeta-UKBB_pop[,1]),UKBB_pop[,var_SNP]*c(xtbeta-xttheta))
+    (1/N_Pop)*rbind(cbind(var_11,var_12),cbind(t(var_12),var_22))
+  }
+  
+  #### adaptive lasso with fast lasso computation 
+  var_11_half<-UKBB_pop[,-1]#*c(UKBB_pop[,1]-UKBB_pop[,-1]%*%beta0)
+  var_U1<-crossprod(var_11_half,var_11_half)/N_Pop*var(UKBB_pop[,1]) 
+  ## Seems to be correlation matrix.
+  ## Have taken the scaling 
+  #C_11<-solve(var_U1)
+  #C_11_half<-expm::sqrtm(C_11)
+  
+  inv_C_11_svd<-corpcor::fast.svd(var_U1)
+  C_11_half<-inv_C_11_svd$u%*%diag(1/sqrt(inv_C_11_svd$d))%*%t(inv_C_11_svd$v)
+  
+  var_22_half<-UKBB_pop[,var_SNP]
+  var_22<-crossprod(var_22_half,var_22_half)
+  var_U2<-var_22%*%study_info[[1]]$Covariance%*%var_22/N_SNP
+  #C_22<-solve(var_U2)
+  #C_22_half<-expm::sqrtm(C_22)
+  inv_C_22_svd<-corpcor::fast.svd(var_U2)
+  C_22_half<-inv_C_22_svd$u%*%diag(1/sqrt(inv_C_22_svd$d))%*%t(inv_C_22_svd$v)
+  C_half<-adiag(C_11_half,C_22_half)
+  
+  pseudo_Xy_list<-pseudo_Xy(C_half,UKBB_pop,var_SNP,var_GPC,N_SNP,theta_UKBB_GPC,study_info)
+  initial_sf<-N_Pop/sqrt(nrow(pseudo_Xy_list$pseudo_X))
+  pseudo_X<-pseudo_Xy_list$pseudo_X/initial_sf
+  pseudo_y<-pseudo_Xy_list$pseudo_y/initial_sf
+  
+  lasso_initial<-glmnet(x= (pseudo_X),y= (pseudo_y),standardize=F,intercept=F)
+  lambda_list0<-lasso_initial$lambda
+  non_penalize_BMI<-c(rep(0,N_SNP),rep(1,len_nonSNP))
+  ridge_fit<-glmnet(x= (pseudo_X),y= (pseudo_y),standardize=F,intercept=F,lambda = lambda_list0[50]/100,alpha = 0.01,penalty.factor = non_penalize_BMI)
+  
+  gamma_adaptivelasso<-1/2
+  if(penalty_all){
+    w_adaptive<-c(c(1/(abs(coef(ridge_fit)[-1])[1:(len_nonSNP+N_SNP)])^gamma_adaptivelasso))
+    #w_adaptive[1:N_SNP]<-1/abs(study_info[[1]]$Coeff)^gamma_adaptivelasso
+  }else{
+    w_adaptive<-c(rep(0,N_SNP),c(1/(abs(coef(ridge_fit)[-1])[(N_SNP+1):(len_nonSNP+N_SNP)])^gamma_adaptivelasso))        
+  }
+  
+  w_adaptive[is.infinite(w_adaptive)]<-max(w_adaptive[!is.infinite(w_adaptive)])*100
+  beta_initial<-coef(ridge_fit)[-1]
+  if(initial2){
+    adaptivelasso_fit<-cv.glmnet(x= (pseudo_X),y= (pseudo_y),standardize=F,intercept=F,alpha = 1,penalty.factor = w_adaptive)
+    beta_initial<-coef(adaptivelasso_fit,s ='lambda.min')[-1]
+    if(penalty_all){
+      w_adaptive<-c(c(1/(abs(beta_initial)[1:(len_nonSNP+N_SNP)])^gamma_adaptivelasso))
+      #w_adaptive[1:N_SNP]<-1/abs(study_info[[1]]$Coeff)^gamma_adaptivelasso
+    }else{
+      w_adaptive<-c(rep(0,N_SNP),c(1/(abs(beta_initial)[(N_SNP+1):(len_nonSNP+N_SNP)])^gamma_adaptivelasso))        
+    }
+    
+    w_adaptive[is.infinite(w_adaptive)]<-max(w_adaptive[!is.infinite(w_adaptive)])*100
+  }
+  
+  var_1st_U_beta_theta<-var_U_beta_theta_func(UKBB_pop = UKBB_pop,
+                                              beta = beta_initial,
+                                              study_info = study_info)
+  var_2nd_grad_times_theta_hat = adiag(matrix(0,nrow = len_U1,ncol = len_U1),var_U2)
+  inv_C = var_1st_U_beta_theta + var_2nd_grad_times_theta_hat
+  ##C_all<-solve(inv_C)
+  #C_half<-expm::sqrtm(C_all)
+  ##C_all_svd<-corpcor::fast.svd(C_all)
+  ##C_half<-C_all_svd$u%*%diag(sqrt(C_all_svd$d))%*%t(C_all_svd$v)
+  inv_C_svd<-corpcor::fast.svd(inv_C)
+  C_half<-inv_C_svd$v%*%diag(1/sqrt(inv_C_svd$d))%*%t(inv_C_svd$u)
+  
+  
+  pseudo_Xy_list<-pseudo_Xy(C_half,UKBB_pop,var_SNP,var_GPC,N_SNP,theta_UKBB_GPC,study_info)
+  initial_sf<-N_Pop/sqrt(nrow(pseudo_Xy_list$pseudo_X))
+  pseudo_X<-pseudo_Xy_list$pseudo_X/initial_sf
+  pseudo_y<-pseudo_Xy_list$pseudo_y/initial_sf
+  w_adaptive[-c(1:20)]<-w_adaptive[-c(1:20)]*3
+  print(w_adaptive)
+  adaptivelasso_fit<-cv.glmnet(x= (pseudo_X),y= (pseudo_y),standardize=F,intercept=F,alpha = 1,penalty.factor = w_adaptive)
+  #adaptivelasso_fit<-cv.glmnet(x= (pseudo_X[,-c(1:N_SNP)]),y= (pseudo_y - c(pseudo_X[,1:N_SNP]%*%study_info[[1]]$Coeff)),standardize=F,intercept=F,alpha = 1,penalty.factor = w_adaptive[-c(1:N_SNP)])
+  
+  lambda_list<-adaptivelasso_fit$lambda
+  
+  
+  
+  
+  if(!cv_with_individual){
+    #beta<-c(study_info[[1]]$Coeff,coef(adaptivelasso_fit,s ='lambda.min')[-1])
+    beta<-coef(adaptivelasso_fit,s ='lambda.min')[-1]
+    if(!predictonly){
+      index_nonzero<-c(which(beta!=0))
+      
+      if(length(index_nonzero) == 1){
+        cv_with_individual = TRUE
+      }else{
+        xtx<-t(UKBB_pop[,-1])%*%UKBB_pop[,-1]/N_Pop
+        xtx2<-t(UKBB_pop[,-1])%*%UKBB_pop[,var_SNP]/N_Pop
+        Sigsum_half<-cbind(xtx,xtx2)%*%C_half
+        Sigsum_scaled<-Sigsum_half%*%t(Sigsum_half)
+        Sigsum_scaled_nonzero<-Sigsum_scaled[index_nonzero,index_nonzero]
+        inv_Sigsum_scaled_nonzero<-solve(Sigsum_scaled_nonzero)
+        
+        index_nonzero<-index_nonzero[-length(index_nonzero)]
+        final_v<-diag(inv_Sigsum_scaled_nonzero)
+        final_v<-final_v[-length(final_v)]
+        aa_final<-pchisq(N_Pop*beta[index_nonzero]^2/final_v,1,lower.tail = F)
+        
+        if(p_val_cut == "Method1"){
+          candidate_pos<-index_nonzero[which(aa_final<0.05/N_SNP)]
+        }else if(p_val_cut == "Method2"){
+          candidate_pos<-index_nonzero[which(aa_final<0.05/length(index_nonzero))]
+        }else{
+          stop("wrong p_val_cut")
+        }
+        
+        if(length(candidate_pos) == 0){
+          cv_with_individual = TRUE
+        }
+      }
+    }
+  }
+  
+  
+  
+  
+  
+  if(cv_with_individual){
+    
+    library(caret)
+    index_fold<-createFolds(as.numeric(UKBB_pop[,1]>0),k = kfolds)
+    a<-sapply(1:kfolds, function(cur_fold){
+      index_test<-index_fold[[cur_fold]]
+      UKBB_pop_train<-UKBB_pop[-index_test,]
+      UKBB_pop_test<-UKBB_pop[index_test,]
+      
+      pseudo_Xy_list_train<-pseudo_Xy(C_half,UKBB_pop_train,var_SNP,var_GPC,N_SNP,theta_UKBB_GPC,study_info)
+      initial_sf_train<-nrow(UKBB_pop_train)/sqrt(nrow(pseudo_Xy_list_train$pseudo_X))
+      pseudo_X_train<-pseudo_Xy_list_train$pseudo_X/initial_sf_train
+      pseudo_y_train<-pseudo_Xy_list_train$pseudo_y/initial_sf_train
+      cv_beta<-lapply(lambda_list,function(cur_lam){
+        cv_adaptivelasso_fit<-glmnet(x= (pseudo_X_train),y= (pseudo_y_train),standardize=F,intercept=F,alpha = 1,penalty.factor = w_adaptive,lambda = cur_lam)
+        coef(cv_adaptivelasso_fit)[-1]
+      })
+      cv_mse_sum<-sapply(1:length(cv_beta), function(kk){
+        cur_beta<-cv_beta[[kk]]
+        sum((UKBB_pop_test[,-1]%*%cur_beta - UKBB_pop_test[,1])^2)
+      })
+      cv_mse_sum
+    })
+    beta<-coef(adaptivelasso_fit,s=lambda_list[which.min(rowSums(a))])[-1]
+    if(!predictonly){
+      index_nonzero<-c(which(beta!=0))
+      
+      xtx<-t(UKBB_pop[,-1])%*%UKBB_pop[,-1]/N_Pop
+      xtx2<-t(UKBB_pop[,-1])%*%UKBB_pop[,var_SNP]/N_Pop
+      Sigsum_half<-cbind(xtx,xtx2)%*%C_half
+      Sigsum_scaled<-Sigsum_half%*%t(Sigsum_half)
+      Sigsum_scaled_nonzero<-Sigsum_scaled[index_nonzero,index_nonzero]
+      inv_Sigsum_scaled_nonzero<-solve(Sigsum_scaled_nonzero)
+      
+      #index_nonzero<-index_nonzero[-length(index_nonzero)]
+      final_v<-diag(inv_Sigsum_scaled_nonzero)
+      #final_v<-final_v[-length(final_v)]
+      aa_final<-pchisq(N_Pop*beta[index_nonzero]^2/final_v,1,lower.tail = F)
+      
+      
+      if(p_val_cut == "Method1"){
+        candidate_pos<-index_nonzero[which(aa_final<0.05/N_SNP)]
+      }else if(p_val_cut == "Method2"){
+        candidate_pos<-index_nonzero[which(aa_final<0.05/length(index_nonzero))]
+      }else{
+        stop("wrong p_val_cut")
+      }
+      candidate_pos<-candidate_pos[which(candidate_pos>N_SNP)] 
+    }
+    
+  }
+  
+  
+  if(0){
+    if(length(candidate_pos) > 1){
+      candidate_cor<-cor(UKBB_pop[,c(candidate_pos+1)])
+      diag(candidate_cor)<-0
+      
+      
+      if(max(abs(candidate_cor))>0.1){
+        
+        UKBB_pop_orig<-UKBB_pop[,c(candidate_pos+1)]
+        
+        for(i in 1:ncol(UKBB_pop_orig)){
+          cur_snp<-UKBB_pop_orig[,i]
+          UKBB_pop_orig[which(cur_snp == max(cur_snp)),i] = 2
+          UKBB_pop_orig[which(cur_snp == min(cur_snp)),i] = 0
+          UKBB_pop_orig[which(cur_snp > min(cur_snp) & cur_snp < max(cur_snp)),i] = 1
+        }
+        candidate_EAF<-colsums(UKBB_pop_orig)/nrow(UKBB_pop_orig)/2
+        
+        weak_among_candidate<-which(candidate_EAF < 0.05)
+        if(filter_by_EAF){
+          if(length(weak_among_candidate) > 1){
+            gamma_adaptivelasso<-1/2
+            w_adaptive_candidate<-c(1/(abs(beta[candidate_pos[weak_among_candidate] ]))^gamma_adaptivelasso,0)
+            
+            tmp_count<-sapply(1:10, function(j){
+              lasso_fit_candidate<-cv.glmnet(x= UKBB_pop[,c((candidate_pos[weak_among_candidate]+1),ncol(UKBB_pop)) ],y= UKBB_pop[,1],standardize=F,intercept=F,alpha = 1,penalty.factor = w_adaptive_candidate)
+              tmptmp<-abs(coef(lasso_fit_candidate,s='lambda.min')[-1])
+              tmptmp<-tmptmp[-length(tmptmp)]
+              tmptmp>1e-4
+            })
+            
+            confident_pos_weak<-(candidate_pos[weak_among_candidate])[which(rowMeans(tmp_count) >= 0.8)]
+            if(length(confident_pos_weak) == 0){
+              z<-c()
+              for(i in weak_among_candidate){
+                z<-c(z,study_info[[candidate_pos[weak_among_candidate]]]$Coeff^2/study_info[[candidate_pos[weak_among_candidate]]]$Covariance)
+              }
+              confident_pos_weak<-weak_among_candidate[which.max(z)]
+            }
+          }else if(length(weak_among_candidate) == 1){
+            confident_pos_weak<-candidate_pos[weak_among_candidate]
+          }else{
+            confident_pos_weak<-c()
+          }
+          
+          true_weak<-c()
+          if(length(weak_among_candidate) > 0){
+            for( weakone in weak_among_candidate){
+              if(max(abs(candidate_cor[,weakone]))<0.1){
+                true_weak<-c(true_weak,weakone)      
+              }
+            }
+          }
+          if(length(true_weak)>0) true_weak<-candidate_pos[true_weak]
+          
+          confident_pos_weak <-union(confident_pos_weak,true_weak)
+        }else{
+          confident_pos_weak <-candidate_pos[weak_among_candidate]
+        }
+        
+        gamma_adaptivelasso<-2
+        w_adaptive_candidate<-c(1/(abs(beta[candidate_pos]))^gamma_adaptivelasso,0)
+        w_adaptive_candidate[which(candidate_pos%in%confident_pos_weak)]<-0
+        tmp_count<-sapply(1:10, function(j){
+          lasso_fit_candidate<-cv.glmnet(x= UKBB_pop[,c( (candidate_pos+1),ncol(UKBB_pop)) ] ,y= UKBB_pop[,1],standardize=F,intercept=F,alpha = 0.9,penalty.factor = w_adaptive_candidate)
+          tmptmp<-abs(coef(lasso_fit_candidate,s='lambda.min')[-1])>1e-4
+          tmptmp<-tmptmp[-length(tmptmp)]
+          tmptmp>1e-4
+          #coef(lasso_fit_candidate,s='lambda.min')[-1]!=0
+        })
+        confident_pos<-candidate_pos[which(rowMeans(tmp_count) >= 0.8)]
+        
+        confident_pos<-union(confident_pos,confident_pos_weak)
+        
+      }else{
+        #print("NOT USED")
+        confident_pos<-candidate_pos
+      }
+    }else{
+      confident_pos<-candidate_pos
+    }
+  }
+  
+  #print(paste0("candidate",paste0(index_filter[candidate_pos],collapse = " ")))
+  #print(paste0("confid",paste0(pos,collapse = " ")))
+  #print(pos)
+  if(predictonly){
+    newList<-list("beta"=beta)
+  }else{
+    confident_pos<-candidate_pos
+    if(filter_index){
+      pos2<-index_filter[confident_pos]
+      pos<-index_filter[confident_pos]
+    }else{
+      pos<-confident_pos
+      pos2<-confident_pos
+    }
+    newList<-list("beta"=beta,
+                  "beta_initial"=beta_initial,
+                  "pos"=pos,
+                  "pos2"=pos2,
+                  "aa_final"=aa_final,
+                  "final_v"=final_v,
+                  "w_adaptive"=w_adaptive,
+                  "index_filter"=index_filter)
+  }
+  newList
+}
+
+
+
+adaptiveGMMlassoBMIforBiomarker<-function(UKBB_pop,BMI,study_info,
+                                          ld_cut = 0.9,
+                                          cor_cut=0.9,
+                                          initial2=TRUE,
+                                          filter_index=FALSE,
+                                          filter_by_EAF=FALSE,
+                                          cv_with_individual=FALSE,
+                                          C_update = "Method2",
+                                          p_val_cut = "Method2",
+                                          penalty_all = FALSE,
+                                          kfolds=10){
+  UKBB_cor<-cor(UKBB_pop[,-1])
+  diag(UKBB_cor) = 0
+  index_filter<-NULL
+  if(filter_index){
+    ### Trick 1 index filtering 
+    index_filter<-c()
+    pval_list<-c()
+    for(i in 1:length(study_info)){
+      #if(study_info[[i]]$P<p_val_cut){
+      index_filter<-c(index_filter,i)
+      z_here<-study_info[[i]]$Coeff^2/study_info[[i]]$Covariance
+      pval_list<-c(pval_list,z_here)
+      #}
+    }
+    index_filter0<-index_filter
+    pval_list0<-pval_list
+    index_filter2<-c()
+    while (length(index_filter) > 1){
+      UKBB_cor_i<-UKBB_cor[index_filter,index_filter]
+      cur_i<-which.max(pval_list)
+      index_filter2<-c(index_filter2,index_filter[cur_i])
+      #print(index_filter[cur_i])
+      rm_index<-c(cur_i,which(abs(UKBB_cor_i[cur_i,])>ld_cut))
+      #print(index_filter[rm_index])
+      index_filter<-index_filter[-rm_index]
+      pval_list<-pval_list[-rm_index]
+    }
+    
+    #Nonnull_index2<-which(index_filter2%in%Nonnull_index)
+    UKBB_pop<-UKBB_pop[,c(1,(index_filter2+1))]
+    study_info<-study_info[index_filter2]
+    index_filter<-index_filter2
+  }
+  
+  N_SNP<-ncol(UKBB_pop)-1
+  colnames(UKBB_pop)[-1]<-paste0("SNP",1:(N_SNP))
+  colnames(UKBB_pop)[1]<-"Y"
+  var_SNP<-paste0("SNP",1:(N_SNP))
+  len_SNP<-length(var_SNP)
+  var_GPC<-NULL
+  len_GPC<-length(var_GPC)
+  var_nonSNP<-c(var_GPC,paste0("BMI",1:ncol(BMI)))
+  len_nonSNP<-length(var_nonSNP)
+  var_names_full_fit <- c(var_SNP,var_nonSNP)
+  colname_UKBB<-colnames(UKBB_pop)
+  len_U1 = len_SNP+len_nonSNP
+  len_U2 = len_SNP
+  len_beta = len_U1
+  len_theta = len_SNP+len_GPC
+  len_U = len_U1 + len_U2
+  N_Pop<-nrow(UKBB_pop)
+  UKBB_pop<-cbind(UKBB_pop,BMI)
+  ############## Beta
+  pseudo_Xy<-function(
+    C_half,UKBB_pop,
+    var_SNP,var_GPC,
+    N_SNP,theta_UKBB_GPC,study_info){
+    N_Pop<-nrow(UKBB_pop)
+    pseudo_X<-C_half%*%rbind(t(UKBB_pop[,-1]),t(UKBB_pop[,var_SNP]))%*%UKBB_pop[,-1]
+    pseudo_y1<-crossprod(UKBB_pop[,1],UKBB_pop[,-1])
+    pseudo_y2<-crossprod(UKBB_pop[,var_SNP],UKBB_pop[,var_SNP])%*%study_info[[1]]$Coeff
+    pseudo_y<-c(c(c(pseudo_y1),c(pseudo_y2))%*%C_half)
+    newList<-list("pseudo_X"=pseudo_X,"pseudo_y"=pseudo_y)
+    newList
+  }
+  var_U_beta_theta_func<-function(
+    UKBB_pop,
+    beta,
+    study_info,
+    theta_UKBB_GPC=NULL){
+    N_Pop<-nrow(UKBB_pop)
+    xtbeta<-(UKBB_pop[,-1]%*%beta)
+    xttheta<-(UKBB_pop[,var_SNP]%*%study_info[[1]]$Coeff)
+    var_11<-crossprod(UKBB_pop[,-1]*c(UKBB_pop[,1]-xtbeta),UKBB_pop[,-1]*c(UKBB_pop[,1]-xtbeta))
+    var_22<-crossprod(UKBB_pop[,var_SNP]*c(xtbeta-xttheta),UKBB_pop[,var_SNP]*c(xtbeta-xttheta))
+    var_12<-crossprod(UKBB_pop[,-1]*c(xtbeta-UKBB_pop[,1]),UKBB_pop[,var_SNP]*c(xtbeta-xttheta))
+    (1/N_Pop)*rbind(cbind(var_11,var_12),cbind(t(var_12),var_22))
+  }
+  
+  #### adaptive lasso with fast lasso computation 
+  var_11_half<-UKBB_pop[,-1]#*c(UKBB_pop[,1]-UKBB_pop[,-1]%*%beta0)
+  var_U1<-crossprod(var_11_half,var_11_half)/N_Pop*var(UKBB_pop[,1]) 
+  ## Seems to be correlation matrix.
+  ## Have taken the scaling 
+  C_11<-solve(var_U1)
+  C_11_half<-expm::sqrtm(C_11)
+  var_22_half<-UKBB_pop[,var_SNP]
+  var_22<-crossprod(var_22_half,var_22_half)
+  var_U2<-var_22%*%study_info[[1]]$Covariance%*%var_22/N_SNP
+  C_22<-solve(var_U2)
+  C_22_half<-expm::sqrtm(C_22)
+  C_half<-adiag(C_11_half,C_22_half)
+  
+  
+  pseudo_Xy_list<-pseudo_Xy(C_half,UKBB_pop,var_SNP,var_GPC,N_SNP,theta_UKBB_GPC,study_info)
+  initial_sf<-N_Pop/sqrt(nrow(pseudo_Xy_list$pseudo_X))
+  pseudo_X<-pseudo_Xy_list$pseudo_X/initial_sf
+  pseudo_y<-pseudo_Xy_list$pseudo_y/initial_sf
+  
+  lasso_initial<-glmnet(x= (pseudo_X),y= (pseudo_y),standardize=F,intercept=F)
+  lambda_list0<-lasso_initial$lambda
+  non_penalize_BMI<-c(rep(0,N_SNP),rep(1,len_nonSNP))
+  ridge_fit<-glmnet(x= (pseudo_X),y= (pseudo_y),standardize=F,intercept=F,lambda = lambda_list0[50]/100,alpha = 0.01,penalty.factor = non_penalize_BMI)
+  
+  gamma_adaptivelasso<-1/2
+  if(penalty_all){
+    w_adaptive<-c(c(1/(abs(coef(ridge_fit)[-1])[1:(len_nonSNP+N_SNP)])^gamma_adaptivelasso))
+  }else{
+    w_adaptive<-c(rep(0,N_SNP),c(1/(abs(coef(ridge_fit)[-1])[(N_SNP+1):(len_nonSNP+N_SNP)])^gamma_adaptivelasso))        
+  }
+  
+  w_adaptive[is.infinite(w_adaptive)]<-max(w_adaptive[!is.infinite(w_adaptive)])*100
+  beta_initial<-coef(ridge_fit)[-1]
+  if(initial2){
+    adaptivelasso_fit<-cv.glmnet(x= (pseudo_X),y= (pseudo_y),standardize=F,intercept=F,alpha = 1,penalty.factor = w_adaptive)
+    beta_initial<-coef(adaptivelasso_fit,s ='lambda.min')[-1]
+    if(penalty_all){
+      w_adaptive<-c(c(1/(abs(beta_initial)[1:(len_nonSNP+N_SNP)])^gamma_adaptivelasso))
+    }else{
+      w_adaptive<-c(rep(0,N_SNP),c(1/(abs(beta_initial)[(N_SNP+1):(len_nonSNP+N_SNP)])^gamma_adaptivelasso))        
+    }
+    
+    w_adaptive[is.infinite(w_adaptive)]<-max(w_adaptive[!is.infinite(w_adaptive)])*100
+  }
+  
+  var_1st_U_beta_theta<-var_U_beta_theta_func(UKBB_pop = UKBB_pop,
+                                              beta = beta_initial,
+                                              study_info = study_info)
+  var_2nd_grad_times_theta_hat = adiag(matrix(0,nrow = len_U1,ncol = len_U1),var_U2)
+  inv_C = var_1st_U_beta_theta + var_2nd_grad_times_theta_hat
+  C_all<-solve(inv_C)
+  C_half<-expm::sqrtm(C_all)
+  
+  
+  pseudo_Xy_list<-pseudo_Xy(C_half,UKBB_pop,var_SNP,var_GPC,N_SNP,theta_UKBB_GPC,study_info)
+  initial_sf<-N_Pop/sqrt(nrow(pseudo_Xy_list$pseudo_X))
+  pseudo_X<-pseudo_Xy_list$pseudo_X/initial_sf
+  pseudo_y<-pseudo_Xy_list$pseudo_y/initial_sf
+  
+  
+  adaptivelasso_fit<-cv.glmnet(x= (pseudo_X),y= (pseudo_y),standardize=F,intercept=F,alpha = 1,penalty.factor = w_adaptive)
+  lambda_list<-adaptivelasso_fit$lambda
+  
+  
+  
+  
+  if(!cv_with_individual){
+    beta<-coef(adaptivelasso_fit,s ='lambda.min')[-1]
+    index_nonzero<-c(which(beta!=0))
+    
+    if(length(index_nonzero) == 1){
+      cv_with_individual = TRUE
+    }else{
+      xtx<-t(UKBB_pop[,-1])%*%UKBB_pop[,-1]/N_Pop
+      xtx2<-t(UKBB_pop[,-1])%*%UKBB_pop[,var_SNP]/N_Pop
+      Sigsum_half<-cbind(xtx,xtx2)%*%C_half
+      Sigsum_scaled<-Sigsum_half%*%t(Sigsum_half)
+      Sigsum_scaled_nonzero<-Sigsum_scaled[index_nonzero,index_nonzero]
+      inv_Sigsum_scaled_nonzero<-solve(Sigsum_scaled_nonzero)
+      
+      index_nonzero<-index_nonzero[-length(index_nonzero)]
+      final_v<-diag(inv_Sigsum_scaled_nonzero)
+      final_v<-final_v[-length(final_v)]
+      aa_final<-pchisq(N_Pop*beta[index_nonzero]^2/final_v,1,lower.tail = F)
+      
+      if(p_val_cut == "Method1"){
+        candidate_pos<-index_nonzero[which(aa_final<0.05/N_SNP)]
+      }else if(p_val_cut == "Method2"){
+        candidate_pos<-index_nonzero[which(aa_final<0.05/length(index_nonzero))]
+      }else{
+        stop("wrong p_val_cut")
+      }
+      
+      if(length(candidate_pos) == 0){
+        cv_with_individual = TRUE
+      }
+    }
+  }
+  
+  
+  
+  
+  
+  if(cv_with_individual){
+    
+    library(caret)
+    index_fold<-createFolds(as.numeric(UKBB_pop[,1]>0),k = kfolds)
+    a<-sapply(1:kfolds, function(cur_fold){
+      index_test<-index_fold[[cur_fold]]
+      UKBB_pop_train<-UKBB_pop[-index_test,]
+      UKBB_pop_test<-UKBB_pop[index_test,]
+      
+      pseudo_Xy_list_train<-pseudo_Xy(C_half,UKBB_pop_train,var_SNP,var_GPC,N_SNP,theta_UKBB_GPC,study_info)
+      initial_sf_train<-nrow(UKBB_pop_train)/sqrt(nrow(pseudo_Xy_list_train$pseudo_X))
+      pseudo_X_train<-pseudo_Xy_list_train$pseudo_X/initial_sf_train
+      pseudo_y_train<-pseudo_Xy_list_train$pseudo_y/initial_sf_train
+      cv_beta<-lapply(lambda_list,function(cur_lam){
+        cv_adaptivelasso_fit<-glmnet(x= (pseudo_X_train),y= (pseudo_y_train),standardize=F,intercept=F,alpha = 1,penalty.factor = w_adaptive,lambda = cur_lam)
+        coef(cv_adaptivelasso_fit)[-1]
+      })
+      cv_mse_sum<-sapply(1:length(cv_beta), function(kk){
+        cur_beta<-cv_beta[[kk]]
+        sum((UKBB_pop_test[,-1]%*%cur_beta - UKBB_pop_test[,1])^2)
+      })
+      cv_mse_sum
+    })
+    beta<-coef(adaptivelasso_fit,s=lambda_list[which.min(rowSums(a))])[-1]
+    index_nonzero<-c(which(beta!=0))
+    
+    xtx<-t(UKBB_pop[,-1])%*%UKBB_pop[,-1]/N_Pop
+    xtx2<-t(UKBB_pop[,-1])%*%UKBB_pop[,var_SNP]/N_Pop
+    Sigsum_half<-cbind(xtx,xtx2)%*%C_half
+    Sigsum_scaled<-Sigsum_half%*%t(Sigsum_half)
+    Sigsum_scaled_nonzero<-Sigsum_scaled[index_nonzero,index_nonzero]
+    inv_Sigsum_scaled_nonzero<-solve(Sigsum_scaled_nonzero)
+    
+    #index_nonzero<-index_nonzero[-length(index_nonzero)]
+    final_v<-diag(inv_Sigsum_scaled_nonzero)
+    #final_v<-final_v[-length(final_v)]
+    aa_final<-pchisq(N_Pop*beta[index_nonzero]^2/final_v,1,lower.tail = F)
+    
+    
+    if(p_val_cut == "Method1"){
+      candidate_pos<-index_nonzero[which(aa_final<0.05/N_SNP)]
+    }else if(p_val_cut == "Method2"){
+      candidate_pos<-index_nonzero[which(aa_final<0.05/length(index_nonzero))]
+    }else{
+      stop("wrong p_val_cut")
+    }
+    candidate_pos<-candidate_pos[which(candidate_pos>N_SNP)]
+  }
+  
+  
+  if(0){
+    if(length(candidate_pos) > 1){
+      candidate_cor<-cor(UKBB_pop[,c(candidate_pos+1)])
+      diag(candidate_cor)<-0
+      
+      
+      if(max(abs(candidate_cor))>0.1){
+        
+        UKBB_pop_orig<-UKBB_pop[,c(candidate_pos+1)]
+        
+        for(i in 1:ncol(UKBB_pop_orig)){
+          cur_snp<-UKBB_pop_orig[,i]
+          UKBB_pop_orig[which(cur_snp == max(cur_snp)),i] = 2
+          UKBB_pop_orig[which(cur_snp == min(cur_snp)),i] = 0
+          UKBB_pop_orig[which(cur_snp > min(cur_snp) & cur_snp < max(cur_snp)),i] = 1
+        }
+        candidate_EAF<-colsums(UKBB_pop_orig)/nrow(UKBB_pop_orig)/2
+        
+        weak_among_candidate<-which(candidate_EAF < 0.05)
+        if(filter_by_EAF){
+          if(length(weak_among_candidate) > 1){
+            gamma_adaptivelasso<-1/2
+            w_adaptive_candidate<-c(1/(abs(beta[candidate_pos[weak_among_candidate] ]))^gamma_adaptivelasso,0)
+            
+            tmp_count<-sapply(1:10, function(j){
+              lasso_fit_candidate<-cv.glmnet(x= UKBB_pop[,c((candidate_pos[weak_among_candidate]+1),ncol(UKBB_pop)) ],y= UKBB_pop[,1],standardize=F,intercept=F,alpha = 1,penalty.factor = w_adaptive_candidate)
+              tmptmp<-abs(coef(lasso_fit_candidate,s='lambda.min')[-1])
+              tmptmp<-tmptmp[-length(tmptmp)]
+              tmptmp>1e-4
+            })
+            
+            confident_pos_weak<-(candidate_pos[weak_among_candidate])[which(rowMeans(tmp_count) >= 0.8)]
+            if(length(confident_pos_weak) == 0){
+              z<-c()
+              for(i in weak_among_candidate){
+                z<-c(z,study_info[[candidate_pos[weak_among_candidate]]]$Coeff^2/study_info[[candidate_pos[weak_among_candidate]]]$Covariance)
+              }
+              confident_pos_weak<-weak_among_candidate[which.max(z)]
+            }
+          }else if(length(weak_among_candidate) == 1){
+            confident_pos_weak<-candidate_pos[weak_among_candidate]
+          }else{
+            confident_pos_weak<-c()
+          }
+          
+          true_weak<-c()
+          if(length(weak_among_candidate) > 0){
+            for( weakone in weak_among_candidate){
+              if(max(abs(candidate_cor[,weakone]))<0.1){
+                true_weak<-c(true_weak,weakone)      
+              }
+            }
+          }
+          if(length(true_weak)>0) true_weak<-candidate_pos[true_weak]
+          
+          confident_pos_weak <-union(confident_pos_weak,true_weak)
+        }else{
+          confident_pos_weak <-candidate_pos[weak_among_candidate]
+        }
+        
+        gamma_adaptivelasso<-2
+        w_adaptive_candidate<-c(1/(abs(beta[candidate_pos]))^gamma_adaptivelasso,0)
+        w_adaptive_candidate[which(candidate_pos%in%confident_pos_weak)]<-0
+        tmp_count<-sapply(1:10, function(j){
+          lasso_fit_candidate<-cv.glmnet(x= UKBB_pop[,c( (candidate_pos+1),ncol(UKBB_pop)) ] ,y= UKBB_pop[,1],standardize=F,intercept=F,alpha = 0.9,penalty.factor = w_adaptive_candidate)
+          tmptmp<-abs(coef(lasso_fit_candidate,s='lambda.min')[-1])>1e-4
+          tmptmp<-tmptmp[-length(tmptmp)]
+          tmptmp>1e-4
+          #coef(lasso_fit_candidate,s='lambda.min')[-1]!=0
+        })
+        confident_pos<-candidate_pos[which(rowMeans(tmp_count) >= 0.8)]
+        
+        confident_pos<-union(confident_pos,confident_pos_weak)
+        
+      }else{
+        #print("NOT USED")
+        confident_pos<-candidate_pos
+      }
+    }else{
+      confident_pos<-candidate_pos
+    }
+  }
+  confident_pos<-candidate_pos
+  if(filter_index){
+    pos2<-index_filter[confident_pos]
+    pos<-index_filter[confident_pos]
+  }else{
+    pos<-confident_pos
+    pos2<-confident_pos
+  }
+  #print(paste0("candidate",paste0(index_filter[candidate_pos],collapse = " ")))
+  #print(paste0("confid",paste0(pos,collapse = " ")))
+  #print(pos)
+  newList<-list("beta"=beta,
+                "beta_initial"=beta_initial,
+                "pos"=pos,
+                "pos2"=pos2,
+                "aa_final"=aa_final,
+                "final_v"=final_v,
+                "w_adaptive"=w_adaptive,
+                "index_filter"=index_filter)
+}
+
+
+
+adaptiveGMMlassoBMI2<-function(UKBB_pop,BMI,study_info,
+                               ld_cut = 0.9,
+                               cor_cut=0.9,
+                               initial2=TRUE,
+                               filter_index=FALSE,
+                               filter_by_EAF=FALSE,
+                               cv_with_individual=FALSE,
+                               C_update = "Method2",
+                               p_val_cut = "Method2",
+                               kfolds=10){
+  UKBB_cor<-cor(UKBB_pop[,-1])
+  diag(UKBB_cor) = 0
+  index_filter<-NULL
+  if(filter_index){
+    ### Trick 1 index filtering 
+    index_filter<-c()
+    pval_list<-c()
+    for(i in 1:length(study_info)){
+      #if(study_info[[i]]$P<p_val_cut){
+      index_filter<-c(index_filter,i)
+      z_here<-study_info[[i]]$Coeff^2/study_info[[i]]$Covariance
+      pval_list<-c(pval_list,z_here)
+      #}
+    }
+    index_filter0<-index_filter
+    pval_list0<-pval_list
+    index_filter2<-c()
+    while (length(index_filter) > 1){
+      UKBB_cor_i<-UKBB_cor[index_filter,index_filter]
+      cur_i<-which.max(pval_list)
+      index_filter2<-c(index_filter2,index_filter[cur_i])
+      #print(index_filter[cur_i])
+      rm_index<-c(cur_i,which(abs(UKBB_cor_i[cur_i,])>ld_cut))
+      #print(index_filter[rm_index])
+      index_filter<-index_filter[-rm_index]
+      pval_list<-pval_list[-rm_index]
+    }
+    
+    #Nonnull_index2<-which(index_filter2%in%Nonnull_index)
+    UKBB_pop<-UKBB_pop[,c(1,(index_filter2+1))]
+    study_info<-study_info[index_filter2]
+    index_filter<-index_filter2
+  }
+  
+  N_SNP<-ncol(UKBB_pop)-1
+  colnames(UKBB_pop)[-1]<-paste0("SNP",1:(N_SNP))
+  colnames(UKBB_pop)[1]<-"Y"
+  var_SNP<-paste0("SNP",1:(N_SNP))
+  len_SNP<-length(var_SNP)
+  var_GPC<-NULL
+  len_GPC<-length(var_GPC)
+  var_nonSNP<-c(var_GPC,paste0("BMI",1:ncol(BMI)))
+  len_nonSNP<-length(var_nonSNP)
+  var_names_full_fit <- c(var_SNP,var_nonSNP)
+  colname_UKBB<-colnames(UKBB_pop)
+  len_U1 = len_SNP+len_nonSNP
+  len_U2 = len_SNP
+  len_beta = len_U1
+  len_theta = len_SNP+len_GPC
+  len_U = len_U1 + len_U2
+  N_Pop<-nrow(UKBB_pop)
+  UKBB_pop<-cbind(UKBB_pop,BMI)
+  ############## Beta
+  pseudo_Xy<-function(
+    C_half,UKBB_pop,
+    var_SNP,var_GPC,
+    N_SNP,theta_UKBB_GPC,study_info){
+    N_Pop<-nrow(UKBB_pop)
+    pseudo_X<-C_half%*%rbind(t(UKBB_pop[,-1]),t(UKBB_pop[,var_SNP]))%*%UKBB_pop[,-1]
+    pseudo_y1<-crossprod(UKBB_pop[,1],UKBB_pop[,-1])
+    pseudo_y22<-sapply(1:N_SNP, function(snp_id){
+      u2_id<-UKBB_pop[,c(var_GPC,paste0("SNP",snp_id))]*(study_info[[snp_id]]$Coeff)
+      c(c(u2_id)%*%UKBB_pop[,paste0("SNP",snp_id)])
+    })
+    
+    pseudo_y<-c(c(c(pseudo_y1),c(pseudo_y22))%*%C_half)
+    newList<-list("pseudo_X"=pseudo_X,"pseudo_y"=pseudo_y)
+    newList
+  }
+  var_U_beta_theta_func<-function(
+    UKBB_pop,
+    beta,
+    study_info,
+    theta_UKBB_GPC=NULL){
+    N_Pop<-nrow(UKBB_pop)
+    xtbeta<-(UKBB_pop[,-1]%*%beta)
+    var_11<-crossprod(UKBB_pop[,-1]*c(UKBB_pop[,1]-xtbeta),UKBB_pop[,-1]*c(UKBB_pop[,1]-xtbeta))
+    u2_theta_coef<-sapply(1:N_SNP, function(snp_id){
+      if(is.null(var_GPC)){
+        xtgamma_id<-c(UKBB_pop[,paste0("SNP",snp_id)]*study_info[[snp_id]]$Coeff)
+      }else{
+        xtgamma_id<-c((UKBB_pop[,c(var_GPC,paste0("SNP",snp_id))]%*%c(theta_UKBB_GPC,study_info[[snp_id]]$Coeff)))
+      }
+      xtbeta-xtgamma_id
+    }) #col is SNP #row is sample 
+    var_22<-crossprod(u2_theta_coef*UKBB_pop[,var_SNP],u2_theta_coef*UKBB_pop[,var_SNP])
+    var_12<-crossprod(UKBB_pop[,-1]*c(UKBB_pop[,1]-xtbeta),u2_theta_coef*UKBB_pop[,var_SNP])
+    (1/N_Pop)*rbind(cbind(var_11,var_12),cbind(t(var_12),var_22))
+  }
+  
+  #### adaptive lasso with fast lasso computation 
+  var_11_half<-UKBB_pop[,-1]#*c(UKBB_pop[,1]-UKBB_pop[,-1]%*%beta0)
+  var_U1<-crossprod(var_11_half,var_11_half)/N_Pop*var(UKBB_pop[,1]) 
+  ## Seems to be correlation matrix.
+  ## Have taken the scaling 
+  C_11<-solve(var_U1)
+  C_11_half<-expm::sqrtm(C_11)
+  var_U2<-diag(sapply(1:N_SNP,function(i){
+    (study_info[[i]]$Covariance)*(c(UKBB_pop[,c(paste0("SNP",i))]%*%UKBB_pop[,c(paste0("SNP",i))]))^2/(N_Pop)
+  }))
+  C_22<-diag(sapply(1:N_SNP,function(i){
+    (N_Pop)/(study_info[[i]]$Covariance)/(c(UKBB_pop[,c(paste0("SNP",i))]%*%UKBB_pop[,c(paste0("SNP",i))]))^2
+  }))
+  C_22<-C_22*study_info[[1]]$Sample_size/N_Pop
+  C_22_half<-diag(sqrt(diag(C_22)))
+  C_half<-adiag(C_11_half,C_22_half)
+  
+  
+  pseudo_Xy_list<-pseudo_Xy(C_half,UKBB_pop,var_SNP,var_GPC,N_SNP,theta_UKBB_GPC,study_info)
+  initial_sf<-N_Pop/sqrt(nrow(pseudo_Xy_list$pseudo_X))
+  pseudo_X<-pseudo_Xy_list$pseudo_X/initial_sf
+  pseudo_y<-pseudo_Xy_list$pseudo_y/initial_sf
+  
+  lasso_initial<-glmnet(x= (pseudo_X),y= (pseudo_y),standardize=F,intercept=F)
+  lambda_list0<-lasso_initial$lambda
+  non_penalize_BMI<-c(rep(0,N_SNP),rep(1,len_nonSNP))
+  ridge_fit<-glmnet(x= (pseudo_X),y= (pseudo_y),standardize=F,intercept=F,lambda = lambda_list0[50]/100,alpha = 0.01,penalty.factor = non_penalize_BMI)
+  
+  gamma_adaptivelasso<-1/2
+  w_adaptive<-c(rep(0,N_SNP),c(1/(abs(coef(ridge_fit)[-1])[(N_SNP+1):(len_nonSNP+N_SNP)])^gamma_adaptivelasso))
+  w_adaptive[is.infinite(w_adaptive)]<-max(w_adaptive[!is.infinite(w_adaptive)])*100
+  beta_initial<-coef(ridge_fit)[-1]
+  if(initial2){
+    adaptivelasso_fit<-cv.glmnet(x= (pseudo_X),y= (pseudo_y),standardize=F,intercept=F,alpha = 1,penalty.factor = w_adaptive)
+    beta_initial<-coef(adaptivelasso_fit,s ='lambda.min')[-1]
+    w_adaptive<-c(rep(0,N_SNP),c(1/(abs(beta_initial)[(N_SNP+1):(len_nonSNP+N_SNP)])^gamma_adaptivelasso))
+    w_adaptive[is.infinite(w_adaptive)]<-max(w_adaptive[!is.infinite(w_adaptive)])*100
+  }
+  
+  var_1st_U_beta_theta<-var_U_beta_theta_func(UKBB_pop = UKBB_pop,
+                                              beta = beta_initial,
+                                              study_info = study_info)
+  diag_theta_sd<-sapply(1:N_SNP,function(i){
+    sqrt(study_info[[i]]$Covariance)*(c(UKBB_pop[,c(paste0("SNP",i))]%*%UKBB_pop[,c(paste0("SNP",i))]))
+  })
+  cov_theta<-t(diag_theta_sd*cor(UKBB_pop[,var_SNP]))*diag_theta_sd/N_Pop
+  var_2nd_grad_times_theta_hat = adiag(matrix(0,nrow = len_U1,ncol = len_U1),cov_theta)
+  inv_C = var_1st_U_beta_theta + var_2nd_grad_times_theta_hat
+  C_all<-solve(inv_C)
+  C_half<-expm::sqrtm(C_all)
+  
+  
+  pseudo_Xy_list<-pseudo_Xy(C_half,UKBB_pop,var_SNP,var_GPC,N_SNP,theta_UKBB_GPC,study_info)
+  initial_sf<-N_Pop/sqrt(nrow(pseudo_Xy_list$pseudo_X))
+  pseudo_X<-pseudo_Xy_list$pseudo_X/initial_sf
+  pseudo_y<-pseudo_Xy_list$pseudo_y/initial_sf
+  
+  
+  adaptivelasso_fit<-cv.glmnet(x= (pseudo_X),y= (pseudo_y),standardize=F,intercept=F,alpha = 1,penalty.factor = w_adaptive)
+  lambda_list<-adaptivelasso_fit$lambda
+  
+  
+  
+  
+  if(!cv_with_individual){
+    beta<-coef(adaptivelasso_fit,s ='lambda.min')[-1]
+    index_nonzero<-c(which(beta!=0))
+    
+    if(length(index_nonzero) == 1){
+      cv_with_individual = TRUE
+    }else{
+      xtx<-t(UKBB_pop[,-1])%*%UKBB_pop[,-1]/N_Pop
+      xtx2<-t(UKBB_pop[,-1])%*%UKBB_pop[,var_SNP]/N_Pop
+      Sigsum_half<-cbind(xtx,xtx2)%*%C_half
+      Sigsum_scaled<-Sigsum_half%*%t(Sigsum_half)
+      Sigsum_scaled_nonzero<-Sigsum_scaled[index_nonzero,index_nonzero]
+      inv_Sigsum_scaled_nonzero<-solve(Sigsum_scaled_nonzero)
+      
+      index_nonzero<-index_nonzero[-length(index_nonzero)]
+      final_v<-diag(inv_Sigsum_scaled_nonzero)
+      final_v<-final_v[-length(final_v)]
+      aa_final<-pchisq(N_Pop*beta[index_nonzero]^2/final_v,1,lower.tail = F)
+      
+      if(p_val_cut == "Method1"){
+        candidate_pos<-index_nonzero[which(aa_final<0.05/N_SNP)]
+      }else if(p_val_cut == "Method2"){
+        candidate_pos<-index_nonzero[which(aa_final<0.05/length(index_nonzero))]
+      }else{
+        stop("wrong p_val_cut")
+      }
+      
+      if(length(candidate_pos) == 0){
+        cv_with_individual = TRUE
+      }
+    }
+  }
+  
+  
+  
+  
+  
+  if(cv_with_individual){
+    
+    library(caret)
+    index_fold<-createFolds(as.numeric(UKBB_pop[,1]>0),k = kfolds)
+    a<-sapply(1:kfolds, function(cur_fold){
+      index_test<-index_fold[[cur_fold]]
+      UKBB_pop_train<-UKBB_pop[-index_test,]
+      UKBB_pop_test<-UKBB_pop[index_test,]
+      
+      pseudo_Xy_list_train<-pseudo_Xy(C_half,UKBB_pop_train,var_SNP,var_GPC,N_SNP,theta_UKBB_GPC,study_info)
+      initial_sf_train<-nrow(UKBB_pop_train)/sqrt(nrow(pseudo_Xy_list_train$pseudo_X))
+      pseudo_X_train<-pseudo_Xy_list_train$pseudo_X/initial_sf_train
+      pseudo_y_train<-pseudo_Xy_list_train$pseudo_y/initial_sf_train
+      cv_beta<-lapply(lambda_list,function(cur_lam){
+        cv_adaptivelasso_fit<-glmnet(x= (pseudo_X_train),y= (pseudo_y_train),standardize=F,intercept=F,alpha = 1,penalty.factor = w_adaptive,lambda = cur_lam)
+        coef(cv_adaptivelasso_fit)[-1]
+      })
+      cv_mse_sum<-sapply(1:length(cv_beta), function(kk){
+        cur_beta<-cv_beta[[kk]]
+        sum((UKBB_pop_test[,-1]%*%cur_beta - UKBB_pop_test[,1])^2)
+      })
+      cv_mse_sum
+    })
+    beta<-coef(adaptivelasso_fit,s=lambda_list[which.min(rowSums(a))])[-1]
+    index_nonzero<-c(which(beta!=0))
+    
+    xtx<-t(UKBB_pop[,-1])%*%UKBB_pop[,-1]/N_Pop
+    xtx2<-t(UKBB_pop[,-1])%*%UKBB_pop[,var_SNP]/N_Pop
+    Sigsum_half<-cbind(xtx,xtx2)%*%C_half
+    Sigsum_scaled<-Sigsum_half%*%t(Sigsum_half)
+    Sigsum_scaled_nonzero<-Sigsum_scaled[index_nonzero,index_nonzero]
+    inv_Sigsum_scaled_nonzero<-solve(Sigsum_scaled_nonzero)
+    
+    #index_nonzero<-index_nonzero[-length(index_nonzero)]
+    final_v<-diag(inv_Sigsum_scaled_nonzero)
+    #final_v<-final_v[-length(final_v)]
+    aa_final<-pchisq(N_Pop*beta[index_nonzero]^2/final_v,1,lower.tail = F)
+    
+    
+    if(p_val_cut == "Method1"){
+      candidate_pos<-index_nonzero[which(aa_final<0.05/N_SNP)]
+    }else if(p_val_cut == "Method2"){
+      candidate_pos<-index_nonzero[which(aa_final<0.05/length(index_nonzero))]
+    }else{
+      stop("wrong p_val_cut")
+    }
+    candidate_pos<-candidate_pos[which(candidate_pos>N_SNP)]
+  }
+  
+  
+  if(0){
+    if(length(candidate_pos) > 1){
+      candidate_cor<-cor(UKBB_pop[,c(candidate_pos+1)])
+      diag(candidate_cor)<-0
+      
+      
+      if(max(abs(candidate_cor))>0.1){
+        
+        UKBB_pop_orig<-UKBB_pop[,c(candidate_pos+1)]
+        
+        for(i in 1:ncol(UKBB_pop_orig)){
+          cur_snp<-UKBB_pop_orig[,i]
+          UKBB_pop_orig[which(cur_snp == max(cur_snp)),i] = 2
+          UKBB_pop_orig[which(cur_snp == min(cur_snp)),i] = 0
+          UKBB_pop_orig[which(cur_snp > min(cur_snp) & cur_snp < max(cur_snp)),i] = 1
+        }
+        candidate_EAF<-colsums(UKBB_pop_orig)/nrow(UKBB_pop_orig)/2
+        
+        weak_among_candidate<-which(candidate_EAF < 0.05)
+        if(filter_by_EAF){
+          if(length(weak_among_candidate) > 1){
+            gamma_adaptivelasso<-1/2
+            w_adaptive_candidate<-c(1/(abs(beta[candidate_pos[weak_among_candidate] ]))^gamma_adaptivelasso,0)
+            
+            tmp_count<-sapply(1:10, function(j){
+              lasso_fit_candidate<-cv.glmnet(x= UKBB_pop[,c((candidate_pos[weak_among_candidate]+1),ncol(UKBB_pop)) ],y= UKBB_pop[,1],standardize=F,intercept=F,alpha = 1,penalty.factor = w_adaptive_candidate)
+              tmptmp<-abs(coef(lasso_fit_candidate,s='lambda.min')[-1])
+              tmptmp<-tmptmp[-length(tmptmp)]
+              tmptmp>1e-4
+            })
+            
+            confident_pos_weak<-(candidate_pos[weak_among_candidate])[which(rowMeans(tmp_count) >= 0.8)]
+            if(length(confident_pos_weak) == 0){
+              z<-c()
+              for(i in weak_among_candidate){
+                z<-c(z,study_info[[candidate_pos[weak_among_candidate]]]$Coeff^2/study_info[[candidate_pos[weak_among_candidate]]]$Covariance)
+              }
+              confident_pos_weak<-weak_among_candidate[which.max(z)]
+            }
+          }else if(length(weak_among_candidate) == 1){
+            confident_pos_weak<-candidate_pos[weak_among_candidate]
+          }else{
+            confident_pos_weak<-c()
+          }
+          
+          true_weak<-c()
+          if(length(weak_among_candidate) > 0){
+            for( weakone in weak_among_candidate){
+              if(max(abs(candidate_cor[,weakone]))<0.1){
+                true_weak<-c(true_weak,weakone)      
+              }
+            }
+          }
+          if(length(true_weak)>0) true_weak<-candidate_pos[true_weak]
+          
+          confident_pos_weak <-union(confident_pos_weak,true_weak)
+        }else{
+          confident_pos_weak <-candidate_pos[weak_among_candidate]
+        }
+        
+        gamma_adaptivelasso<-2
+        w_adaptive_candidate<-c(1/(abs(beta[candidate_pos]))^gamma_adaptivelasso,0)
+        w_adaptive_candidate[which(candidate_pos%in%confident_pos_weak)]<-0
+        tmp_count<-sapply(1:10, function(j){
+          lasso_fit_candidate<-cv.glmnet(x= UKBB_pop[,c( (candidate_pos+1),ncol(UKBB_pop)) ] ,y= UKBB_pop[,1],standardize=F,intercept=F,alpha = 0.9,penalty.factor = w_adaptive_candidate)
+          tmptmp<-abs(coef(lasso_fit_candidate,s='lambda.min')[-1])>1e-4
+          tmptmp<-tmptmp[-length(tmptmp)]
+          tmptmp>1e-4
+          #coef(lasso_fit_candidate,s='lambda.min')[-1]!=0
+        })
+        confident_pos<-candidate_pos[which(rowMeans(tmp_count) >= 0.8)]
+        
+        confident_pos<-union(confident_pos,confident_pos_weak)
+        
+      }else{
+        #print("NOT USED")
+        confident_pos<-candidate_pos
+      }
+    }else{
+      confident_pos<-candidate_pos
+    }
+  }
+  confident_pos<-candidate_pos
+  if(filter_index){
+    pos2<-index_filter[confident_pos]
+    pos<-index_filter[confident_pos]
+  }else{
+    pos<-confident_pos
+    pos2<-confident_pos
+  }
+  #print(paste0("candidate",paste0(index_filter[candidate_pos],collapse = " ")))
+  #print(paste0("confid",paste0(pos,collapse = " ")))
+  #print(pos)
+  newList<-list("beta"=beta,
+                "beta_initial"=beta_initial,
+                "pos"=pos,
+                "pos2"=pos2,
+                "aa_final"=aa_final,
+                "final_v"=final_v,
+                "w_adaptive"=w_adaptive,
+                "index_filter"=index_filter)
+}
+
+approxquadraticGMMBMI2<-function(UKBB_pop,study_info,BMI=NULL,beta_initial=NULL,
+                                 ld_cut = 0.9,
+                                 cor_cut=0.9,
+                                 filter_index=FALSE,
+                                 #filter_by_EAF=FALSE,
+                                 cv_with_individual=TRUE,
+                                 p_val_cut = "Method2",
+                                 lasso_type = "ada_lasso",
+                                 kfolds=10){
+  UKBB_cor<-cor(UKBB_pop[,-c(1,2)])
+  diag(UKBB_cor) = 0
+  if(filter_index){
+    ### Trick 1 index filtering 
+    index_filter<-c()
+    pval_list<-c()
+    for(i in 1:length(study_info)){
+      index_filter<-c(index_filter,i)
+      z_here<-study_info[[i]]$Coeff^2/study_info[[i]]$Covariance
+      pval_list<-c(pval_list,z_here)
+    }
+    index_filter0<-index_filter
+    pval_list0<-pval_list
+    index_filter2<-c()
+    while (length(index_filter) > 1){
+      UKBB_cor_i<-UKBB_cor[index_filter,index_filter]
+      cur_i<-which.max(pval_list)
+      index_filter2<-c(index_filter2,index_filter[cur_i])
+      rm_index<-c(cur_i,which(abs(UKBB_cor_i[cur_i,])>ld_cut))
+      index_filter<-index_filter[-rm_index]
+      pval_list<-pval_list[-rm_index]
+    }
+    
+    UKBB_pop<-UKBB_pop[,c(1,2,(index_filter2+2))]
+    study_info<-study_info[index_filter2]
+    index_filter<-index_filter2
+  }
+  
+  N_SNP<-ncol(UKBB_pop)-2
+  colnames(UKBB_pop)[-c(1,2)]<-paste0("SNP",1:(N_SNP))
+  colnames(UKBB_pop)[1]<-"Y"
+  colnames(UKBB_pop)[2]<-"V"
+  var_SNP<-paste0("SNP",1:(N_SNP))
+  len_SNP<-length(var_SNP)
+  var_GPC<-NULL
+  len_GPC<-length(var_GPC)
+  if(is.null(BMI)){
+    var_nonSNP<-var_GPC
+  }else{
+    var_nonSNP<-c(var_GPC,paste0("BMI",1:ncol(BMI)))
+  }
+  
+  len_nonSNP<-length(var_nonSNP)
+  var_names_full_fit <- c(var_SNP,var_nonSNP)
+  colname_UKBB<-colnames(UKBB_pop)
+  len_U1 = 1+len_SNP+len_nonSNP
+  len_U2 = len_SNP
+  len_beta = len_U1
+  len_theta = 1+len_SNP+len_GPC
+  len_U = len_U1 + len_U2
+  N_Pop<-nrow(UKBB_pop)
+  if(!is.null(BMI)){
+    UKBB_pop<-cbind(UKBB_pop,BMI)
+  }
+  
+  res_glmtheta<-glm(Y~1,data = data.frame(UKBB_pop[,c(1,2,var_GPC)]),family = "binomial")
+  theta_UKBB_GPC<-res_glmtheta$coefficients[1]
+  
+  
+  ##############################
+  ### Functions to compute C ###
+  ##############################
+  
+  U_func<-function(
+    UKBB_pop,
+    beta,
+    theta_UKBB_GPC,
+    study_info){
+    N_Pop<-nrow(UKBB_pop)
+    expit_beta<-expit(UKBB_pop[,-1]%*%beta)
+    u1<-crossprod((UKBB_pop[,1] -expit_beta),UKBB_pop[,-1])
+    u2<-c()
+    u2_part1<-c(expit_beta)%*%UKBB_pop[,var_SNP]
+    u2_part2<-sapply(1:N_SNP, function(snp_id){
+      u2_id<-expit(UKBB_pop[,c("V",var_GPC,paste0("SNP",snp_id))]%*%c(theta_UKBB_GPC,study_info[[snp_id]]$Coeff))
+      c(c(u2_id)%*%UKBB_pop[,paste0("SNP",snp_id)])
+    })
+    u2<-u2_part1 - u2_part2
+    u<-c(u1,u2)*(1/N_Pop)
+  }
+  dexpit<-function(x){
+    expit(x)*(1-expit(x))
+  }
+  
+  grad_U_wrt_beta_func<-function(
+    UKBB_pop,
+    beta){
+    N_Pop<-nrow(UKBB_pop)
+    dexpit_beta<-dexpit(UKBB_pop[,-1]%*%beta)
+    U1_beta_gradient<-crossprod(UKBB_pop[,-1]*c(dexpit_beta),UKBB_pop[,-1])*(-1)
+    U2_beta_gradient<-crossprod(UKBB_pop[,var_SNP]*c(dexpit_beta),UKBB_pop[,-1])
+    rbind(U1_beta_gradient,U2_beta_gradient)*(1/N_Pop)
+  }
+  
+  U3_func<-function(UKBB_pop,theta_UKBB_GPC){
+    if(length(var_GPC) == 0){
+      expit_PC<-expit(UKBB_pop[,c("V")]*theta_UKBB_GPC)
+    }else{
+      expit_PC<-expit(UKBB_pop[,c("V",var_GPC)]%*%theta_UKBB_GPC)
+    }
+    
+    # UKBB_pop[,1] is Y(phenotype)
+    crossprod((UKBB_pop[,"Y"]-expit_PC),UKBB_pop[,c("V",var_GPC)])
+  }
+  
+  ### Generate coefficients of GPCs. 
+  inv_grad_U3_wrt_theta1_func<-function(
+    UKBB_pop,
+    theta_UKBB_GPC){
+    N_Pop<-nrow(UKBB_pop)
+    dexpit_PC<-dexpit(as.matrix(UKBB_pop[,c("V",var_GPC)])%*%theta_UKBB_GPC)
+    mat<--(1/N_Pop)*crossprod(UKBB_pop[,c("V",var_GPC)]*c(dexpit_PC),UKBB_pop[,c("V",var_GPC)])
+    #-solve(mat,tol=1e-60)
+    -ginv(mat)
+  }
+  
+  grad_U1_wrt_theta_func<-function(
+    len_U1,
+    len_theta){
+    matrix(0,nrow = len_U1,ncol = len_theta)
+  }
+  
+  grad_U2_wrt_theta_func<-function(
+    UKBB_pop,
+    theta_UKBB_GPC,
+    study_info){
+    N_Pop<-nrow(UKBB_pop)
+    u2_theta<-sapply(1:N_SNP, function(snp_id){
+      dexpit_id<-c(UKBB_pop[,paste0("SNP",snp_id)])*c(dexpit(UKBB_pop[,c("V",var_GPC,paste0("SNP",snp_id))]%*%c(theta_UKBB_GPC,study_info[[snp_id]]$Coeff)))
+      u2id_theta1_gradient<-dexpit_id%*%UKBB_pop[,c("V",var_GPC)]
+      u2id_gammaid_gradient<-dexpit_id%*%c(UKBB_pop[,paste0("SNP",snp_id)])
+      c(u2id_theta1_gradient,u2id_gammaid_gradient)
+    })
+    #u2_theta is (1+len_GPC+1)*N_SNP
+    N_snp_id<-nrow(u2_theta)
+    # Gradient is N_equation*N_variables
+    -(1/N_Pop)*t(rbind(u2_theta[-N_snp_id,],diag(u2_theta[N_snp_id,])))
+  }
+  
+  var_U_beta_theta_func<-function(
+    UKBB_pop,
+    beta,
+    theta_UKBB_GPC,
+    study_info){
+    N_Pop<-nrow(UKBB_pop)
+    expit_beta<-expit(UKBB_pop[,-1]%*%beta)
+    var_11<-crossprod(UKBB_pop[,-1]*c(UKBB_pop[,1]-expit_beta),UKBB_pop[,-1]*c(UKBB_pop[,1]-expit_beta))
+    u2_theta_coef<-sapply(1:N_SNP, function(snp_id){
+      expit_id<-c(expit(UKBB_pop[,c("V",var_GPC,paste0("SNP",snp_id))]%*%c(theta_UKBB_GPC,study_info[[snp_id]]$Coeff)))
+      expit_beta-expit_id
+    }) #col is SNP #row is sample 
+    var_22<-crossprod(u2_theta_coef*UKBB_pop[,var_SNP],u2_theta_coef*UKBB_pop[,var_SNP])
+    var_12<-crossprod(UKBB_pop[,-1]*c(UKBB_pop[,1]-expit_beta),u2_theta_coef*UKBB_pop[,var_SNP])
+    (1/N_Pop)*rbind(cbind(var_11,var_12),cbind(t(var_12),var_22))
+  }
+  
+  var_theta1_hat_func<-function(
+    UKBB_pop,
+    theta_UKBB_GPC,
+    study_info){
+    N_Pop<-nrow(UKBB_pop)
+    expit_PC<-expit(as.matrix(UKBB_pop[,c("V",var_GPC)])%*%theta_UKBB_GPC)
+    mat_inside<-(1/N_Pop)*crossprod(c(UKBB_pop[,"Y"]-expit_PC)*UKBB_pop[,c("V",var_GPC)],c(UKBB_pop[,"Y"]-expit_PC)*UKBB_pop[,c("V",var_GPC)])
+    mat_outside<-inv_grad_U3_wrt_theta1_func(
+      UKBB_pop=UKBB_pop,
+      theta_UKBB_GPC = theta_UKBB_GPC)
+    mat_outside%*%mat_inside%*%t(mat_outside)
+  }
+  var_theta2_hat_vec_func<-function(study_info){
+    var_vec<-sapply(1:N_SNP, function(i){
+      study_info[[i]]$Covariance
+    })
+  }
+  
+  cov_U_with_theta_hat_func<-function(
+    UKBB_pop,
+    beta,
+    theta_UKBB_GPC,
+    study_info){
+    N_Pop<-nrow(UKBB_pop)
+    expit_beta<-expit(UKBB_pop[,-1]%*%beta)
+    expit_PC<-expit(as.matrix(UKBB_pop[,c("V",var_GPC)])%*%theta_UKBB_GPC)
+    cov_U1_theta_hat<-(1/N_Pop)*crossprod(UKBB_pop[,-1]*c(UKBB_pop[,1]-expit_beta),UKBB_pop[,c("V",var_GPC)]*c(UKBB_pop[,1]-expit_PC))
+    u2_theta_coef<-sapply(1:N_SNP, function(snp_id){
+      expit_id<-c(expit(UKBB_pop[,c("V",var_GPC,paste0("SNP",snp_id))]%*%c(theta_UKBB_GPC,study_info[[snp_id]]$Coeff)))
+      expit_beta-expit_id
+    }) #col is SNP #row is sample 
+    cov_U2_theta_hat<-(1/N_Pop)*crossprod(u2_theta_coef*UKBB_pop[,var_SNP],UKBB_pop[,c("V",var_GPC)]*c(UKBB_pop[,1]-expit_PC))
+    rbind(cov_U1_theta_hat,cov_U2_theta_hat)
+  }
+  
+  final_var_U_beta_theta_hat_func<-function(
+    UKBB_pop,
+    beta,
+    theta_UKBB_GPC,
+    study_info,
+    len_U1,
+    len_theta){
+    N_Pop<-nrow(UKBB_pop)
+    var_1st_U_beta_theta<-var_U_beta_theta_func(
+      UKBB_pop=UKBB_pop,
+      theta_UKBB_GPC = theta_UKBB_GPC,
+      study_info = study_info,
+      beta = beta
+    )
+    var_theta2_vec<-var_theta2_hat_vec_func(study_info = study_info)
+    U_theta_gradient<-rbind(grad_U1_wrt_theta_func(len_U1 = len_U1,len_theta = len_theta),
+                            grad_U2_wrt_theta_func(UKBB_pop,theta_UKBB_GPC,study_info))
+    var_theta1<-var_theta1_hat_func(
+      UKBB_pop = UKBB_pop,
+      theta_UKBB_GPC = theta_UKBB_GPC,
+      study_info = study_info)
+    var_grad_times_theta_hat_fromPC<-U_theta_gradient[,1:(1+len_GPC)]%*%var_theta1%*%t(U_theta_gradient[,1:(1+len_GPC)])
+    var_grad_times_theta_hat_fromSNP<-U_theta_gradient[,-(1:(1+len_GPC))]%*%(var_theta2_vec*t(U_theta_gradient[,-(1:(1+len_GPC))]))*N_Pop
+    var_2nd_grad_times_theta_hat<-var_grad_times_theta_hat_fromPC+var_grad_times_theta_hat_fromSNP## There 
+    mat_outside<-inv_grad_U3_wrt_theta1_func(
+      UKBB_pop=UKBB_pop,
+      theta_UKBB_GPC = theta_UKBB_GPC)
+    cov_U<-cov_U_with_theta_hat_func(UKBB_pop = UKBB_pop,beta = beta,theta_UKBB_GPC = theta_UKBB_GPC,study_info = study_info)
+    cov_3rd_between_1st_2nd<-cov_U%*%mat_outside%*%t(U_theta_gradient[,1:(1+len_GPC)])
+    
+    res<-(var_1st_U_beta_theta+var_2nd_grad_times_theta_hat+cov_3rd_between_1st_2nd+t(cov_3rd_between_1st_2nd))
+    res
+  }
+  
+  ############## Beta
+  pseudo_Xy<-function(
+    C_half,UKBB_pop,
+    beta,
+    var_SNP,var_GPC,
+    N_SNP,theta_UKBB_GPC,study_info){
+    N_Pop<-nrow(UKBB_pop)
+    expit_beta<-c(expit(UKBB_pop[,-1]%*%beta))
+    dexpit_beta<-expit_beta*(1-expit_beta)
+    pseudo_X<-C_half%*%rbind(t(UKBB_pop[,-1]),t(UKBB_pop[,var_SNP]))%*%(UKBB_pop[,-1]*c(dexpit_beta))
+    #pseudo_y1<-crossprod(UKBB_pop[,1]-expit_beta+dexpit_beta*UKBB_pop[,-1]%*%beta ,UKBB_pop[,-1])
+    #pseudo_y21<-sapply(1:N_SNP, function(snp_id){
+    #    u2_id<-expit(UKBB_pop[,c("V",var_GPC,paste0("SNP",snp_id))]%*%c(theta_UKBB_GPC,study_info[[snp_id]]$Coeff))
+    #    c(c(u2_id)%*%UKBB_pop[,paste0("SNP",snp_id)])
+    #})
+    #pseudo_y22<- -c(crossprod(expit_beta,UKBB_pop[,var_SNP]))
+    #pseudo_y23<- c(crossprod(UKBB_pop[,var_SNP]*dexpit_beta,UKBB_pop[,-1]%*%beta))
+    #pseudo_y2 <- c(pseudo_y21) - pseudo_y22 + pseudo_y23
+    #pseudo_y<-c(c(c(pseudo_y1),pseudo_y2)%*%C_half)
+    
+    u<-c(C_half%*%U_func(UKBB_pop,beta,theta_UKBB_GPC,study_info))
+    pseudo_y<- -u + c(pseudo_X%*%beta)
+    newList<-list("pseudo_X"=pseudo_X,"pseudo_y"=pseudo_y)
+    newList
+  }
+  
+  if(is.null(beta_initial)){
+    ## First Get initial beta 0 based on tiny penalization 
+    #lasso_initial<-glmnet(x=UKBB_pop[,-c(1,2)] ,y= UKBB_pop[,c(1)],standardize=F,intercept=T,family="binomial")
+    lambda_list0<-0.0001 #lasso_initial$lambda
+    #non_penalize_BMI<-c(rep(1,N_SNP))
+    non_penalize_BMI<-c(rep(0,N_SNP))
+    
+    if(!is.null(BMI)){
+      non_penalize_BMI<-c(non_penalize_BMI,rep(1,ncol(BMI)))   
+    }
+    ridge_fit<-glmnet(x= UKBB_pop[,-c(1,2)],y= UKBB_pop[,c(1)],standardize=F,intercept=T,lambda = lambda_list0/100,alpha = 0.01,family = "binomial",penalty.factor = non_penalize_BMI)
+    ## C_half is fixed once computed 
+    beta0hat<-as.vector(coef(ridge_fit))
+  }else{
+    beta0hat<-c(theta_UKBB_GPC,beta_initial)
+  }
+  ## Use this one for adaptive weights
+  if(lasso_type == "ada_lasso"){
+    gamma_adaptivelasso<-1/2
+    w_adaptive<-c(rep(0,N_SNP),c(1/(abs(beta_initial)[(N_SNP+1):(len_nonSNP+N_SNP)])^gamma_adaptivelasso))
+    w_adaptive[is.infinite(w_adaptive)]<-max(w_adaptive[!is.infinite(w_adaptive)])*100
+    w_adaptive<-c(0,w_adaptive)
+    
+  }else if (lasso_type == "lasso"){
+    w_adaptive<-c(0,rep(1,N_SNP))
+    if(!is.null(BMI)){
+      w_adaptive<-c(w_adaptive,0)
+    }
+  }else{
+    stop("wrong lasso type")
+  }
+  
+  
+  
+  
+  
+  #beta0hat
+  inv_C <- final_var_U_beta_theta_hat_func(UKBB_pop = UKBB_pop,
+                                           beta = beta0hat,
+                                           theta_UKBB_GPC = theta_UKBB_GPC,
+                                           study_info = study_info,
+                                           len_U1 = len_U1,
+                                           len_theta = len_theta)
+  C_all<-solve(inv_C,tol = 1e-20)
+  C_half<-expm::sqrtm(C_all)
+  
+  pseudo_Xy_list<-pseudo_Xy(C_half,UKBB_pop,beta0hat,var_SNP,var_GPC,N_SNP,theta_UKBB_GPC,study_info)
+  initial_sf<-N_Pop/sqrt(nrow(pseudo_Xy_list$pseudo_X))
+  pseudo_X<-pseudo_Xy_list$pseudo_X/initial_sf
+  pseudo_y<-pseudo_Xy_list$pseudo_y/initial_sf
+  
+  adaptivelasso_fit<-cv.glmnet(x= (pseudo_X),y= (pseudo_y),standardize=F,intercept=F,alpha = 1,penalty.factor = w_adaptive,nfolds = 10)
+  lambda_list<-adaptivelasso_fit$lambda
+  w_lasso<-as.numeric(w_adaptive>0)
+  lasso_fit<-cv.glmnet(x= (pseudo_X),y= (pseudo_y),standardize=F,intercept=F,alpha = 1,penalty.factor = w_lasso,nfolds = 10)
+  lambda_list_lasso<-lasso_fit$lambda
+  
+  lasso_result<-TRUE
+  
+  #beta<-coef(adaptivelasso_fit,s ='lambda.min')[-1]
+  #beta
+  #index_nonzero<-which(beta!=0)
+  
+  if(!cv_with_individual){
+    beta<-coef(adaptivelasso_fit,s ='lambda.min')[-1]
+    #index_nonzero<-c(which(beta[1:(N_SNP+1)]!=0))
+    index_nonzero<-c(which(beta!=0))
+    if(length(index_nonzero) == 1){
+      cv_with_individual = TRUE
+    }else{
+      expit_beta<-c(expit(UKBB_pop[,-1]%*%beta))
+      dexpit_beta<-expit_beta*(1-expit_beta)
+      pseudo_X_infer<-C_half%*%rbind(t(UKBB_pop[,-1]),t(UKBB_pop[,var_SNP]))%*%(UKBB_pop[,-1]*c(dexpit_beta))/N_Pop
+      Sigsum_scaled<-t(pseudo_X_infer)%*%pseudo_X_infer
+      Sigsum_scaled_nonzero<-Sigsum_scaled[index_nonzero,index_nonzero]
+      inv_Sigsum_scaled_nonzero<-solve(Sigsum_scaled_nonzero)
+      final_v<-diag(inv_Sigsum_scaled_nonzero)
+      aa_final<-pchisq(N_Pop*beta[index_nonzero]^2/final_v,1,lower.tail = F)
+      if(p_val_cut == "Method1"){
+        candidate_pos<-index_nonzero[which(aa_final<0.05/N_SNP)]
+      }else if(p_val_cut == "Method2"){
+        candidate_pos<-index_nonzero[which(aa_final<0.05/length(index_nonzero))]
+      }else{
+        stop("wrong p_val_cut")
+      }
+      
+      
+      if(length(candidate_pos) == 0){
+        cv_with_individual = TRUE
+      }
+    }
+  }
+  
+  
+  if(cv_with_individual){
+    
+    library(caret)
+    index_fold<-createFolds(UKBB_pop[,1],k = kfolds)
+    a<-sapply(1:kfolds, function(cur_fold){
+      index_test<-index_fold[[cur_fold]]
+      UKBB_pop_train<-UKBB_pop[-index_test,]
+      UKBB_pop_test<-UKBB_pop[index_test,]
+      pseudo_Xy_list_train<-pseudo_Xy(C_half,UKBB_pop_train,beta0hat,var_SNP,var_GPC,N_SNP,theta_UKBB_GPC,study_info)
+      initial_sf_train<-nrow(UKBB_pop_train)/sqrt(nrow(pseudo_Xy_list_train$pseudo_X))
+      pseudo_X_train<-pseudo_Xy_list_train$pseudo_X/initial_sf_train
+      pseudo_y_train<-pseudo_Xy_list_train$pseudo_y/initial_sf_train
+      
+      cv_beta<-lapply(lambda_list,function(cur_lam){
+        cv_adaptivelasso_fit<-glmnet(x= (pseudo_X_train),y= (pseudo_y_train),standardize=F,intercept=F,alpha = 1,penalty.factor = w_adaptive,lambda = cur_lam)
+        coef(cv_adaptivelasso_fit)[-1]
+      })
+      #cv_mse_sum<-sapply(1:length(cv_beta), function(kk){
+      #  cur_beta<-cv_beta[[kk]]
+      #  sum((expit(UKBB_pop_test[,-1]%*%cur_beta) - UKBB_pop_test[,1])^2)
+      #})
+      library(pROC)
+      cv_auc<-sapply(1:length(cv_beta), function(kk){
+        cur_beta<-cv_beta[[kk]]
+        suppressMessages(cur_auc<-c(auc(as.numeric(UKBB_pop_test[,1]>0),expit(UKBB_pop_test[,-1]%*%cur_beta),direction = "<")))
+        cur_auc
+      })
+      #cv_accuracy<-sapply(1:length(cv_beta), function(kk){
+      #  cur_beta<-cv_beta[[kk]]
+      #  sum(as.numeric(UKBB_pop_test[,-1]%*%cur_beta>0) == UKBB_pop_test[,1])
+      #})
+      #cv_mse_sum
+      #cv_accuracy
+      cv_auc
+    })
+    
+    if(lasso_result){
+      a1<-sapply(1:kfolds, function(cur_fold){
+        index_test<-index_fold[[cur_fold]]
+        UKBB_pop_train<-UKBB_pop[-index_test,]
+        UKBB_pop_test<-UKBB_pop[index_test,]
+        pseudo_Xy_list_train<-pseudo_Xy(C_half,UKBB_pop_train,beta0hat,var_SNP,var_GPC,N_SNP,theta_UKBB_GPC,study_info)
+        initial_sf_train<-nrow(UKBB_pop_train)/sqrt(nrow(pseudo_Xy_list_train$pseudo_X))
+        pseudo_X_train<-pseudo_Xy_list_train$pseudo_X/initial_sf_train
+        pseudo_y_train<-pseudo_Xy_list_train$pseudo_y/initial_sf_train
+        cv_beta_lasso<-lapply(lambda_list_lasso,function(cur_lam){
+          cv_lasso_fit<-glmnet(x= (pseudo_X_train),y= (pseudo_y_train),standardize=F,intercept=F,alpha = 1,penalty.factor = w_lasso,lambda = cur_lam)
+          coef(cv_lasso_fit)[-1]
+        })
+        library(pROC)
+        cv_auc_lasso<-sapply(1:length(cv_beta_lasso), function(kk){
+          cur_beta<-cv_beta_lasso[[kk]]
+          suppressMessages(cur_auc<-c(auc(as.numeric(UKBB_pop_test[,1]>0),expit(UKBB_pop_test[,-1]%*%cur_beta),direction = "<")))
+          cur_auc
+        })
+        #cv_accuracy<-sapply(1:length(cv_beta), function(kk){
+        #  cur_beta<-cv_beta[[kk]]
+        #  sum(as.numeric(UKBB_pop_test[,-1]%*%cur_beta>0) == UKBB_pop_test[,1])
+        #})
+        #cv_mse_sum
+        #cv_accuracy
+        cv_auc_lasso
+      })
+      betalasso<-coef(lasso_fit,s=lambda_list_lasso[which.max(rowSums(a1))])[-1]
+    }
+    #mse
+    #beta<-coef(adaptivelasso_fit,s=lambda_list[which.min(rowSums(a))])[-1]
+    # accuracy/# auc
+    beta<-coef(adaptivelasso_fit,s=lambda_list[which.max(rowSums(a))])[-1]
+    
+    #index_nonzero<-c(which(beta[1:(N_SNP+1)]!=0))
+    index_nonzero<-c(which(beta!=0))
+    if(length(index_nonzero) == 1){
+      beta<-coef(adaptivelasso_fit,s=lambda_list[which(adaptivelasso_fit$nzero>1)[which.min(rowSums(a)[which(adaptivelasso_fit$nzero>1)])]])[-1]
+      index_nonzero<-c(which(beta[1:(N_SNP+1)]!=0))
+    }
+    
+    expit_beta<-c(expit(UKBB_pop[,-1]%*%beta))
+    dexpit_beta<-expit_beta*(1-expit_beta)
+    pseudo_X_infer<-C_half%*%rbind(t(UKBB_pop[,-1]),t(UKBB_pop[,var_SNP]))%*%(UKBB_pop[,-1]*c(dexpit_beta))/N_Pop
+    Sigsum_scaled<-t(pseudo_X_infer)%*%pseudo_X_infer
+    Sigsum_scaled_nonzero<-Sigsum_scaled[index_nonzero,index_nonzero]
+    inv_Sigsum_scaled_nonzero<-solve(Sigsum_scaled_nonzero)
+    final_v<-diag(inv_Sigsum_scaled_nonzero)
+    aa_final<-pchisq(N_Pop*beta[index_nonzero]^2/final_v,1,lower.tail = F)
+    if(p_val_cut == "Method1"){
+      candidate_pos<-index_nonzero[which(aa_final<0.05/N_SNP)]
+    }else if(p_val_cut == "Method2"){
+      candidate_pos<-index_nonzero[which(aa_final<0.05/length(index_nonzero))]
+    }else{
+      stop("wrong p_val_cut")
+    }
+    
+  }
+  
+  candidate_pos<-candidate_pos[-1]-1
+  if(0){
+    if(length(candidate_pos) > 1){
+      candidate_cor<-cor(UKBB_pop[,c(candidate_pos+1)])
+      diag(candidate_cor)<-0
+      
+      if(max(abs(candidate_cor))>0.1){
+        
+        UKBB_pop_orig<-UKBB_pop[,c(candidate_pos+1)]
+        
+        candidate_EAF<-colsums(UKBB_pop_orig)/nrow(UKBB_pop_orig)/2
+        
+        weak_among_candidate<-which(candidate_EAF < 0.05)
+        if(filter_by_EAF){
+          if(length(weak_among_candidate) > 1){
+            gamma_adaptivelasso<-1/2
+            w_adaptive_candidate<-c(1/(abs(beta[candidate_pos[weak_among_candidate] ]))^gamma_adaptivelasso,0)
+            
+            tmp_count<-sapply(1:10, function(j){
+              lasso_fit_candidate<-cv.glmnet(x= UKBB_pop[,c((candidate_pos[weak_among_candidate]+1),ncol(UKBB_pop)) ],y= UKBB_pop[,1],standardize=F,intercept=F,alpha = 1,penalty.factor = w_adaptive_candidate)
+              tmptmp<-abs(coef(lasso_fit_candidate,s='lambda.min')[-1])
+              tmptmp<-tmptmp[-length(tmptmp)]
+              tmptmp>1e-4
+            })
+            
+            confident_pos_weak<-(candidate_pos[weak_among_candidate])[which(rowMeans(tmp_count) >= 0.8)]
+            if(length(confident_pos_weak) == 0){
+              z<-c()
+              for(i in weak_among_candidate){
+                z<-c(z,study_info[[candidate_pos[weak_among_candidate]]]$Coeff^2/study_info[[candidate_pos[weak_among_candidate]]]$Covariance)
+              }
+              confident_pos_weak<-weak_among_candidate[which.max(z)]
+            }
+          }else if(length(weak_among_candidate) == 1){
+            confident_pos_weak<-candidate_pos[weak_among_candidate]
+          }else{
+            confident_pos_weak<-c()
+          }
+          
+          true_weak<-c()
+          if(length(weak_among_candidate) > 0){
+            for( weakone in weak_among_candidate){
+              if(max(abs(candidate_cor[,weakone]))<0.1){
+                true_weak<-c(true_weak,weakone)      
+              }
+            }
+          }
+          if(length(true_weak)>0) true_weak<-candidate_pos[true_weak]
+          
+          confident_pos_weak <-union(confident_pos_weak,true_weak)
+        }else{
+          confident_pos_weak <-candidate_pos[weak_among_candidate]
+        }
+        
+        gamma_adaptivelasso<-2
+        w_adaptive_candidate<-c(1/(abs(beta[candidate_pos]))^gamma_adaptivelasso,0)
+        w_adaptive_candidate[which(candidate_pos%in%confident_pos_weak)]<-0
+        tmp_count<-sapply(1:10, function(j){
+          lasso_fit_candidate<-cv.glmnet(x= UKBB_pop[,c( (candidate_pos+1),ncol(UKBB_pop)) ] ,y= UKBB_pop[,1],standardize=F,intercept=F,alpha = 0.9,penalty.factor = w_adaptive_candidate)
+          tmptmp<-abs(coef(lasso_fit_candidate,s='lambda.min')[-1])>1e-4
+          tmptmp<-tmptmp[-length(tmptmp)]
+          tmptmp>1e-4
+          #coef(lasso_fit_candidate,s='lambda.min')[-1]!=0
+        })
+        confident_pos<-candidate_pos[which(rowMeans(tmp_count) >= 0.8)]
+        
+        confident_pos<-union(confident_pos,confident_pos_weak)
+        
+      }else{
+        #print("NOT USED")
+        confident_pos<-candidate_pos
+      }
+    }else{
+      confident_pos<-candidate_pos
+    }
+  }
+  confident_pos<-candidate_pos
+  if(filter_index){
+    pos<-index_filter[confident_pos]
+  }else{
+    pos<-confident_pos
+  }
+  #print(paste0("candidate",paste0(index_filter[candidate_pos],collapse = " ")))
+  #print(paste0("confid",paste0(pos,collapse = " ")))
+  #print(pos)
+  if(filter_index){
+    newList<-list("beta"=beta,
+                  "betalasso"=betalasso,
+                  "pos"=pos,
+                  "aa_final"=aa_final,
+                  "final_v"=final_v,
+                  "w_adaptive"=w_adaptive,
+                  "index_filter"=index_filter)    
+  }else{
+    newList<-list("beta"=beta,
+                  "betalasso"=betalasso,
+                  "pos"=pos,
+                  "aa_final"=aa_final,
+                  "final_v"=final_v,
+                  "w_adaptive"=w_adaptive)
+  }
+  
+}
+
+
+approxquadraticGMMBMI<-function(UKBB_pop,study_info,BMI=NULL,beta_initial=NULL,
+                                         ld_cut = 0.9,
+                                         cor_cut=0.9,
+                                         filter_index=TRUE,
+                                         #filter_by_EAF=FALSE,
+                                         cv_with_individual=TRUE,
+                                         p_val_cut = "Method2",
+                                         lasso_type = "ada_lasso",
+                                         kfolds=10){
+  UKBB_cor<-cor(UKBB_pop[,-c(1,2)])
+  diag(UKBB_cor) = 0
+  if(filter_index){
+    ### Trick 1 index filtering 
+    index_filter<-c()
+    pval_list<-c()
+    for(i in 1:length(study_info)){
+      index_filter<-c(index_filter,i)
+      z_here<-study_info[[i]]$Coeff^2/study_info[[i]]$Covariance
+      pval_list<-c(pval_list,z_here)
+    }
+    index_filter0<-index_filter
+    pval_list0<-pval_list
+    index_filter2<-c()
+    while (length(index_filter) > 1){
+      UKBB_cor_i<-UKBB_cor[index_filter,index_filter]
+      cur_i<-which.max(pval_list)
+      index_filter2<-c(index_filter2,index_filter[cur_i])
+      rm_index<-c(cur_i,which(abs(UKBB_cor_i[cur_i,])>ld_cut))
+      index_filter<-index_filter[-rm_index]
+      pval_list<-pval_list[-rm_index]
+    }
+    
+    UKBB_pop<-UKBB_pop[,c(1,2,(index_filter2+2))]
+    study_info<-study_info[index_filter2]
+    index_filter<-index_filter2
+  }
+  
+  N_SNP<-ncol(UKBB_pop)-2
+  colnames(UKBB_pop)[-c(1,2)]<-paste0("SNP",1:(N_SNP))
+  colnames(UKBB_pop)[1]<-"Y"
+  colnames(UKBB_pop)[2]<-"V"
+  var_SNP<-paste0("SNP",1:(N_SNP))
+  len_SNP<-length(var_SNP)
+  var_GPC<-NULL
+  len_GPC<-length(var_GPC)
+  if(is.null(BMI)){
+    var_nonSNP<-var_GPC
+  }else{
+    var_nonSNP<-c(var_GPC,"BMI")
+  }
+  
+  len_nonSNP<-length(var_nonSNP)
+  var_names_full_fit <- c(var_SNP,var_nonSNP)
+  colname_UKBB<-colnames(UKBB_pop)
+  len_U1 = 1+len_SNP+len_nonSNP
+  len_U2 = len_SNP
+  len_beta = len_U1
+  len_theta = 1+len_SNP+len_GPC
+  len_U = len_U1 + len_U2
+  N_Pop<-nrow(UKBB_pop)
+  if(!is.null(BMI)){
+    UKBB_pop<-cbind(UKBB_pop,BMI)
+    colnames(UKBB_pop)[ncol(UKBB_pop)]<-"BMI"
+  }
+  
+  res_glmtheta<-glm(Y~1,data = data.frame(UKBB_pop[,c(1,2,var_GPC)]),family = "binomial")
+  theta_UKBB_GPC<-res_glmtheta$coefficients[1]
+  
+  
+  ##############################
+  ### Functions to compute C ###
+  ##############################
+  
+  U_func<-function(
+    UKBB_pop,
+    beta,
+    theta_UKBB_GPC,
+    study_info){
+    N_Pop<-nrow(UKBB_pop)
+    expit_beta<-expit(UKBB_pop[,-1]%*%beta)
+    u1<-crossprod((UKBB_pop[,1] -expit_beta),UKBB_pop[,-1])
+    u2<-c()
+    u2_part1<-c(expit_beta)%*%UKBB_pop[,var_SNP]
+    u2_part2<-sapply(1:N_SNP, function(snp_id){
+      u2_id<-expit(UKBB_pop[,c("V",var_GPC,paste0("SNP",snp_id))]%*%c(theta_UKBB_GPC,study_info[[snp_id]]$Coeff))
+      c(c(u2_id)%*%UKBB_pop[,paste0("SNP",snp_id)])
+    })
+    u2<-u2_part1 - u2_part2
+    u<-c(u1,u2)*(1/N_Pop)
+  }
+  dexpit<-function(x){
+    expit(x)*(1-expit(x))
+  }
+  
+  grad_U_wrt_beta_func<-function(
+    UKBB_pop,
+    beta){
+    N_Pop<-nrow(UKBB_pop)
+    dexpit_beta<-dexpit(UKBB_pop[,-1]%*%beta)
+    U1_beta_gradient<-crossprod(UKBB_pop[,-1]*c(dexpit_beta),UKBB_pop[,-1])*(-1)
+    U2_beta_gradient<-crossprod(UKBB_pop[,var_SNP]*c(dexpit_beta),UKBB_pop[,-1])
+    rbind(U1_beta_gradient,U2_beta_gradient)*(1/N_Pop)
+  }
+  
+  U3_func<-function(UKBB_pop,theta_UKBB_GPC){
+    if(length(var_GPC) == 0){
+      expit_PC<-expit(UKBB_pop[,c("V")]*theta_UKBB_GPC)
+    }else{
+      expit_PC<-expit(UKBB_pop[,c("V",var_GPC)]%*%theta_UKBB_GPC)
+    }
+    
+    # UKBB_pop[,1] is Y(phenotype)
+    crossprod((UKBB_pop[,"Y"]-expit_PC),UKBB_pop[,c("V",var_GPC)])
+  }
+  
+  ### Generate coefficients of GPCs. 
+  inv_grad_U3_wrt_theta1_func<-function(
+    UKBB_pop,
+    theta_UKBB_GPC){
+    N_Pop<-nrow(UKBB_pop)
+    dexpit_PC<-dexpit(as.matrix(UKBB_pop[,c("V",var_GPC)])%*%theta_UKBB_GPC)
+    mat<--(1/N_Pop)*crossprod(UKBB_pop[,c("V",var_GPC)]*c(dexpit_PC),UKBB_pop[,c("V",var_GPC)])
+    #-solve(mat,tol=1e-60)
+    -ginv(mat)
+  }
+  
+  grad_U1_wrt_theta_func<-function(
+    len_U1,
+    len_theta){
+    matrix(0,nrow = len_U1,ncol = len_theta)
+  }
+  
+  grad_U2_wrt_theta_func<-function(
+    UKBB_pop,
+    theta_UKBB_GPC,
+    study_info){
+    N_Pop<-nrow(UKBB_pop)
+    u2_theta<-sapply(1:N_SNP, function(snp_id){
+      dexpit_id<-c(UKBB_pop[,paste0("SNP",snp_id)])*c(dexpit(UKBB_pop[,c("V",var_GPC,paste0("SNP",snp_id))]%*%c(theta_UKBB_GPC,study_info[[snp_id]]$Coeff)))
+      u2id_theta1_gradient<-dexpit_id%*%UKBB_pop[,c("V",var_GPC)]
+      u2id_gammaid_gradient<-dexpit_id%*%c(UKBB_pop[,paste0("SNP",snp_id)])
+      c(u2id_theta1_gradient,u2id_gammaid_gradient)
+    })
+    #u2_theta is (1+len_GPC+1)*N_SNP
+    N_snp_id<-nrow(u2_theta)
+    # Gradient is N_equation*N_variables
+    -(1/N_Pop)*t(rbind(u2_theta[-N_snp_id,],diag(u2_theta[N_snp_id,])))
+  }
+  
+  var_U_beta_theta_func<-function(
+    UKBB_pop,
+    beta,
+    theta_UKBB_GPC,
+    study_info){
+    N_Pop<-nrow(UKBB_pop)
+    expit_beta<-expit(UKBB_pop[,-1]%*%beta)
+    var_11<-crossprod(UKBB_pop[,-1]*c(UKBB_pop[,1]-expit_beta),UKBB_pop[,-1]*c(UKBB_pop[,1]-expit_beta))
+    u2_theta_coef<-sapply(1:N_SNP, function(snp_id){
+      expit_id<-c(expit(UKBB_pop[,c("V",var_GPC,paste0("SNP",snp_id))]%*%c(theta_UKBB_GPC,study_info[[snp_id]]$Coeff)))
+      expit_beta-expit_id
+    }) #col is SNP #row is sample 
+    var_22<-crossprod(u2_theta_coef*UKBB_pop[,var_SNP],u2_theta_coef*UKBB_pop[,var_SNP])
+    var_12<-crossprod(UKBB_pop[,-1]*c(UKBB_pop[,1]-expit_beta),u2_theta_coef*UKBB_pop[,var_SNP])
+    (1/N_Pop)*rbind(cbind(var_11,var_12),cbind(t(var_12),var_22))
+  }
+  
+  var_theta1_hat_func<-function(
+    UKBB_pop,
+    theta_UKBB_GPC,
+    study_info){
+    N_Pop<-nrow(UKBB_pop)
+    expit_PC<-expit(as.matrix(UKBB_pop[,c("V",var_GPC)])%*%theta_UKBB_GPC)
+    mat_inside<-(1/N_Pop)*crossprod(c(UKBB_pop[,"Y"]-expit_PC)*UKBB_pop[,c("V",var_GPC)],c(UKBB_pop[,"Y"]-expit_PC)*UKBB_pop[,c("V",var_GPC)])
+    mat_outside<-inv_grad_U3_wrt_theta1_func(
+      UKBB_pop=UKBB_pop,
+      theta_UKBB_GPC = theta_UKBB_GPC)
+    mat_outside%*%mat_inside%*%t(mat_outside)
+  }
+  var_theta2_hat_vec_func<-function(study_info){
+    var_vec<-sapply(1:N_SNP, function(i){
+      study_info[[i]]$Covariance
+    })
+  }
+  
+  cov_U_with_theta_hat_func<-function(
+    UKBB_pop,
+    beta,
+    theta_UKBB_GPC,
+    study_info){
+    N_Pop<-nrow(UKBB_pop)
+    expit_beta<-expit(UKBB_pop[,-1]%*%beta)
+    expit_PC<-expit(as.matrix(UKBB_pop[,c("V",var_GPC)])%*%theta_UKBB_GPC)
+    cov_U1_theta_hat<-(1/N_Pop)*crossprod(UKBB_pop[,-1]*c(UKBB_pop[,1]-expit_beta),UKBB_pop[,c("V",var_GPC)]*c(UKBB_pop[,1]-expit_PC))
+    u2_theta_coef<-sapply(1:N_SNP, function(snp_id){
+      expit_id<-c(expit(UKBB_pop[,c("V",var_GPC,paste0("SNP",snp_id))]%*%c(theta_UKBB_GPC,study_info[[snp_id]]$Coeff)))
+      expit_beta-expit_id
+    }) #col is SNP #row is sample 
+    cov_U2_theta_hat<-(1/N_Pop)*crossprod(u2_theta_coef*UKBB_pop[,var_SNP],UKBB_pop[,c("V",var_GPC)]*c(UKBB_pop[,1]-expit_PC))
+    rbind(cov_U1_theta_hat,cov_U2_theta_hat)
+  }
+  
+  final_var_U_beta_theta_hat_func<-function(
+    UKBB_pop,
+    beta,
+    theta_UKBB_GPC,
+    study_info,
+    len_U1,
+    len_theta){
+    N_Pop<-nrow(UKBB_pop)
+    var_1st_U_beta_theta<-var_U_beta_theta_func(
+      UKBB_pop=UKBB_pop,
+      theta_UKBB_GPC = theta_UKBB_GPC,
+      study_info = study_info,
+      beta = beta
+    )
+    var_theta2_vec<-var_theta2_hat_vec_func(study_info = study_info)
+    U_theta_gradient<-rbind(grad_U1_wrt_theta_func(len_U1 = len_U1,len_theta = len_theta),
+                            grad_U2_wrt_theta_func(UKBB_pop,theta_UKBB_GPC,study_info))
+    var_theta1<-var_theta1_hat_func(
+      UKBB_pop = UKBB_pop,
+      theta_UKBB_GPC = theta_UKBB_GPC,
+      study_info = study_info)
+    var_grad_times_theta_hat_fromPC<-U_theta_gradient[,1:(1+len_GPC)]%*%var_theta1%*%t(U_theta_gradient[,1:(1+len_GPC)])
+    var_grad_times_theta_hat_fromSNP<-U_theta_gradient[,-(1:(1+len_GPC))]%*%(var_theta2_vec*t(U_theta_gradient[,-(1:(1+len_GPC))]))*N_Pop
+    var_2nd_grad_times_theta_hat<-var_grad_times_theta_hat_fromPC+var_grad_times_theta_hat_fromSNP## There 
+    mat_outside<-inv_grad_U3_wrt_theta1_func(
+      UKBB_pop=UKBB_pop,
+      theta_UKBB_GPC = theta_UKBB_GPC)
+    cov_U<-cov_U_with_theta_hat_func(UKBB_pop = UKBB_pop,beta = beta,theta_UKBB_GPC = theta_UKBB_GPC,study_info = study_info)
+    cov_3rd_between_1st_2nd<-cov_U%*%mat_outside%*%t(U_theta_gradient[,1:(1+len_GPC)])
+    
+    res<-(var_1st_U_beta_theta+var_2nd_grad_times_theta_hat+cov_3rd_between_1st_2nd+t(cov_3rd_between_1st_2nd))
+    res
+  }
+  
+  ############## Beta
+  pseudo_Xy<-function(
+    C_half,UKBB_pop,
+    beta,
+    var_SNP,var_GPC,
+    N_SNP,theta_UKBB_GPC,study_info){
+    N_Pop<-nrow(UKBB_pop)
+    expit_beta<-c(expit(UKBB_pop[,-1]%*%beta))
+    dexpit_beta<-expit_beta*(1-expit_beta)
+    pseudo_X<-C_half%*%rbind(t(UKBB_pop[,-1]),t(UKBB_pop[,var_SNP]))%*%(UKBB_pop[,-1]*c(dexpit_beta))
+    #pseudo_y1<-crossprod(UKBB_pop[,1]-expit_beta+dexpit_beta*UKBB_pop[,-1]%*%beta ,UKBB_pop[,-1])
+    #pseudo_y21<-sapply(1:N_SNP, function(snp_id){
+    #    u2_id<-expit(UKBB_pop[,c("V",var_GPC,paste0("SNP",snp_id))]%*%c(theta_UKBB_GPC,study_info[[snp_id]]$Coeff))
+    #    c(c(u2_id)%*%UKBB_pop[,paste0("SNP",snp_id)])
+    #})
+    #pseudo_y22<- -c(crossprod(expit_beta,UKBB_pop[,var_SNP]))
+    #pseudo_y23<- c(crossprod(UKBB_pop[,var_SNP]*dexpit_beta,UKBB_pop[,-1]%*%beta))
+    #pseudo_y2 <- c(pseudo_y21) - pseudo_y22 + pseudo_y23
+    #pseudo_y<-c(c(c(pseudo_y1),pseudo_y2)%*%C_half)
+    
+    u<-c(C_half%*%U_func(UKBB_pop,beta,theta_UKBB_GPC,study_info))
+    pseudo_y<- -u + c(pseudo_X%*%beta)
+    newList<-list("pseudo_X"=pseudo_X,"pseudo_y"=pseudo_y)
+    newList
+  }
+  
+  if(is.null(beta_initial)){
+    ## First Get initial beta 0 based on tiny penalization 
+    lasso_initial<-glmnet(x=UKBB_pop[,-c(1,2)] ,y= UKBB_pop[,c(1)],standardize=F,intercept=T,family="binomial")
+    lambda_list0<-lasso_initial$lambda
+    non_penalize_BMI<-c(rep(1,N_SNP))
+    if(!is.null(BMI)){
+      non_penalize_BMI<-c(non_penalize_BMI,0)   
+    }
+    ridge_fit<-glmnet(x= UKBB_pop[,-c(1,2)],y= UKBB_pop[,c(1)],standardize=F,intercept=T,lambda = lambda_list0[50]/100,alpha = 0.01,family = "binomial",penalty.factor = non_penalize_BMI)
+    ## C_half is fixed once computed 
+    beta0hat<-as.vector(coef(ridge_fit))
+  }else{
+    beta0hat<-c(theta_UKBB_GPC,beta_initial)
+  }
+  ## Use this one for adaptive weights
+  if(lasso_type == "ada_lasso"){
+    gamma_adaptivelasso<-1/2
+    w_adaptive<-1/(abs(beta0hat[-1]))^gamma_adaptivelasso
+    w_adaptive[is.infinite(w_adaptive)]<-max(w_adaptive[!is.infinite(w_adaptive)])*100
+    w_adaptive<-c(0,w_adaptive)
+    if(!is.null(BMI)){
+      w_adaptive[length(w_adaptive)]<-0   
+    }
+  }else if (lasso_type == "lasso"){
+    w_adaptive<-c(0,rep(1,N_SNP))
+    if(!is.null(BMI)){
+      w_adaptive<-c(w_adaptive,0)
+    }
+  }else{
+    stop("wrong lasso type")
+  }
+  
+  
+  
+  
+  
+  #beta0hat
+  inv_C <- final_var_U_beta_theta_hat_func(UKBB_pop = UKBB_pop,
+                                           beta = beta0hat,
+                                           theta_UKBB_GPC = theta_UKBB_GPC,
+                                           study_info = study_info,
+                                           len_U1 = len_U1,
+                                           len_theta = len_theta)
+  C_all<-solve(inv_C,tol = 1e-20)
+  C_half<-expm::sqrtm(C_all)
+  
+  pseudo_Xy_list<-pseudo_Xy(C_half,UKBB_pop,beta0hat,var_SNP,var_GPC,N_SNP,theta_UKBB_GPC,study_info)
+  initial_sf<-N_Pop/sqrt(nrow(pseudo_Xy_list$pseudo_X))
+  pseudo_X<-pseudo_Xy_list$pseudo_X/initial_sf
+  pseudo_y<-pseudo_Xy_list$pseudo_y/initial_sf
+  
+  adaptivelasso_fit<-cv.glmnet(x= (pseudo_X),y= (pseudo_y),standardize=F,intercept=F,alpha = 1,penalty.factor = w_adaptive,nfolds = 10)
+  lambda_list<-adaptivelasso_fit$lambda
+  w_lasso<-as.numeric(w_adaptive>0)
+  lasso_fit<-cv.glmnet(x= (pseudo_X),y= (pseudo_y),standardize=F,intercept=F,alpha = 1,penalty.factor = w_lasso,nfolds = 10)
+  lambda_list_lasso<-lasso_fit$lambda
+  
+  lasso_result<-TRUE
+  
+  #beta<-coef(adaptivelasso_fit,s ='lambda.min')[-1]
+  #beta
+  #index_nonzero<-which(beta!=0)
+  
+  if(!cv_with_individual){
+    beta<-coef(adaptivelasso_fit,s ='lambda.min')[-1]
+    index_nonzero<-c(which(beta[1:(N_SNP+1)]!=0))
+    
+    if(length(index_nonzero) == 1){
+      cv_with_individual = TRUE
+    }else{
+      expit_beta<-c(expit(UKBB_pop[,-1]%*%beta))
+      dexpit_beta<-expit_beta*(1-expit_beta)
+      pseudo_X_infer<-C_half%*%rbind(t(UKBB_pop[,-1]),t(UKBB_pop[,var_SNP]))%*%(UKBB_pop[,-1]*c(dexpit_beta))/N_Pop
+      Sigsum_scaled<-t(pseudo_X_infer)%*%pseudo_X_infer
+      Sigsum_scaled_nonzero<-Sigsum_scaled[index_nonzero,index_nonzero]
+      inv_Sigsum_scaled_nonzero<-solve(Sigsum_scaled_nonzero)
+      final_v<-diag(inv_Sigsum_scaled_nonzero)
+      aa_final<-pchisq(N_Pop*beta[index_nonzero]^2/final_v,1,lower.tail = F)
+      if(p_val_cut == "Method1"){
+        candidate_pos<-index_nonzero[which(aa_final<0.05/N_SNP)]
+      }else if(p_val_cut == "Method2"){
+        candidate_pos<-index_nonzero[which(aa_final<0.05/length(index_nonzero))]
+      }else{
+        stop("wrong p_val_cut")
+      }
+      
+      
+      if(length(candidate_pos) == 0){
+        cv_with_individual = TRUE
+      }
+    }
+  }
+  
+
+  if(cv_with_individual){
+    
+    library(caret)
+    index_fold<-createFolds(UKBB_pop[,1],k = kfolds)
+    a<-sapply(1:kfolds, function(cur_fold){
+      index_test<-index_fold[[cur_fold]]
+      UKBB_pop_train<-UKBB_pop[-index_test,]
+      UKBB_pop_test<-UKBB_pop[index_test,]
+      pseudo_Xy_list_train<-pseudo_Xy(C_half,UKBB_pop_train,beta0hat,var_SNP,var_GPC,N_SNP,theta_UKBB_GPC,study_info)
+      initial_sf_train<-nrow(UKBB_pop_train)/sqrt(nrow(pseudo_Xy_list_train$pseudo_X))
+      pseudo_X_train<-pseudo_Xy_list_train$pseudo_X/initial_sf_train
+      pseudo_y_train<-pseudo_Xy_list_train$pseudo_y/initial_sf_train
+      
+      cv_beta<-lapply(lambda_list,function(cur_lam){
+        cv_adaptivelasso_fit<-glmnet(x= (pseudo_X_train),y= (pseudo_y_train),standardize=F,intercept=F,alpha = 1,penalty.factor = w_adaptive,lambda = cur_lam)
+        coef(cv_adaptivelasso_fit)[-1]
+      })
+      #cv_mse_sum<-sapply(1:length(cv_beta), function(kk){
+      #  cur_beta<-cv_beta[[kk]]
+      #  sum((expit(UKBB_pop_test[,-1]%*%cur_beta) - UKBB_pop_test[,1])^2)
+      #})
+      library(pROC)
+      cv_auc<-sapply(1:length(cv_beta), function(kk){
+        cur_beta<-cv_beta[[kk]]
+        suppressMessages(cur_auc<-c(auc(as.numeric(UKBB_pop_test[,1]>0),expit(UKBB_pop_test[,-1]%*%cur_beta),direction = "<")))
+        cur_auc
+      })
+      #cv_accuracy<-sapply(1:length(cv_beta), function(kk){
+      #  cur_beta<-cv_beta[[kk]]
+      #  sum(as.numeric(UKBB_pop_test[,-1]%*%cur_beta>0) == UKBB_pop_test[,1])
+      #})
+      #cv_mse_sum
+      #cv_accuracy
+      cv_auc
+    })
+  
+    if(lasso_result){
+    a1<-sapply(1:kfolds, function(cur_fold){
+      index_test<-index_fold[[cur_fold]]
+      UKBB_pop_train<-UKBB_pop[-index_test,]
+      UKBB_pop_test<-UKBB_pop[index_test,]
+      pseudo_Xy_list_train<-pseudo_Xy(C_half,UKBB_pop_train,beta0hat,var_SNP,var_GPC,N_SNP,theta_UKBB_GPC,study_info)
+      initial_sf_train<-nrow(UKBB_pop_train)/sqrt(nrow(pseudo_Xy_list_train$pseudo_X))
+      pseudo_X_train<-pseudo_Xy_list_train$pseudo_X/initial_sf_train
+      pseudo_y_train<-pseudo_Xy_list_train$pseudo_y/initial_sf_train
+      cv_beta_lasso<-lapply(lambda_list_lasso,function(cur_lam){
+        cv_lasso_fit<-glmnet(x= (pseudo_X_train),y= (pseudo_y_train),standardize=F,intercept=F,alpha = 1,penalty.factor = w_lasso,lambda = cur_lam)
+        coef(cv_lasso_fit)[-1]
+      })
+      library(pROC)
+      cv_auc_lasso<-sapply(1:length(cv_beta_lasso), function(kk){
+        cur_beta<-cv_beta_lasso[[kk]]
+        suppressMessages(cur_auc<-c(auc(as.numeric(UKBB_pop_test[,1]>0),expit(UKBB_pop_test[,-1]%*%cur_beta),direction = "<")))
+        cur_auc
+      })
+      #cv_accuracy<-sapply(1:length(cv_beta), function(kk){
+      #  cur_beta<-cv_beta[[kk]]
+      #  sum(as.numeric(UKBB_pop_test[,-1]%*%cur_beta>0) == UKBB_pop_test[,1])
+      #})
+      #cv_mse_sum
+      #cv_accuracy
+      cv_auc_lasso
+    })
+    betalasso<-coef(lasso_fit,s=lambda_list_lasso[which.max(rowSums(a1))])[-1]
+    }
+    #mse
+    #beta<-coef(adaptivelasso_fit,s=lambda_list[which.min(rowSums(a))])[-1]
+    # accuracy/# auc
+    beta<-coef(adaptivelasso_fit,s=lambda_list[which.max(rowSums(a))])[-1]
+    
+    index_nonzero<-c(which(beta[1:(N_SNP+1)]!=0))
+    if(length(index_nonzero) == 1){
+      beta<-coef(adaptivelasso_fit,s=lambda_list[which(adaptivelasso_fit$nzero>1)[which.min(rowSums(a)[which(adaptivelasso_fit$nzero>1)])]])[-1]
+      index_nonzero<-c(which(beta[1:(N_SNP+1)]!=0))
+    }
+    
+    expit_beta<-c(expit(UKBB_pop[,-1]%*%beta))
+    dexpit_beta<-expit_beta*(1-expit_beta)
+    pseudo_X_infer<-C_half%*%rbind(t(UKBB_pop[,-1]),t(UKBB_pop[,var_SNP]))%*%(UKBB_pop[,-1]*c(dexpit_beta))/N_Pop
+    Sigsum_scaled<-t(pseudo_X_infer)%*%pseudo_X_infer
+    Sigsum_scaled_nonzero<-Sigsum_scaled[index_nonzero,index_nonzero]
+    inv_Sigsum_scaled_nonzero<-solve(Sigsum_scaled_nonzero)
+    final_v<-diag(inv_Sigsum_scaled_nonzero)
+    aa_final<-pchisq(N_Pop*beta[index_nonzero]^2/final_v,1,lower.tail = F)
+    if(p_val_cut == "Method1"){
+      candidate_pos<-index_nonzero[which(aa_final<0.05/N_SNP)]
+    }else if(p_val_cut == "Method2"){
+      candidate_pos<-index_nonzero[which(aa_final<0.05/length(index_nonzero))]
+    }else{
+      stop("wrong p_val_cut")
+    }
+    
+  }
+  
+  candidate_pos<-candidate_pos[-1]-1
+  if(0){
+    if(length(candidate_pos) > 1){
+      candidate_cor<-cor(UKBB_pop[,c(candidate_pos+1)])
+      diag(candidate_cor)<-0
+      
+      if(max(abs(candidate_cor))>0.1){
+        
+        UKBB_pop_orig<-UKBB_pop[,c(candidate_pos+1)]
+        
+        candidate_EAF<-colsums(UKBB_pop_orig)/nrow(UKBB_pop_orig)/2
+        
+        weak_among_candidate<-which(candidate_EAF < 0.05)
+        if(filter_by_EAF){
+          if(length(weak_among_candidate) > 1){
+            gamma_adaptivelasso<-1/2
+            w_adaptive_candidate<-c(1/(abs(beta[candidate_pos[weak_among_candidate] ]))^gamma_adaptivelasso,0)
+            
+            tmp_count<-sapply(1:10, function(j){
+              lasso_fit_candidate<-cv.glmnet(x= UKBB_pop[,c((candidate_pos[weak_among_candidate]+1),ncol(UKBB_pop)) ],y= UKBB_pop[,1],standardize=F,intercept=F,alpha = 1,penalty.factor = w_adaptive_candidate)
+              tmptmp<-abs(coef(lasso_fit_candidate,s='lambda.min')[-1])
+              tmptmp<-tmptmp[-length(tmptmp)]
+              tmptmp>1e-4
+            })
+            
+            confident_pos_weak<-(candidate_pos[weak_among_candidate])[which(rowMeans(tmp_count) >= 0.8)]
+            if(length(confident_pos_weak) == 0){
+              z<-c()
+              for(i in weak_among_candidate){
+                z<-c(z,study_info[[candidate_pos[weak_among_candidate]]]$Coeff^2/study_info[[candidate_pos[weak_among_candidate]]]$Covariance)
+              }
+              confident_pos_weak<-weak_among_candidate[which.max(z)]
+            }
+          }else if(length(weak_among_candidate) == 1){
+            confident_pos_weak<-candidate_pos[weak_among_candidate]
+          }else{
+            confident_pos_weak<-c()
+          }
+          
+          true_weak<-c()
+          if(length(weak_among_candidate) > 0){
+            for( weakone in weak_among_candidate){
+              if(max(abs(candidate_cor[,weakone]))<0.1){
+                true_weak<-c(true_weak,weakone)      
+              }
+            }
+          }
+          if(length(true_weak)>0) true_weak<-candidate_pos[true_weak]
+          
+          confident_pos_weak <-union(confident_pos_weak,true_weak)
+        }else{
+          confident_pos_weak <-candidate_pos[weak_among_candidate]
+        }
+        
+        gamma_adaptivelasso<-2
+        w_adaptive_candidate<-c(1/(abs(beta[candidate_pos]))^gamma_adaptivelasso,0)
+        w_adaptive_candidate[which(candidate_pos%in%confident_pos_weak)]<-0
+        tmp_count<-sapply(1:10, function(j){
+          lasso_fit_candidate<-cv.glmnet(x= UKBB_pop[,c( (candidate_pos+1),ncol(UKBB_pop)) ] ,y= UKBB_pop[,1],standardize=F,intercept=F,alpha = 0.9,penalty.factor = w_adaptive_candidate)
+          tmptmp<-abs(coef(lasso_fit_candidate,s='lambda.min')[-1])>1e-4
+          tmptmp<-tmptmp[-length(tmptmp)]
+          tmptmp>1e-4
+          #coef(lasso_fit_candidate,s='lambda.min')[-1]!=0
+        })
+        confident_pos<-candidate_pos[which(rowMeans(tmp_count) >= 0.8)]
+        
+        confident_pos<-union(confident_pos,confident_pos_weak)
+        
+      }else{
+        #print("NOT USED")
+        confident_pos<-candidate_pos
+      }
+    }else{
+      confident_pos<-candidate_pos
+    }
+  }
+  confident_pos<-candidate_pos
+  if(filter_index){
+    pos<-index_filter[confident_pos]
+  }else{
+    pos<-confident_pos
+  }
+  #print(paste0("candidate",paste0(index_filter[candidate_pos],collapse = " ")))
+  #print(paste0("confid",paste0(pos,collapse = " ")))
+  #print(pos)
+  newList<-list("beta"=beta,
+                "betalasso"=betalasso,
+                "pos"=pos,
+                "aa_final"=aa_final,
+                "final_v"=final_v,
+                "w_adaptive"=w_adaptive,
+                "index_filter"=index_filter)
+}
+
+
+
+approxlinearGMMBMI<-function(UKBB_pop,study_info,BMI=NULL,
+                             ld_cut = 0.9,
+                             cor_cut=0.9,
+                             filter_index=TRUE,
+                             #filter_by_EAF=FALSE,
+                             cv_with_individual=TRUE,
+                             p_val_cut = "Method2",
+                             lasso_type = "ada_lasso",
+                             kfolds=10){
+  UKBB_cor<-cor(UKBB_pop[,-1])
+  diag(UKBB_cor) = 0
+  if(filter_index){
+    ### Trick 1 index filtering 
+    index_filter<-c()
+    pval_list<-c()
+    for(i in 1:length(study_info)){
+      index_filter<-c(index_filter,i)
+      z_here<-study_info[[i]]$Coeff^2/study_info[[i]]$Covariance
+      pval_list<-c(pval_list,z_here)
+    }
+    index_filter0<-index_filter
+    pval_list0<-pval_list
+    index_filter2<-c()
+    while (length(index_filter) > 1){
+      UKBB_cor_i<-UKBB_cor[index_filter,index_filter]
+      cur_i<-which.max(pval_list)
+      index_filter2<-c(index_filter2,index_filter[cur_i])
+      rm_index<-c(cur_i,which(abs(UKBB_cor_i[cur_i,])>ld_cut))
+      index_filter<-index_filter[-rm_index]
+      pval_list<-pval_list[-rm_index]
+    }
+    UKBB_pop<-UKBB_pop[,c(1,(index_filter2+1))]
+    study_info<-study_info[index_filter2]
+    index_filter<-index_filter2
+  }
+  
+  N_SNP<-ncol(UKBB_pop)-1
+  colnames(UKBB_pop)[-1]<-paste0("SNP",1:(N_SNP))
+  colnames(UKBB_pop)[1]<-"Y"
+  var_SNP<-paste0("SNP",1:(N_SNP))
+  len_SNP<-length(var_SNP)
+  var_GPC<-NULL
+  len_GPC<-length(var_GPC)
+  if(is.null(BMI)){
+    var_nonSNP<-var_GPC
+  }else{
+    var_nonSNP<-c(var_GPC,"BMI")
+  }
+  len_nonSNP<-length(var_nonSNP)
+  var_names_full_fit <- c(var_SNP,var_nonSNP)
+  colname_UKBB<-colnames(UKBB_pop)
+  len_U1 = len_SNP+len_nonSNP
+  len_U2 = len_SNP
+  len_beta = len_U1
+  len_theta = len_SNP+len_GPC
+  len_U = len_U1 + len_U2
+  N_Pop<-nrow(UKBB_pop)
+  if(!is.null(BMI)){
+    UKBB_pop<-cbind(UKBB_pop,BMI)
+    colnames(UKBB_pop)[ncol(UKBB_pop)]<-"BMI"
+  }
+  ############## Beta
+  pseudo_Xy<-function(
+    C_half,UKBB_pop,
+    var_SNP,var_GPC,
+    N_SNP,theta_UKBB_GPC,study_info){
+    N_Pop<-nrow(UKBB_pop)
+    pseudo_X<-C_half%*%rbind(t(UKBB_pop[,-1]),t(UKBB_pop[,var_SNP]))%*%UKBB_pop[,-1]
+    pseudo_y1<-crossprod(UKBB_pop[,1],UKBB_pop[,-1])
+    pseudo_y22<-sapply(1:N_SNP, function(snp_id){
+      u2_id<-UKBB_pop[,c(var_GPC,paste0("SNP",snp_id))]*(study_info[[snp_id]]$Coeff)
+      c(c(u2_id)%*%UKBB_pop[,paste0("SNP",snp_id)])
+    })
+    
+    pseudo_y<-c(c(c(pseudo_y1),c(pseudo_y22))%*%C_half)
+    newList<-list("pseudo_X"=pseudo_X,"pseudo_y"=pseudo_y)
+    newList
+  }
+  var_U_beta_theta_func<-function(
+    UKBB_pop,
+    beta,
+    study_info,
+    theta_UKBB_GPC=NULL){
+    N_Pop<-nrow(UKBB_pop)
+    xtbeta<-(UKBB_pop[,-1]%*%beta)
+    var_11<-crossprod(UKBB_pop[,-1]*c(UKBB_pop[,1]-xtbeta),UKBB_pop[,-1]*c(UKBB_pop[,1]-xtbeta))
+    u2_theta_coef<-sapply(1:N_SNP, function(snp_id){
+      if(is.null(var_GPC)){
+        xtgamma_id<-c(UKBB_pop[,paste0("SNP",snp_id)]*study_info[[snp_id]]$Coeff)
+      }else{
+        xtgamma_id<-c((UKBB_pop[,c(var_GPC,paste0("SNP",snp_id))]%*%c(theta_UKBB_GPC,study_info[[snp_id]]$Coeff)))
+      }
+      xtbeta-xtgamma_id
+    }) #col is SNP #row is sample 
+    var_22<-crossprod(u2_theta_coef*UKBB_pop[,var_SNP],u2_theta_coef*UKBB_pop[,var_SNP])
+    var_12<-crossprod(UKBB_pop[,-1]*c(UKBB_pop[,1]-xtbeta),u2_theta_coef*UKBB_pop[,var_SNP])
+    (1/N_Pop)*rbind(cbind(var_11,var_12),cbind(t(var_12),var_22))
+  }
+  
+  
+  lasso_initial<-glmnet(x= UKBB_pop[,-1],y= UKBB_pop[,1],standardize=F,intercept=F)
+  lambda_list0<-lasso_initial$lambda
+  non_penalize_BMI<-rep(1,N_SNP)
+  if(!is.null(BMI)){
+    non_penalize_BMI<-c(non_penalize_BMI,0)   
+  }
+  ridge_fit<-glmnet(x= UKBB_pop[,-1],y= UKBB_pop[,1],standardize=F,intercept=F,lambda = lambda_list0[50]/100,alpha = 0.01,penalty.factor = non_penalize_BMI)
+  if(lasso_type == "ada_lasso"){
+    gamma_adaptivelasso<-1/2
+    w_adaptive<-1/(abs(coef(ridge_fit)[-1])[1:N_SNP])^gamma_adaptivelasso
+    if(!is.null(BMI)){
+      w_adaptive<-c(w_adaptive,0)
+    }
+    w_adaptive[is.infinite(w_adaptive)]<-max(w_adaptive[!is.infinite(w_adaptive)])*100
+    
+  }else if (lasso_type == "lasso"){
+    w_adaptive<-rep(1,N_SNP)
+    if(!is.null(BMI)){
+      w_adaptive<-c(w_adaptive,0)
+    }
+  }else{
+    stop("wrong lasso type")
+  }
+  beta_initial<-coef(ridge_fit)[-1]
+  
+  
+  var_1st_U_beta_theta<-var_U_beta_theta_func(UKBB_pop = UKBB_pop,
+                                              beta = beta_initial,
+                                              study_info = study_info)
+  diag_theta_sd<-sapply(1:N_SNP,function(i){
+    sqrt(study_info[[i]]$Covariance)*(c(UKBB_pop[,c(paste0("SNP",i))]%*%UKBB_pop[,c(paste0("SNP",i))]))
+  })
+  cov_theta<-t(diag_theta_sd*cor(UKBB_pop[,var_SNP]))*diag_theta_sd/N_Pop
+  var_2nd_grad_times_theta_hat = adiag(matrix(0,nrow = len_U1,ncol = len_U1),cov_theta)
+  inv_C = var_1st_U_beta_theta + var_2nd_grad_times_theta_hat
+  C_all<-solve(inv_C)
+  C_half<-expm::sqrtm(C_all)
+  
+  
+  pseudo_Xy_list<-pseudo_Xy(C_half,UKBB_pop,var_SNP,var_GPC,N_SNP,theta_UKBB_GPC,study_info)
+  initial_sf<-N_Pop/sqrt(nrow(pseudo_Xy_list$pseudo_X))
+  pseudo_X<-pseudo_Xy_list$pseudo_X/initial_sf
+  pseudo_y<-pseudo_Xy_list$pseudo_y/initial_sf
+  
+  
+  adaptivelasso_fit<-cv.glmnet(x= (pseudo_X),y= (pseudo_y),standardize=F,intercept=F,alpha = 1,penalty.factor = w_adaptive)
+  lambda_list<-adaptivelasso_fit$lambda
+  
+  
+  
+  
+  if(!cv_with_individual){
+    beta<-coef(adaptivelasso_fit,s ='lambda.min')[-1]
+    index_nonzero<-c(which(beta[1:N_SNP]!=0),length(beta))
+    
+    if(length(index_nonzero) == 1){
+      cv_with_individual = TRUE
+    }else{
+      xtx<-t(UKBB_pop[,-1])%*%UKBB_pop[,-1]/N_Pop
+      xtx2<-t(UKBB_pop[,-1])%*%UKBB_pop[,var_SNP]/N_Pop
+      Sigsum_half<-cbind(xtx,xtx2)%*%C_half
+      Sigsum_scaled<-Sigsum_half%*%t(Sigsum_half)
+      Sigsum_scaled_nonzero<-Sigsum_scaled[index_nonzero,index_nonzero]
+      inv_Sigsum_scaled_nonzero<-solve(Sigsum_scaled_nonzero)
+      
+      index_nonzero<-index_nonzero[-length(index_nonzero)]
+      final_v<-diag(inv_Sigsum_scaled_nonzero)
+      final_v<-final_v[-length(final_v)]
+      aa_final<-pchisq(N_Pop*beta[index_nonzero]^2/final_v,1,lower.tail = F)
+      
+      if(p_val_cut == "Method1"){
+        candidate_pos<-index_nonzero[which(aa_final<0.05/N_SNP)]
+      }else if(p_val_cut == "Method2"){
+        candidate_pos<-index_nonzero[which(aa_final<0.05/length(index_nonzero))]
+      }else{
+        stop("wrong p_val_cut")
+      }
+      
+      if(length(candidate_pos) == 0){
+        cv_with_individual = TRUE
+      }
+    }
+  }
+  
+  
+  
+  
+  
+  if(cv_with_individual){
+    
+    library(caret)
+    index_fold<-createFolds(as.numeric(UKBB_pop[,1]>0),k = kfolds)
+    a<-sapply(1:kfolds, function(cur_fold){
+      index_test<-index_fold[[cur_fold]]
+      UKBB_pop_train<-UKBB_pop[-index_test,]
+      UKBB_pop_test<-UKBB_pop[index_test,]
+      
+      pseudo_Xy_list_train<-pseudo_Xy(C_half,UKBB_pop_train,var_SNP,var_GPC,N_SNP,theta_UKBB_GPC,study_info)
+      initial_sf_train<-nrow(UKBB_pop_train)/sqrt(nrow(pseudo_Xy_list_train$pseudo_X))
+      pseudo_X_train<-pseudo_Xy_list_train$pseudo_X/initial_sf_train
+      pseudo_y_train<-pseudo_Xy_list_train$pseudo_y/initial_sf_train
+      cv_beta<-lapply(lambda_list,function(cur_lam){
+        cv_adaptivelasso_fit<-glmnet(x= (pseudo_X_train),y= (pseudo_y_train),standardize=F,intercept=F,alpha = 1,penalty.factor = w_adaptive,lambda = cur_lam)
+        coef(cv_adaptivelasso_fit)[-1]
+      })
+      cv_mse_sum<-sapply(1:length(cv_beta), function(kk){
+        cur_beta<-cv_beta[[kk]]
+        sum((UKBB_pop_test[,-1]%*%cur_beta - UKBB_pop_test[,1])^2)
+      })
+      cv_mse_sum
+    })
+    beta<-coef(adaptivelasso_fit,s=lambda_list[which.min(rowSums(a))])[-1]
+    index_nonzero<-c(which(beta[1:N_SNP]!=0),length(beta))
+    if(length(index_nonzero) == 1){
+      beta<-coef(adaptivelasso_fit,s=lambda_list[which(adaptivelasso_fit$nzero>1)[which.min(rowSums(a)[which(adaptivelasso_fit$nzero>1)])]])[-1]
+      index_nonzero<-c(which(beta[1:N_SNP]!=0),length(beta))
+    }
+    
+    xtx<-t(UKBB_pop[,-1])%*%UKBB_pop[,-1]/N_Pop
+    xtx2<-t(UKBB_pop[,-1])%*%UKBB_pop[,var_SNP]/N_Pop
+    Sigsum_half<-cbind(xtx,xtx2)%*%C_half
+    Sigsum_scaled<-Sigsum_half%*%t(Sigsum_half)
+    Sigsum_scaled_nonzero<-Sigsum_scaled[index_nonzero,index_nonzero]
+    inv_Sigsum_scaled_nonzero<-solve(Sigsum_scaled_nonzero)
+    
+    index_nonzero<-index_nonzero[-length(index_nonzero)]
+    final_v<-diag(inv_Sigsum_scaled_nonzero)
+    final_v<-final_v[-length(final_v)]
+    aa_final<-pchisq(N_Pop*beta[index_nonzero]^2/final_v,1,lower.tail = F)
+    
+    
+    if(p_val_cut == "Method1"){
+      candidate_pos<-index_nonzero[which(aa_final<0.05/N_SNP)]
+    }else if(p_val_cut == "Method2"){
+      candidate_pos<-index_nonzero[which(aa_final<0.05/length(index_nonzero))]
+    }else{
+      stop("wrong p_val_cut")
+    }
+  }
+  
+  
+  if(0){
+    if(length(candidate_pos) > 1){
+      candidate_cor<-cor(UKBB_pop[,c(candidate_pos+1)])
+      diag(candidate_cor)<-0
+      
+      
+      if(max(abs(candidate_cor))>0.1){
+        
+        UKBB_pop_orig<-UKBB_pop[,c(candidate_pos+1)]
+        
+        for(i in 1:ncol(UKBB_pop_orig)){
+          cur_snp<-UKBB_pop_orig[,i]
+          UKBB_pop_orig[which(cur_snp == max(cur_snp)),i] = 2
+          UKBB_pop_orig[which(cur_snp == min(cur_snp)),i] = 0
+          UKBB_pop_orig[which(cur_snp > min(cur_snp) & cur_snp < max(cur_snp)),i] = 1
+        }
+        candidate_EAF<-colsums(UKBB_pop_orig)/nrow(UKBB_pop_orig)/2
+        
+        weak_among_candidate<-which(candidate_EAF < 0.05)
+        if(filter_by_EAF){
+          if(length(weak_among_candidate) > 1){
+            gamma_adaptivelasso<-1/2
+            w_adaptive_candidate<-c(1/(abs(beta[candidate_pos[weak_among_candidate] ]))^gamma_adaptivelasso,0)
+            
+            tmp_count<-sapply(1:10, function(j){
+              lasso_fit_candidate<-cv.glmnet(x= UKBB_pop[,c((candidate_pos[weak_among_candidate]+1),ncol(UKBB_pop)) ],y= UKBB_pop[,1],standardize=F,intercept=F,alpha = 1,penalty.factor = w_adaptive_candidate)
+              tmptmp<-abs(coef(lasso_fit_candidate,s='lambda.min')[-1])
+              tmptmp<-tmptmp[-length(tmptmp)]
+              tmptmp>1e-4
+            })
+            
+            confident_pos_weak<-(candidate_pos[weak_among_candidate])[which(rowMeans(tmp_count) >= 0.8)]
+            if(length(confident_pos_weak) == 0){
+              z<-c()
+              for(i in weak_among_candidate){
+                z<-c(z,study_info[[candidate_pos[weak_among_candidate]]]$Coeff^2/study_info[[candidate_pos[weak_among_candidate]]]$Covariance)
+              }
+              confident_pos_weak<-weak_among_candidate[which.max(z)]
+            }
+          }else if(length(weak_among_candidate) == 1){
+            confident_pos_weak<-candidate_pos[weak_among_candidate]
+          }else{
+            confident_pos_weak<-c()
+          }
+          
+          true_weak<-c()
+          if(length(weak_among_candidate) > 0){
+            for( weakone in weak_among_candidate){
+              if(max(abs(candidate_cor[,weakone]))<0.1){
+                true_weak<-c(true_weak,weakone)      
+              }
+            }
+          }
+          if(length(true_weak)>0) true_weak<-candidate_pos[true_weak]
+          
+          confident_pos_weak <-union(confident_pos_weak,true_weak)
+        }else{
+          confident_pos_weak <-candidate_pos[weak_among_candidate]
+        }
+        
+        gamma_adaptivelasso<-2
+        w_adaptive_candidate<-c(1/(abs(beta[candidate_pos]))^gamma_adaptivelasso,0)
+        w_adaptive_candidate[which(candidate_pos%in%confident_pos_weak)]<-0
+        tmp_count<-sapply(1:10, function(j){
+          lasso_fit_candidate<-cv.glmnet(x= UKBB_pop[,c( (candidate_pos+1),ncol(UKBB_pop)) ] ,y= UKBB_pop[,1],standardize=F,intercept=F,alpha = 0.9,penalty.factor = w_adaptive_candidate)
+          tmptmp<-abs(coef(lasso_fit_candidate,s='lambda.min')[-1])>1e-4
+          tmptmp<-tmptmp[-length(tmptmp)]
+          tmptmp>1e-4
+          #coef(lasso_fit_candidate,s='lambda.min')[-1]!=0
+        })
+        confident_pos<-candidate_pos[which(rowMeans(tmp_count) >= 0.8)]
+        
+        confident_pos<-union(confident_pos,confident_pos_weak)
+        
+      }else{
+        #print("NOT USED")
+        confident_pos<-candidate_pos
+      }
+    }else{
+      confident_pos<-candidate_pos
+    }
+  }
+  confident_pos<-candidate_pos
+  if(filter_index){
+    pos<-index_filter[confident_pos]
+  }else{
+    pos<-confident_pos
+  }
+  newList<-list("beta"=beta,
+                "pos"=pos,
+                "aa_final"=aa_final,
+                "final_v"=final_v,
+                "w_adaptive"=w_adaptive,
+                "index_filter"=index_filter)
+}
+
+
+
+
 
 
 adaptiveGMMlasso_group<-function(UKBB_pop,study_info,
@@ -1061,13 +3583,352 @@ adaptiveGMMlasso_group<-function(UKBB_pop,study_info,
 }
 
 
+adaptiveGMMlasso_noinitial<-function(UKBB_pop,study_info,
+                                     ld_cut = 0.9,
+                                     cor_cut=0.9,
+                                     filter_index=TRUE,
+                                     filter_by_EAF=FALSE,
+                                     cv_with_individual=TRUE,
+                                     C_update = "Method2",
+                                     p_val_cut = "Method2",
+                                     kfolds=10){
+  UKBB_cor<-cor(UKBB_pop[,-1])
+  diag(UKBB_cor) = 0
+  if(filter_index){
+    ### Trick 1 index filtering 
+    index_filter<-c()
+    pval_list<-c()
+    for(i in 1:length(study_info)){
+      #if(study_info[[i]]$P<p_val_cut){
+      index_filter<-c(index_filter,i)
+      z_here<-study_info[[i]]$Coeff^2/study_info[[i]]$Covariance
+      pval_list<-c(pval_list,z_here)
+      #}
+    }
+    index_filter0<-index_filter
+    pval_list0<-pval_list
+    index_filter2<-c()
+    while (length(index_filter) > 1){
+      UKBB_cor_i<-UKBB_cor[index_filter,index_filter]
+      cur_i<-which.max(pval_list)
+      index_filter2<-c(index_filter2,index_filter[cur_i])
+      #print(index_filter[cur_i])
+      rm_index<-c(cur_i,which(abs(UKBB_cor_i[cur_i,])>ld_cut))
+      #print(index_filter[rm_index])
+      index_filter<-index_filter[-rm_index]
+      pval_list<-pval_list[-rm_index]
+    }
+    
+    #Nonnull_index2<-which(index_filter2%in%Nonnull_index)
+    UKBB_pop<-UKBB_pop[,c(1,(index_filter2+1))]
+    study_info<-study_info[index_filter2]
+    index_filter<-index_filter2
+  }
+  N_SNP<-ncol(UKBB_pop)-1
+  colnames(UKBB_pop)[-1]<-paste0("SNP",1:(N_SNP))
+  colnames(UKBB_pop)[1]<-"Y"
+  var_SNP<-paste0("SNP",1:(N_SNP))
+  len_SNP<-length(var_SNP)
+  var_GPC<-NULL
+  len_GPC<-length(var_GPC)
+  var_nonSNP<-c(var_GPC)
+  len_nonSNP<-length(var_nonSNP)
+  var_names_full_fit <- c(var_SNP,var_nonSNP)
+  colname_UKBB<-colnames(UKBB_pop)
+  len_U1 = len_SNP+len_nonSNP
+  len_U2 = len_SNP
+  len_beta = len_U1
+  len_theta = len_SNP+len_GPC
+  len_U = len_U1 + len_U2
+  N_Pop<-nrow(UKBB_pop)
+  
+  ############## Beta
+  pseudo_Xy<-function(
+    C_half,UKBB_pop,
+    var_SNP,var_GPC,
+    N_SNP,theta_UKBB_GPC,study_info){
+    N_Pop<-nrow(UKBB_pop)
+    pseudo_X<-C_half%*%rbind(t(UKBB_pop[,-1]),t(UKBB_pop[,var_SNP]))%*%UKBB_pop[,-1]
+    pseudo_y1<-crossprod(UKBB_pop[,1],UKBB_pop[,-1])
+    pseudo_y22<-sapply(1:N_SNP, function(snp_id){
+      u2_id<-UKBB_pop[,c(var_GPC,paste0("SNP",snp_id))]*(study_info[[snp_id]]$Coeff)
+      c(c(u2_id)%*%UKBB_pop[,paste0("SNP",snp_id)])
+    })
+    
+    pseudo_y<-c(c(c(pseudo_y1),c(pseudo_y22))%*%C_half)
+    newList<-list("pseudo_X"=pseudo_X,"pseudo_y"=pseudo_y)
+    newList
+  }
+  
+  var_U_beta_theta_func<-function(
+    UKBB_pop,
+    beta,
+    study_info,
+    theta_UKBB_GPC=NULL){
+    N_Pop<-nrow(UKBB_pop)
+    xtbeta<-(UKBB_pop[,-1]%*%beta)
+    var_11<-crossprod(UKBB_pop[,-1]*c(UKBB_pop[,1]-xtbeta),UKBB_pop[,-1]*c(UKBB_pop[,1]-xtbeta))
+    u2_theta_coef<-sapply(1:N_SNP, function(snp_id){
+      if(is.null(var_GPC)){
+        xtgamma_id<-c(UKBB_pop[,paste0("SNP",snp_id)]*study_info[[snp_id]]$Coeff)
+      }else{
+        xtgamma_id<-c((UKBB_pop[,c(var_GPC,paste0("SNP",snp_id))]%*%c(theta_UKBB_GPC,study_info[[snp_id]]$Coeff)))
+      }
+      xtbeta-xtgamma_id
+    }) #col is SNP #row is sample 
+    var_22<-crossprod(u2_theta_coef*UKBB_pop[,var_SNP],u2_theta_coef*UKBB_pop[,var_SNP])
+    var_12<-crossprod(UKBB_pop[,-1]*c(UKBB_pop[,1]-xtbeta),u2_theta_coef*UKBB_pop[,var_SNP])
+    (1/N_Pop)*rbind(cbind(var_11,var_12),cbind(t(var_12),var_22))
+  }
+  
+  
+  library(glmnet)
+  lasso_initial<-glmnet(x=UKBB_pop[,-1] ,y= UKBB_pop[,1],standardize=F,intercept=F)
+  lambda_list0<-lasso_initial$lambda
+  non_penalize_BMI<-c(rep(1,N_SNP))
+  ridge_fit<-glmnet(x= UKBB_pop[,-1],y= UKBB_pop[,c(1)],standardize=F,intercept=T,lambda = lambda_list0[50]/100,alpha = 1,penalty.factor = non_penalize_BMI)
+  ## C_half is fixed once computed 
+  beta_initial<-as.vector(coef(ridge_fit))
+  gamma_adaptivelasso<-1/2
+  w_adaptive<-1/(abs(coef(ridge_fit)[-1]))^gamma_adaptivelasso
+  w_adaptive[is.infinite(w_adaptive)]<-max(w_adaptive[!is.infinite(w_adaptive)])*100
+  
+  
+  if(C_update == "Method1"){
+    diag_theta_sd<-sapply(1:N_SNP,function(i){
+      sqrt(study_info[[i]]$Covariance)*(c(UKBB_pop[,c(paste0("SNP",i))]%*%UKBB_pop[,c(paste0("SNP",i))]))
+    })
+    cov_theta<-t(diag_theta_sd*cor(UKBB_pop[,var_SNP]))*diag_theta_sd/N_Pop
+    C_22<-solve(cov_theta)
+    C_22_half<-expm::sqrtm(C_22)
+    C_half<-adiag(C_11_half,C_22_half)
+  }else if(C_update == "Method2"){
+    beta_initial<-coef(ridge_fit)[-1]
+    
+    var_1st_U_beta_theta<-var_U_beta_theta_func(UKBB_pop =UKBB_pop,
+                                                beta = beta_initial,
+                                                study_info = study_info)
+    
+    diag_theta_sd<-sapply(1:N_SNP,function(i){
+      sqrt(study_info[[i]]$Covariance)*(c(UKBB_pop[,c(paste0("SNP",i))]%*%UKBB_pop[,c(paste0("SNP",i))]))
+    })
+    cov_theta<-t(diag_theta_sd*cor(UKBB_pop[,var_SNP]))*diag_theta_sd/N_Pop
+    
+    var_2nd_grad_times_theta_hat = adiag(matrix(0,nrow = len_U1,ncol = len_U1),cov_theta)
+    
+    inv_C = var_1st_U_beta_theta + var_2nd_grad_times_theta_hat
+    C_all<-solve(inv_C)
+    C_half<-expm::sqrtm(C_all)
+    
+  }
+  
+  pseudo_Xy_list<-pseudo_Xy(C_half,UKBB_pop,var_SNP,var_GPC,N_SNP,theta_UKBB_GPC,study_info)
+  initial_sf<-N_Pop/sqrt(nrow(pseudo_Xy_list$pseudo_X))
+  pseudo_X<-pseudo_Xy_list$pseudo_X/initial_sf
+  pseudo_y<-pseudo_Xy_list$pseudo_y/initial_sf
+  
+  
+  adaptivelasso_fit<-cv.glmnet(x= (pseudo_X),y= (pseudo_y),standardize=F,intercept=F,alpha = 1,penalty.factor = w_adaptive)
+  lambda_list<-adaptivelasso_fit$lambda
+  
+  w_lasso<-as.numeric(w_adaptive>0)
+  lasso_fit<-cv.glmnet(x= (pseudo_X),y= (pseudo_y),standardize=F,intercept=F,alpha = 1,penalty.factor = w_lasso,nfolds = 10)
+  lambda_list_lasso<-lasso_fit$lambda
+  
+  lasso_result<-TRUE
+  
+  
+  if(!cv_with_individual){
+    beta<-coef(adaptivelasso_fit,s ='lambda.min')[-1]
+    index_nonzero<-which(beta!=0)
+    if(length(index_nonzero) == 0){
+      cv_with_individual = TRUE
+    }else{
+      xtx<-t(UKBB_pop[,-1])%*%UKBB_pop[,-1]/N_Pop
+      Sigsum_half<-cbind(xtx,xtx)%*%C_half
+      Sigsum_scaled<-Sigsum_half%*%t(Sigsum_half)
+      Sigsum_scaled_nonzero<-Sigsum_scaled[index_nonzero,index_nonzero]
+      inv_Sigsum_scaled_nonzero<-solve(Sigsum_scaled_nonzero)
+      final_v<-diag(inv_Sigsum_scaled_nonzero)
+      aa_final<-pchisq(N_Pop*beta[index_nonzero]^2/final_v,1,lower.tail = F)
+      if(p_val_cut == "Method1"){
+        candidate_pos<-index_nonzero[which(aa_final<0.05/N_SNP)]
+      }else if(p_val_cut == "Method2"){
+        candidate_pos<-index_nonzero[which(aa_final<0.05/length(index_nonzero))]
+      }else{
+        stop("wrong p_val_cut")
+      }
+      
+      if(length(candidate_pos) == 0){
+        cv_with_individual = TRUE
+      }
+    }
+  }
+  
+  if(cv_with_individual){
+    #index11<-which(adaptivelasso_fit$nzero>1)
+    #index11<-unique(c(max(min(index11)-1,1),index11))
+    #lambda_list<-lambda_list[index11]
+    
+    library(caret)
+    index_fold<-createFolds(as.numeric(UKBB_pop[,1]>0),k = kfolds)
+    a<-sapply(1:kfolds, function(cur_fold){
+      index_test<-index_fold[[cur_fold]]
+      UKBB_pop_train<-UKBB_pop[-index_test,]
+      UKBB_pop_test<-UKBB_pop[index_test,]
+      pseudo_Xy_list_train<-pseudo_Xy(C_half,UKBB_pop_train,var_SNP,var_GPC,N_SNP,theta_UKBB_GPC,study_info)
+      initial_sf_train<-nrow(UKBB_pop_train)/sqrt(nrow(pseudo_Xy_list_train$pseudo_X))
+      pseudo_X_train<-pseudo_Xy_list_train$pseudo_X/initial_sf_train
+      pseudo_y_train<-pseudo_Xy_list_train$pseudo_y/initial_sf_train
+      cv_beta<-lapply(lambda_list,function(cur_lam){
+        cv_adaptivelasso_fit<-glmnet(x= (pseudo_X_train),y= (pseudo_y_train),standardize=F,intercept=F,alpha = 1,penalty.factor = w_adaptive,lambda = cur_lam)
+        coef(cv_adaptivelasso_fit)[-1]
+      })
+      cv_mse_sum<-sapply(1:length(cv_beta), function(kk){
+        cur_beta<-cv_beta[[kk]]
+        sum((UKBB_pop_test[,-1]%*%cur_beta - UKBB_pop_test[,1])^2)
+      })
+      cv_mse_sum
+    })
+    lasso_result<-TRUE
+    if(lasso_result){
+      a1<-sapply(1:kfolds, function(cur_fold){
+        index_test<-index_fold[[cur_fold]]
+        UKBB_pop_train<-UKBB_pop[-index_test,]
+        UKBB_pop_test<-UKBB_pop[index_test,]
+        pseudo_Xy_list_train<-pseudo_Xy(C_half,UKBB_pop_train,var_SNP,var_GPC,N_SNP,theta_UKBB_GPC,study_info)
+        initial_sf_train<-nrow(UKBB_pop_train)/sqrt(nrow(pseudo_Xy_list_train$pseudo_X))
+        pseudo_X_train<-pseudo_Xy_list_train$pseudo_X/initial_sf_train
+        pseudo_y_train<-pseudo_Xy_list_train$pseudo_y/initial_sf_train
+        cv_beta_lasso<-lapply(lambda_list_lasso,function(cur_lam){
+          cv_lasso_fit<-glmnet(x= (pseudo_X_train),y= (pseudo_y_train),standardize=F,intercept=F,alpha = 1,penalty.factor = w_lasso,lambda = cur_lam)
+          coef(cv_lasso_fit)[-1]
+        })
+        cv_mse_sum<-sapply(1:length(cv_beta_lasso), function(kk){
+          cur_beta<-cv_beta_lasso[[kk]]
+          sum((UKBB_pop_test[,-1]%*%cur_beta - UKBB_pop_test[,1])^2)
+        })
+        cv_mse_sum
+      })
+      betalasso<-coef(lasso_fit,s=lambda_list_lasso[which.min(rowSums(a1))])[-1]
+    }
+    
+    
+    beta<-coef(adaptivelasso_fit,s=lambda_list[which.min(rowSums(a))])[-1]
+    index_nonzero<-which(beta!=0)
+    ########??????????????????
+    if(length(index_nonzero) == 0){
+      beta<-coef(adaptivelasso_fit,s=lambda_list[which(adaptivelasso_fit$nzero>0)[which.min(rowSums(a)[which(adaptivelasso_fit$nzero>0)])]])[-1]
+      index_nonzero<-which(beta!=0)
+    }
+    
+    xtx<-t(UKBB_pop[,-1])%*%UKBB_pop[,-1]/N_Pop
+    Sigsum_half<-cbind(xtx,xtx)%*%C_half
+    Sigsum_scaled<-Sigsum_half%*%t(Sigsum_half)
+    Sigsum_scaled_nonzero<-Sigsum_scaled[index_nonzero,index_nonzero]
+    inv_Sigsum_scaled_nonzero<-solve(Sigsum_scaled_nonzero)
+    final_v<-diag(inv_Sigsum_scaled_nonzero)
+    aa_final<-pchisq(N_Pop*beta[index_nonzero]^2/final_v,1,lower.tail = F)
+    if(p_val_cut == "Method1"){
+      candidate_pos<-index_nonzero[which(aa_final<0.05/N_SNP)]
+    }else if(p_val_cut == "Method2"){
+      candidate_pos<-index_nonzero[which(aa_final<0.05/length(index_nonzero))]
+    }else{
+      stop("wrong p_val_cut")
+    }
+  }
+  
+  if(length(candidate_pos) > 1){
+    candidate_cor<-cor(UKBB_pop[,c(candidate_pos+1)])
+    diag(candidate_cor)<-0
+    if(max(abs(candidate_cor))>0.1){
+      UKBB_pop_orig<-UKBB_pop[,c(candidate_pos+1)]
+      for(i in 1:ncol(UKBB_pop_orig)){
+        cur_snp<-UKBB_pop_orig[,i]
+        UKBB_pop_orig[which(cur_snp == max(cur_snp)),i] = 2
+        UKBB_pop_orig[which(cur_snp == min(cur_snp)),i] = 0
+        UKBB_pop_orig[which(cur_snp > min(cur_snp) & cur_snp < max(cur_snp)),i] = 1
+      }
+      candidate_EAF<-colsums(UKBB_pop_orig)/nrow(UKBB_pop_orig)/2
+      weak_among_candidate<-which(candidate_EAF < 0.05)
+      if(filter_by_EAF){
+        if(length(weak_among_candidate) > 1){
+          gamma_adaptivelasso<-1/2
+          w_adaptive_candidate<-1/(abs(beta[candidate_pos[weak_among_candidate] ]))^gamma_adaptivelasso
+          tmp_count<-sapply(1:10, function(j){
+            lasso_fit_candidate<-cv.glmnet(x= UKBB_pop[,(candidate_pos[weak_among_candidate]+1)],y= UKBB_pop[,1],standardize=F,intercept=F,alpha = 1,penalty.factor = w_adaptive_candidate)
+            abs(coef(lasso_fit_candidate,s='lambda.min')[-1])>1e-4
+          })
+          confident_pos_weak<-(candidate_pos[weak_among_candidate])[which(rowMeans(tmp_count) >= 0.8)]
+          if(length(confident_pos_weak) == 0){
+            z<-c()
+            for(i in weak_among_candidate){
+              z<-c(z,study_info[[candidate_pos[weak_among_candidate]]]$Coeff^2/study_info[[candidate_pos[weak_among_candidate]]]$Covariance)
+            }
+            confident_pos_weak<-weak_among_candidate[which.max(z)]
+          }
+        }else if(length(weak_among_candidate) == 1){
+          confident_pos_weak<-candidate_pos[weak_among_candidate]
+        }else{
+          confident_pos_weak<-c()
+        }
+        true_weak<-c()
+        if(length(weak_among_candidate) > 0){
+          for( weakone in weak_among_candidate){
+            if(max(abs(candidate_cor[,weakone]))<0.1){
+              true_weak<-c(true_weak,weakone)      
+            }
+          }
+        }
+        if(length(true_weak)>0) true_weak<-candidate_pos[true_weak]
+        confident_pos_weak <-union(confident_pos_weak,true_weak)
+      }else{
+        confident_pos_weak <-candidate_pos[weak_among_candidate]
+      }
+      gamma_adaptivelasso<-2
+      w_adaptive_candidate<-1/(abs(beta[candidate_pos]))^gamma_adaptivelasso
+      w_adaptive_candidate[which(candidate_pos%in%confident_pos_weak)]<-0
+      tmp_count<-sapply(1:10, function(j){
+        lasso_fit_candidate<-cv.glmnet(x= UKBB_pop[,(candidate_pos+1)],y= UKBB_pop[,1],standardize=F,intercept=F,alpha = 0.9,penalty.factor = w_adaptive_candidate)
+        abs(coef(lasso_fit_candidate,s='lambda.min')[-1])>1e-4
+        #coef(lasso_fit_candidate,s='lambda.min')[-1]!=0
+      })
+      confident_pos<-candidate_pos[which(rowMeans(tmp_count) >= 0.8)]
+      confident_pos<-union(confident_pos,confident_pos_weak)
+    }else{
+      print("NOT USED")
+      confident_pos<-candidate_pos
+    }
+  }else{
+    confident_pos<-candidate_pos
+  }
+  
+  if(filter_index){
+    pos<-index_filter[confident_pos]
+    pos_bf<-index_filter[candidate_pos]
+  }else{
+    pos<-confident_pos
+    pos_bf<-candidate_pos
+  }
+  #print(paste0("candidate",paste0(index_filter[candidate_pos],collapse = " ")))
+  #print(paste0("confid",paste0(pos,collapse = " ")))
+  #print(pos)
+  newList<-list("beta"=beta,
+                "betalasso"=betalasso,
+                "pos"=pos,
+                "pos_bf"=pos_bf,
+                "aa_final"=aa_final,
+                "final_v"=final_v,
+                "w_adaptive"=w_adaptive,
+                "index_filter"=index_filter)
+}
 
 adaptiveGMMlasso<-function(UKBB_pop,study_info,
   ld_cut = 0.9,
   cor_cut=0.9,
   filter_index=TRUE,
   filter_by_EAF=FALSE,
-  cv_with_individual=FALSE,
+  cv_with_individual=TRUE,
   C_update = "Method2",
   p_val_cut = "Method2",
   kfolds=10){
@@ -1188,7 +4049,7 @@ adaptiveGMMlasso<-function(UKBB_pop,study_info,
   gamma_adaptivelasso<-1/2
   w_adaptive<-1/(abs(coef(ridge_fit)[-1]))^gamma_adaptivelasso
   w_adaptive[is.infinite(w_adaptive)]<-max(w_adaptive[!is.infinite(w_adaptive)])*100
-  
+  beta_initial<-coef(ridge_fit)[-1]
   if(C_update == "Method1"){
     diag_theta_sd<-sapply(1:N_SNP,function(i){
       sqrt(study_info[[i]]$Covariance)*(c(UKBB_pop[,c(paste0("SNP",i))]%*%UKBB_pop[,c(paste0("SNP",i))]))
@@ -1198,7 +4059,6 @@ adaptiveGMMlasso<-function(UKBB_pop,study_info,
     C_22_half<-expm::sqrtm(C_22)
     C_half<-adiag(C_11_half,C_22_half)
   }else if(C_update == "Method2"){
-    beta_initial<-coef(ridge_fit)[-1]
     
     var_1st_U_beta_theta<-var_U_beta_theta_func(UKBB_pop =UKBB_pop,
       beta = beta_initial,
@@ -1225,6 +4085,13 @@ adaptiveGMMlasso<-function(UKBB_pop,study_info,
   
   adaptivelasso_fit<-cv.glmnet(x= (pseudo_X),y= (pseudo_y),standardize=F,intercept=F,alpha = 1,penalty.factor = w_adaptive)
   lambda_list<-adaptivelasso_fit$lambda
+  
+  w_lasso<-as.numeric(w_adaptive>0)
+  lasso_fit<-cv.glmnet(x= (pseudo_X),y= (pseudo_y),standardize=F,intercept=F,alpha = 1,penalty.factor = w_lasso,nfolds = 10)
+  lambda_list_lasso<-lasso_fit$lambda
+  
+  lasso_result<-TRUE
+  
   
   if(!cv_with_individual){
     beta<-coef(adaptivelasso_fit,s ='lambda.min')[-1]
@@ -1278,6 +4145,30 @@ adaptiveGMMlasso<-function(UKBB_pop,study_info,
       })
       cv_mse_sum
     })
+    lasso_result<-TRUE
+    if(lasso_result){
+      a1<-sapply(1:kfolds, function(cur_fold){
+        index_test<-index_fold[[cur_fold]]
+        UKBB_pop_train<-UKBB_pop[-index_test,]
+        UKBB_pop_test<-UKBB_pop[index_test,]
+        pseudo_Xy_list_train<-pseudo_Xy(C_half,UKBB_pop_train,var_SNP,var_GPC,N_SNP,theta_UKBB_GPC,study_info)
+        initial_sf_train<-nrow(UKBB_pop_train)/sqrt(nrow(pseudo_Xy_list_train$pseudo_X))
+        pseudo_X_train<-pseudo_Xy_list_train$pseudo_X/initial_sf_train
+        pseudo_y_train<-pseudo_Xy_list_train$pseudo_y/initial_sf_train
+        cv_beta_lasso<-lapply(lambda_list_lasso,function(cur_lam){
+          cv_lasso_fit<-glmnet(x= (pseudo_X_train),y= (pseudo_y_train),standardize=F,intercept=F,alpha = 1,penalty.factor = w_lasso,lambda = cur_lam)
+          coef(cv_lasso_fit)[-1]
+        })
+        cv_mse_sum<-sapply(1:length(cv_beta_lasso), function(kk){
+          cur_beta<-cv_beta_lasso[[kk]]
+          sum((UKBB_pop_test[,-1]%*%cur_beta - UKBB_pop_test[,1])^2)
+        })
+        cv_mse_sum
+      })
+      betalasso<-coef(lasso_fit,s=lambda_list_lasso[which.min(rowSums(a1))])[-1]
+    }
+    
+    
     beta<-coef(adaptivelasso_fit,s=lambda_list[which.min(rowSums(a))])[-1]
     index_nonzero<-which(beta!=0)
     ########??????????????????
@@ -1378,6 +4269,8 @@ adaptiveGMMlasso<-function(UKBB_pop,study_info,
   #print(paste0("confid",paste0(pos,collapse = " ")))
   #print(pos)
   newList<-list("beta"=beta,
+                "betalasso"=betalasso,
+                "beta_initial"=beta_initial,
     "pos"=pos,
     "pos_bf"=pos_bf,
     "aa_final"=aa_final,
@@ -1392,8 +4285,8 @@ adaptiveGMMlassoBMI<-function(UKBB_pop,BMI,study_info,
   filter_index=TRUE,
   filter_by_EAF=FALSE,
   cv_with_individual=FALSE,
-  C_update = "Method1",
-  p_val_cut = "Method1",
+  C_update = "Method2",
+  p_val_cut = "Method2",
   kfolds=10){
   UKBB_cor<-cor(UKBB_pop[,-1])
   diag(UKBB_cor) = 0
@@ -4654,3 +7547,195 @@ real_data_func<-function(region_name="T2D_FTO_v3"){
   return(newList)
   #sum(bim$id%in%c(c("rs9930333","rs1558902","rs1121980","rs9936385","rs11642841")))
 }
+
+
+
+U_func<-function(
+    UKBB_pop,
+    beta,
+    theta_UKBB_GPC,
+    study_info){
+  N_Pop<-nrow(UKBB_pop)
+  expit_beta<-expit(UKBB_pop[,-1]%*%beta)
+  u1<-crossprod((UKBB_pop[,1] -expit_beta),UKBB_pop[,-1])
+  u2<-c()
+  u2_part1<-c(expit_beta)%*%UKBB_pop[,var_SNP]
+  u2_part2<-sapply(1:N_SNP, function(snp_id){
+    u2_id<-expit(UKBB_pop[,c("V",var_GPC,paste0("SNP",snp_id))]%*%c(theta_UKBB_GPC,study_info[[snp_id]]$Coeff))
+    c(c(u2_id)%*%UKBB_pop[,paste0("SNP",snp_id)])
+  })
+  u2<-u2_part1 - u2_part2
+  u<-c(u1,u2)*(1/N_Pop)
+}
+dexpit<-function(x){
+  expit(x)*(1-expit(x))
+}
+
+grad_U_wrt_beta_func<-function(
+    UKBB_pop,
+    beta){
+  N_Pop<-nrow(UKBB_pop)
+  dexpit_beta<-dexpit(UKBB_pop[,-1]%*%beta)
+  U1_beta_gradient<-crossprod(UKBB_pop[,-1]*c(dexpit_beta),UKBB_pop[,-1])*(-1)
+  U2_beta_gradient<-crossprod(UKBB_pop[,var_SNP]*c(dexpit_beta),UKBB_pop[,-1])
+  rbind(U1_beta_gradient,U2_beta_gradient)*(1/N_Pop)
+}
+
+U3_func<-function(UKBB_pop,theta_UKBB_GPC){
+  if(length(var_GPC) == 0){
+    expit_PC<-expit(UKBB_pop[,c("V")]*theta_UKBB_GPC)
+  }else{
+    expit_PC<-expit(UKBB_pop[,c("V",var_GPC)]%*%theta_UKBB_GPC)
+  }
+  
+  # UKBB_pop[,1] is Y(phenotype)
+  crossprod((UKBB_pop[,"Y"]-expit_PC),UKBB_pop[,c("V",var_GPC)])
+}
+
+### Generate coefficients of GPCs. 
+inv_grad_U3_wrt_theta1_func<-function(
+    UKBB_pop,
+    theta_UKBB_GPC){
+  N_Pop<-nrow(UKBB_pop)
+  dexpit_PC<-dexpit(as.matrix(UKBB_pop[,c("V",var_GPC)])%*%theta_UKBB_GPC)
+  mat<--(1/N_Pop)*crossprod(UKBB_pop[,c("V",var_GPC)]*c(dexpit_PC),UKBB_pop[,c("V",var_GPC)])
+  #-solve(mat,tol=1e-60)
+  -ginv(mat)
+}
+
+grad_U1_wrt_theta_func<-function(
+    len_U1,
+    len_theta){
+  matrix(0,nrow = len_U1,ncol = len_theta)
+}
+
+grad_U2_wrt_theta_func<-function(
+    UKBB_pop,
+    theta_UKBB_GPC,
+    study_info){
+  N_Pop<-nrow(UKBB_pop)
+  u2_theta<-sapply(1:N_SNP, function(snp_id){
+    dexpit_id<-c(UKBB_pop[,paste0("SNP",snp_id)])*c(dexpit(UKBB_pop[,c("V",var_GPC,paste0("SNP",snp_id))]%*%c(theta_UKBB_GPC,study_info[[snp_id]]$Coeff)))
+    u2id_theta1_gradient<-dexpit_id%*%UKBB_pop[,c("V",var_GPC)]
+    u2id_gammaid_gradient<-dexpit_id%*%c(UKBB_pop[,paste0("SNP",snp_id)])
+    c(u2id_theta1_gradient,u2id_gammaid_gradient)
+  })
+  #u2_theta is (1+len_GPC+1)*N_SNP
+  N_snp_id<-nrow(u2_theta)
+  # Gradient is N_equation*N_variables
+  -(1/N_Pop)*t(rbind(u2_theta[-N_snp_id,],diag(u2_theta[N_snp_id,])))
+}
+
+var_U_beta_theta_func<-function(
+    UKBB_pop,
+    beta,
+    theta_UKBB_GPC,
+    study_info){
+  N_Pop<-nrow(UKBB_pop)
+  expit_beta<-expit(UKBB_pop[,-1]%*%beta)
+  var_11<-crossprod(UKBB_pop[,-1]*c(UKBB_pop[,1]-expit_beta),UKBB_pop[,-1]*c(UKBB_pop[,1]-expit_beta))
+  u2_theta_coef<-sapply(1:N_SNP, function(snp_id){
+    expit_id<-c(expit(UKBB_pop[,c("V",var_GPC,paste0("SNP",snp_id))]%*%c(theta_UKBB_GPC,study_info[[snp_id]]$Coeff)))
+    expit_beta-expit_id
+  }) #col is SNP #row is sample 
+  var_22<-crossprod(u2_theta_coef*UKBB_pop[,var_SNP],u2_theta_coef*UKBB_pop[,var_SNP])
+  var_12<-crossprod(UKBB_pop[,-1]*c(UKBB_pop[,1]-expit_beta),u2_theta_coef*UKBB_pop[,var_SNP])
+  (1/N_Pop)*rbind(cbind(var_11,var_12),cbind(t(var_12),var_22))
+}
+
+var_theta1_hat_func<-function(
+    UKBB_pop,
+    theta_UKBB_GPC,
+    study_info){
+  N_Pop<-nrow(UKBB_pop)
+  expit_PC<-expit(as.matrix(UKBB_pop[,c("V",var_GPC)])%*%theta_UKBB_GPC)
+  mat_inside<-(1/N_Pop)*crossprod(c(UKBB_pop[,"Y"]-expit_PC)*UKBB_pop[,c("V",var_GPC)],c(UKBB_pop[,"Y"]-expit_PC)*UKBB_pop[,c("V",var_GPC)])
+  mat_outside<-inv_grad_U3_wrt_theta1_func(
+    UKBB_pop=UKBB_pop,
+    theta_UKBB_GPC = theta_UKBB_GPC)
+  mat_outside%*%mat_inside%*%t(mat_outside)
+}
+var_theta2_hat_vec_func<-function(study_info){
+  var_vec<-sapply(1:N_SNP, function(i){
+    study_info[[i]]$Covariance
+  })
+}
+
+cov_U_with_theta_hat_func<-function(
+    UKBB_pop,
+    beta,
+    theta_UKBB_GPC,
+    study_info){
+  N_Pop<-nrow(UKBB_pop)
+  expit_beta<-expit(UKBB_pop[,-1]%*%beta)
+  expit_PC<-expit(as.matrix(UKBB_pop[,c("V",var_GPC)])%*%theta_UKBB_GPC)
+  cov_U1_theta_hat<-(1/N_Pop)*crossprod(UKBB_pop[,-1]*c(UKBB_pop[,1]-expit_beta),UKBB_pop[,c("V",var_GPC)]*c(UKBB_pop[,1]-expit_PC))
+  u2_theta_coef<-sapply(1:N_SNP, function(snp_id){
+    expit_id<-c(expit(UKBB_pop[,c("V",var_GPC,paste0("SNP",snp_id))]%*%c(theta_UKBB_GPC,study_info[[snp_id]]$Coeff)))
+    expit_beta-expit_id
+  }) #col is SNP #row is sample 
+  cov_U2_theta_hat<-(1/N_Pop)*crossprod(u2_theta_coef*UKBB_pop[,var_SNP],UKBB_pop[,c("V",var_GPC)]*c(UKBB_pop[,1]-expit_PC))
+  rbind(cov_U1_theta_hat,cov_U2_theta_hat)
+}
+
+final_var_U_beta_theta_hat_func<-function(
+    UKBB_pop,
+    beta,
+    theta_UKBB_GPC,
+    study_info,
+    len_U1,
+    len_theta){
+  N_Pop<-nrow(UKBB_pop)
+  var_1st_U_beta_theta<-var_U_beta_theta_func(
+    UKBB_pop=UKBB_pop,
+    theta_UKBB_GPC = theta_UKBB_GPC,
+    study_info = study_info,
+    beta = beta
+  )
+  var_theta2_vec<-var_theta2_hat_vec_func(study_info = study_info)
+  U_theta_gradient<-rbind(grad_U1_wrt_theta_func(len_U1 = len_U1,len_theta = len_theta),
+                          grad_U2_wrt_theta_func(UKBB_pop,theta_UKBB_GPC,study_info))
+  var_theta1<-var_theta1_hat_func(
+    UKBB_pop = UKBB_pop,
+    theta_UKBB_GPC = theta_UKBB_GPC,
+    study_info = study_info)
+  var_grad_times_theta_hat_fromPC<-U_theta_gradient[,1:(1+len_GPC)]%*%var_theta1%*%t(U_theta_gradient[,1:(1+len_GPC)])
+  var_grad_times_theta_hat_fromSNP<-U_theta_gradient[,-(1:(1+len_GPC))]%*%(var_theta2_vec*t(U_theta_gradient[,-(1:(1+len_GPC))]))*N_Pop
+  var_2nd_grad_times_theta_hat<-var_grad_times_theta_hat_fromPC+var_grad_times_theta_hat_fromSNP## There 
+  mat_outside<-inv_grad_U3_wrt_theta1_func(
+    UKBB_pop=UKBB_pop,
+    theta_UKBB_GPC = theta_UKBB_GPC)
+  cov_U<-cov_U_with_theta_hat_func(UKBB_pop = UKBB_pop,beta = beta,theta_UKBB_GPC = theta_UKBB_GPC,study_info = study_info)
+  cov_3rd_between_1st_2nd<-cov_U%*%mat_outside%*%t(U_theta_gradient[,1:(1+len_GPC)])
+  
+  res<-(var_1st_U_beta_theta+var_2nd_grad_times_theta_hat+cov_3rd_between_1st_2nd+t(cov_3rd_between_1st_2nd))
+  res
+}
+
+############## Beta
+pseudo_Xy<-function(
+    C_half,UKBB_pop,
+    beta,
+    var_SNP,var_GPC,
+    N_SNP,theta_UKBB_GPC,study_info){
+  N_Pop<-nrow(UKBB_pop)
+  expit_beta<-c(expit(UKBB_pop[,-1]%*%beta))
+  dexpit_beta<-expit_beta*(1-expit_beta)
+  pseudo_X<-C_half%*%rbind(t(UKBB_pop[,-1]),t(UKBB_pop[,var_SNP]))%*%(UKBB_pop[,-1]*c(dexpit_beta))
+  #pseudo_y1<-crossprod(UKBB_pop[,1]-expit_beta+dexpit_beta*UKBB_pop[,-1]%*%beta ,UKBB_pop[,-1])
+  #pseudo_y21<-sapply(1:N_SNP, function(snp_id){
+  #    u2_id<-expit(UKBB_pop[,c("V",var_GPC,paste0("SNP",snp_id))]%*%c(theta_UKBB_GPC,study_info[[snp_id]]$Coeff))
+  #    c(c(u2_id)%*%UKBB_pop[,paste0("SNP",snp_id)])
+  #})
+  #pseudo_y22<- -c(crossprod(expit_beta,UKBB_pop[,var_SNP]))
+  #pseudo_y23<- c(crossprod(UKBB_pop[,var_SNP]*dexpit_beta,UKBB_pop[,-1]%*%beta))
+  #pseudo_y2 <- c(pseudo_y21) - pseudo_y22 + pseudo_y23
+  #pseudo_y<-c(c(c(pseudo_y1),pseudo_y2)%*%C_half)
+  
+  u<-c(C_half%*%U_func(UKBB_pop,beta,theta_UKBB_GPC,study_info))
+  pseudo_y<- -u + c(pseudo_X%*%beta)
+  newList<-list("pseudo_X"=pseudo_X,"pseudo_y"=pseudo_y)
+  newList
+}
+
+
